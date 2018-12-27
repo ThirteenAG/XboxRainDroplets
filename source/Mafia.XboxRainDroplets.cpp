@@ -65,7 +65,7 @@ void Init()
         }
     }; injector::MakeInline<RainDropletsHook>(pattern.get_first(0), pattern.get_first(7));
 
-    pattern = hook::pattern(GetModuleHandle(L"LS3DF.dll"), "A1 ? ? ? ? 83 EC 3C 85 C0 53 56 8A D9");
+    pattern = hook::pattern(GetModuleHandle(L"LS3DF.dll"), "A1 ? ? ? ? 83 EC 3C 85 C0 53");
     static auto dword_101C59C0 = *pattern.get_first<uint32_t*>(1);
     struct ResetHook
     {
