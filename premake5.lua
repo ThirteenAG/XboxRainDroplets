@@ -64,7 +64,7 @@ workspace "XboxRainDroplets"
    filter "configurations:Release"
       defines { "NDEBUG" }
       optimize "On"
-      flags { "StaticRuntime" }
+      staticruntime "On"
 	  
 project "NFSUnderground2.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Need For Speed/Need for Speed Underground 2/", "speed2.exe")

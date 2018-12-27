@@ -1,0 +1,18 @@
+version: 1.{build}
+skip_tags: true
+image: Visual Studio 2019 Preview
+configuration: Release
+init:
+- ps: "if (-not (Test-Path env:DXSDK_DIR)) \n{\nStart-FileDownload 'https://download.microsoft.com/download/A/E/7/AE743F1F-632B-4809-87A9-AA1BB3458E31/DXSDK_Jun10.exe' -FileName 'C:\\DXSDK_Jun10.exe'\nStart-FileDownload 'https://github.com/chocolatey/chocolatey/raw/master/src/redirects/RefreshEnv.cmd' -FileName 'C:\\RefreshEnv.cmd'\nStart-Process \"C:\\DXSDK_Jun10.exe\" \"/F /S /O /U\" -NoNewWindow -Wait\nC:\\RefreshEnv.cmd\n}"
+install:
+- cmd: >-
+    git submodule update --init --recursive
+
+    premake5.bat
+build:
+  project: build/XboxRainDroplets.sln
+  verbosity: minimal
+before_package:
+- cmd: release.bat
+after_build:
+- ps: Get-ChildItem .\bin\*.zip  | % { Push-AppveyorArtifact $_.FullName -FileName $_.Name }
