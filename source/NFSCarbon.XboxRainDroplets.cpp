@@ -66,17 +66,27 @@ void Init()
         void operator()(injector::reg_pack& regs)
         {
             *dword_AB0BA4 = 0;
+            WaterDrops::ms_rainIntensity = float(**dword_B4AFFC / 20);
+        }
+    }; injector::MakeInline<RainDropletsHook>(pattern.get_first(0), pattern.get_first(10)); //0x722FA0
+
+    pattern = hook::pattern("A1 ? ? ? ? 8B 30 6A 00 6A 00 E8 ? ? ? ? 8B 0D ? ? ? ? 8B 15 ? ? ? ? 50 6A 00");
+    struct RainDropletsHook2
+    {
+        void operator()(injector::reg_pack& regs)
+        {
+            regs.eax = *(uint32_t*)pDev;
 
             WaterDrops::ms_noCamTurns = true;
-            WaterDrops::ms_rainIntensity = float(**dword_B4AFFC / 20);
             WaterDrops::right = *(RwV3d*)(dword_AB0FA0 + 0x00);
             WaterDrops::up = *(RwV3d*)(dword_AB0FA0 + 0x10);
             WaterDrops::at = *(RwV3d*)(dword_AB0FA0 + 0x20);
             WaterDrops::pos = *(RwV3d*)(dword_AB0FA0 + 0x60);
             WaterDrops::Process(*pDev);
             WaterDrops::Render(*pDev);
+            WaterDrops::ms_rainIntensity = 0.0f;
         }
-    }; injector::MakeInline<RainDropletsHook>(pattern.get_first(0), pattern.get_first(10)); //0x722FA0
+    }; injector::MakeInline<RainDropletsHook2>(pattern.get_first(0)); //0x72982B
 #endif
 
     //hiding original droplets
