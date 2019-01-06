@@ -169,6 +169,7 @@ public:
     };
 
     static inline Fps fps;
+    static inline float* fTimeStep;
     static inline float ms_scaling;
 #define SC(x) ((int32_t)((x)*ms_scaling))
     static inline float ms_xOff;
@@ -747,8 +748,14 @@ public:
 
 void WaterDrop::Fade()
 {
-    auto dt = ((1.0f / WaterDrops::fps.get()) / 2.0f) * 100.0f;
-    int32_t delta = (int32_t)(((dt > 3.0f) ? 3.0f : ((dt < 0.0000099999997f) ? 0.0000099999997f : dt)) * 1000.0f / 50.0f);
+    float delta = 0.0f;
+    if (!WaterDrops::fTimeStep)
+    {
+        auto dt = ((1.0f / WaterDrops::fps.get()) / 2.0f) * 100.0f;
+        delta = (float)(((dt > 3.0f) ? 3.0f : ((dt < 0.0000099999997f) ? 0.0000099999997f : dt)) * 1000.0f / 50.0f);
+    }
+    else
+        delta = *WaterDrops::fTimeStep * 1000.0f;
     this->time += delta;
     if (this->time >= this->ttl) {
         WaterDrops::ms_numDrops--;

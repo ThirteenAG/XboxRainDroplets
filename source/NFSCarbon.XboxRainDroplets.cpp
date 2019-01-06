@@ -94,6 +94,10 @@ void Init()
     static auto pDrops = &ogDrops;
     pattern = hook::pattern("8B 0D ? ? ? ? 8B 01 33 FF 85 C0");
     injector::WriteMemory(pattern.get_first(2), &pDrops, true); //0x722DB2
+
+    //Sim::Internal::mLastFrameTime
+    pattern = hook::pattern("A1 ? ? ? ? 6A 01 6A 1C C7 44 24");
+    WaterDrops::fTimeStep = *pattern.get_first<float*>(1);
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()
