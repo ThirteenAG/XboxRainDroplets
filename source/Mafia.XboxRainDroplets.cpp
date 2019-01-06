@@ -36,6 +36,8 @@ void Init()
     WaterDrops::ms_rainIntensity = 0.0f;
     static std::set<uint32_t> m;
 
+    static auto dword_6BD8B4 = *hook::get_pattern<uint32_t*>("A3 ? ? ? ? 8B C6 5E 83 C4 14 C3", 1);
+
     auto pattern = hook::pattern(GetModuleHandle(L"LS3DF.dll"), "A1 ? ? ? ? 51 51 6A 00 89 0D ? ? ? ? 8B 10 50 FF 92 FC 00 00 00");
     static auto pDev = pattern.get_first(1);
 
@@ -59,9 +61,11 @@ void Init()
             if (!((Direct3DDevice8*)pDevice)->ProxyInterface)
                 if (MessageBox(0, L"Xbox Rain Droplets requires d3d8to9. Enable it and restart.", L"Mafia", MB_OK) == IDOK)
                     ExitProcess(0);
+
             WaterDrops::Process(((Direct3DDevice8*)pDevice)->ProxyInterface);
             WaterDrops::Render(((Direct3DDevice8*)pDevice)->ProxyInterface);
             WaterDrops::ms_rainIntensity = 0.0f;
+            WaterDrops::isPaused = false;
         }
     }; injector::MakeInline<RainDropletsHook>(pattern.get_first(0), pattern.get_first(7));
 
@@ -83,7 +87,10 @@ void Init()
         {
             regs.esi = *(uint32_t*)(regs.ebx + 0x2A4);
             if (!m.empty())
+            {
                 WaterDrops::ms_rainIntensity = *(float*)(*m.begin() + 0x1E8);
+                WaterDrops::isPaused = *dword_6BD8B4 != 0;
+            }
         }
     }; injector::MakeInline<WeatherCheck>(pattern.get_first(0), pattern.get_first(6));
 
