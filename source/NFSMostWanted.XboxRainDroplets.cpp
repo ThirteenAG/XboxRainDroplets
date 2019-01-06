@@ -66,9 +66,8 @@ void Init()
         void operator()(injector::reg_pack& regs)
         {
             *dword_982C80 = 0;
-
-            WaterDrops::ms_noCamTurns = true;
             WaterDrops::ms_rainIntensity = float(**dword_9196B8 / 20);
+            WaterDrops::ms_noCamTurns = true;
             WaterDrops::right = *(RwV3d*)(dword_982D80 + 0x00);
             WaterDrops::up = *(RwV3d*)(dword_982D80 + 0x10);
             WaterDrops::at = *(RwV3d*)(dword_982D80 + 0x20);
@@ -84,6 +83,14 @@ void Init()
     static auto pDrops = &ogDrops;
     pattern = hook::pattern("8B 0D ? ? ? ? 8B 01 33 FF 85 C0");
     injector::WriteMemory(pattern.get_first(2), &pDrops, true);
+
+    //disabling rain check so new droplets can fade out
+    pattern = hook::pattern("A1 ? ? ? ? 8B 08 81 EC ? ? ? ? 85 C9 0F 84");
+    injector::MakeNOP(pattern.get_first(15), 6, true);
+
+    //Sim::Internal::mLastFrameTime
+    pattern = hook::pattern("D9 1D ? ? ? ? E8 ? ? ? ? 53 E8 ? ? ? ? D8 05 ? ? ? ? A1 ? ? ? ? 83 C4 04");
+    WaterDrops::fTimeStep = *pattern.get_first<float*>(2);
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()
