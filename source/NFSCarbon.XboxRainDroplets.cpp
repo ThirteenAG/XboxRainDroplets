@@ -77,6 +77,9 @@ void Init()
         {
             regs.eax = *(uint32_t*)pDev;
 
+            if (WaterDrops::fTimeStep && !WaterDrops::ms_rainIntensity && !*WaterDrops::fTimeStep && (WaterDrops::ms_numDrops || WaterDrops::ms_numDropsMoving))
+                WaterDrops::Clear();
+
             WaterDrops::ms_noCamTurns = true;
             WaterDrops::right = *(RwV3d*)(dword_AB0FA0 + 0x00);
             WaterDrops::up = *(RwV3d*)(dword_AB0FA0 + 0x10);
