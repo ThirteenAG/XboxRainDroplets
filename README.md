@@ -32,6 +32,13 @@ Not all features are available.
 
 [![[Need for Speed Carbon] Xbox Rain Droplets Mod](https://img.youtube.com/vi/osI0YWD1d4k/maxresdefault.jpg)](https://www.youtube.com/watch?v=osI0YWD1d4k)
 
+## Need for Speed Most Wanted
+
+#### Installation:
+
+- Download and install [NFSMW Widescreen Fix](https://thirteenag.github.io/wfp#nfsmw).
+- Download [Xbox Rain Droplets for NFS MW](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/nfsmw) and put the asi file to scripts folder.
+
 ## Other
 
 More plugins available on [appveyor artifacts page](https://ci.appveyor.com/project/ThirteenAG/xboxraindroplets/build/artifacts), but they are incomplete. It is not recommended to use them.
