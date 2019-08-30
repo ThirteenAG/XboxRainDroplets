@@ -73,6 +73,6 @@ project "NFSMostWanted.XboxRainDroplets"
 project "NFSCarbon.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Need For Speed/Need for Speed Carbon/", "NFSC.exe")
 project "GTAIV.XboxRainDroplets"
-   setpaths("Z:/WGTA/IV/newpatch/EFLC/", "EFLC.exe", "plugins/")
+   setpaths("G:/Games/Grand Theft Auto IV v1.0.8.0 - DLC/", "GTAIV.exe", "plugins/")
 project "Mafia.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Mafia/", "GameV12.exe")
