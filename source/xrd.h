@@ -217,7 +217,7 @@ public:
     static inline void(*WaterDrops::ProcessCallback1)();
     static inline void(*WaterDrops::ProcessCallback2)();
 
-    static inline void WaterDrops::Process(LPDIRECT3DDEVICE9 pDevice)
+    static inline void Process(LPDIRECT3DDEVICE9 pDevice)
     {
         fps.update();
         if (!ms_initialised)
@@ -228,7 +228,7 @@ public:
         WaterDrops::Fade();
     }
 
-    static inline void WaterDrops::CalculateMovement()
+    static inline void CalculateMovement()
     {
         RwV3dSub(&ms_posDelta, &pos, &ms_lastPos);
 
@@ -254,7 +254,7 @@ public:
         ms_rainStrength = (float)RAD2DEG(acos(c));
     }
 
-    static inline void WaterDrops::SprayDrops()
+    static inline void SprayDrops()
     {
         static int32_t ndrops[] = {
             125, 250, 500, 1000, 1000,
@@ -283,7 +283,7 @@ public:
         }
     }
 
-    static inline void WaterDrops::MoveDrop(WaterDropMoving* moving)
+    static inline void MoveDrop(WaterDropMoving* moving)
     {
         WaterDrop *drop = moving->drop;
         if (!ms_movingEnabled)
@@ -329,7 +329,7 @@ public:
         }
     }
 
-    static inline void WaterDrops::ProcessMoving()
+    static inline void ProcessMoving()
     {
         WaterDropMoving *moving;
         if (!ms_movingEnabled)
@@ -339,7 +339,7 @@ public:
                 MoveDrop(moving);
     }
 
-    static inline void WaterDrops::Fade()
+    static inline void Fade()
     {
         WaterDrop *drop;
         for (drop = &ms_drops[0]; drop < &ms_drops[MAXDROPS]; drop++)
@@ -347,7 +347,7 @@ public:
                 drop->Fade();
     }
 
-    static inline WaterDrop* WaterDrops::PlaceNew(float x, float y, float size, float ttl, bool fades, int R = 0xFF, int G = 0xFF, int B = 0xFF)
+    static inline WaterDrop* PlaceNew(float x, float y, float size, float ttl, bool fades, int R = 0xFF, int G = 0xFF, int B = 0xFF)
     {
         WaterDrop *drop;
         int i;
@@ -376,7 +376,7 @@ public:
         return drop;
     }
 
-    static inline void WaterDrops::NewTrace(WaterDropMoving* moving)
+    static inline void NewTrace(WaterDropMoving* moving)
     {
         if (ms_numDrops < MAXDROPS) {
             moving->dist = 0.0f;
@@ -384,7 +384,7 @@ public:
         }
     }
 
-    static inline void WaterDrops::NewDropMoving(WaterDrop *drop)
+    static inline void NewDropMoving(WaterDrop *drop)
     {
         WaterDropMoving *moving;
         for (moving = ms_dropsMoving; moving < &ms_dropsMoving[MAXDROPSMOVING]; moving++)
@@ -397,7 +397,7 @@ public:
         moving->dist = 0.0f;
     }
 
-    static inline void WaterDrops::FillScreenMoving(float amount, bool isBlood = false)
+    static inline void FillScreenMoving(float amount, bool isBlood = false)
     {
         if (ms_StaticRain)
             amount = 1.0f;
@@ -419,7 +419,7 @@ public:
             }
     }
 
-    static inline void WaterDrops::FillScreen(int n)
+    static inline void FillScreen(int n)
     {
         if (!ms_initialised)
             return;
@@ -436,14 +436,14 @@ public:
         }
     }
 
-    static inline void WaterDrops::Clear()
+    static inline void Clear()
     {
         for (auto drop = &ms_drops[0]; drop < &ms_drops[MAXDROPS]; drop++)
             drop->active = 0;
         ms_numDrops = 0;
     }
 
-    static inline void WaterDrops::Reset()
+    static inline void Reset()
     {
         Clear();
         ms_splashDuration = -1;
@@ -465,19 +465,19 @@ public:
         WaterDrops::ms_initialised = 0;
     }
 
-    static inline void WaterDrops::RegisterSplash(RwV3d* point, float distance = 20.0f, int32_t duration = 14)
+    static inline void RegisterSplash(RwV3d* point, float distance = 20.0f, int32_t duration = 14)
     {
         ms_splashPoint = *point;
         ms_splashDistance = distance;
         ms_splashDuration = duration;
     }
 
-    static inline bool WaterDrops::NoDrops()
+    static inline bool NoDrops()
     {
         return false; //CWeather__UnderWaterness > 0.339731634f || *CEntryExitManager__ms_exitEnterState != 0;
     }
 
-    static inline bool WaterDrops::NoRain()
+    static inline bool NoRain()
     {
         return false; //CCullZones__CamNoRain() || CCullZones__PlayerNoRain() || *CGame__currArea != 0 || NoDrops();
     }
@@ -495,7 +495,7 @@ public:
     static inline int32_t ms_numBatchedDrops;
     static inline int32_t ms_initialised;
 
-    static inline void WaterDrops::InitialiseRender(LPDIRECT3DDEVICE9 pDevice)
+    static inline void InitialiseRender(LPDIRECT3DDEVICE9 pDevice)
     {
         srand((uint32_t)time(NULL));
 
@@ -563,7 +563,7 @@ public:
         ms_initialised = 1;
     }
 
-    static inline void WaterDrops::AddToRenderList(WaterDrop *drop)
+    static inline void AddToRenderList(WaterDrop *drop)
     {
         static float xy[] = {
             -1.0f, -1.0f, -1.0f,  1.0f,
@@ -607,7 +607,7 @@ public:
         ms_numBatchedDrops++;
     }
 
-    static inline void WaterDrops::Render(LPDIRECT3DDEVICE9 pDevice)
+    static inline void Render(LPDIRECT3DDEVICE9 pDevice)
     {
         if (!ms_enabled || ms_numDrops <= 0)
             return;
