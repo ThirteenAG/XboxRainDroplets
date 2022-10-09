@@ -10,20 +10,126 @@ static uint32_t dword_AB0FA0;
 uint32_t* TheGameFlowManagerStatus_A99BBC = (uint32_t*)0x00A99BBC;
 uint32_t* dword_B4D964 = (uint32_t*)0xB4D964;
 
+struct bVector2
+{
+    float x;
+    float y;
+};
+
+struct bVector3
+{
+    float x;
+    float y;
+    float z;
+    float pad;
+};
+
+struct bVector4
+{
+    float x;
+    float y;
+    float z;
+    float w;
+};
+
+struct bMatrix4
+{
+    bVector4 v0;
+    bVector4 v1;
+    bVector4 v2;
+    bVector4 v3;
+};
+
+struct WaveData3
+{
+    struct bVector3 frequency;
+    struct bVector3 amplitude;
+};
+
+struct CameraParams
+{
+    bMatrix4 Matrix;
+    bVector3 Position;
+    bVector3 Direction;
+    bVector3 Target;
+    WaveData3 PosNoise[3];
+    WaveData3 RotNoise[3];
+    bVector3 PosNoise2Value;
+    bVector3 RotNoise2Value;
+    float FocalDistance;
+    float DepthOfField;
+    float DOFFalloff;
+    float DOFMaxIntensity;
+    float NearZ;
+    float FarZ;
+    float LB_height;
+    float SimTimeMultiplier;
+    bVector4 FadeColor;
+    float TargetDistance;
+    unsigned short FieldOfView;
+    unsigned short PaddingAngle;
+    bVector2 PaddingVector2;
+};
+
+class Camera
+{
+public:
+    CameraParams CurrentKey;
+    CameraParams PreviousKey;
+    CameraParams VelocityKey;
+    BOOL bClearVelocity;
+    char Padding_820[3];
+    float ElapsedTime;
+    int LastUpdateTime;
+    int LastDisparateTime;
+    int RenderDash;
+    float NoiseIntensity;
+};
+
 void __stdcall OnScreenRain_Update_Hook(void* View)
 {
     if ((*TheGameFlowManagerStatus_A99BBC == 6))
     {
-        void* CameraParams = *(void**)(((int)View) + 0x40);
+        Camera* cam = *(Camera**)(((int)View) + 0x40);
+        //void* VelocityCameraParams = (void*)(*(int*)(((int)View) + 0x40) + 0x320);
+       // RwV3d dir;
 
         if (WaterDrops::fTimeStep && !WaterDrops::ms_rainIntensity && !*WaterDrops::fTimeStep && (WaterDrops::ms_numDrops || WaterDrops::ms_numDropsMoving))
             WaterDrops::Clear();
 
+       // dir = *(RwV3d*)((int)CameraParams + 0x50);
+
         // TODO: apply the values from the View properly!
-        //WaterDrops::up = *(RwV3d*)((int)CameraParams);
-        //WaterDrops::right = *(RwV3d*)((int)CameraParams + 0x10);
-        WaterDrops::at = *(RwV3d*)((int)CameraParams + 0x50);
-        WaterDrops::pos = *(RwV3d*)((int)CameraParams + 0x40);
+        //WaterDrops::up = *(RwV3d*)((int)CameraParams + 0x60);
+        //WaterDrops::right = *(RwV3d*)((int)CameraParams + 0x60);
+
+        //WaterDrops::pos.x = (*cam).CurrentKey.Matrix.v3.x;
+        //WaterDrops::pos.y = (*cam).CurrentKey.Matrix.v3.y;
+        //WaterDrops::pos.z = (*cam).CurrentKey.Matrix.v3.z;
+        
+        WaterDrops::at.x = (*cam).CurrentKey.Direction.x;
+        WaterDrops::at.y = (*cam).CurrentKey.Direction.y;
+        WaterDrops::at.z = (*cam).CurrentKey.Direction.z;
+
+        //WaterDrops::up.x = (*cam).CurrentKey.Matrix.v2.x;
+        //WaterDrops::up.x = (*cam).CurrentKey.Matrix.v2.y;
+        //WaterDrops::up.x = (*cam).CurrentKey.Matrix.v2.z;
+        //
+        //WaterDrops::right.x = (*cam).CurrentKey.Matrix.v1.x;
+        //WaterDrops::right.y = (*cam).CurrentKey.Matrix.v1.y;
+        //WaterDrops::right.z = (*cam).CurrentKey.Matrix.v1.z;
+        //WaterDrops::right.w = (*cam).CurrentKey.Matrix.v0.y;
+
+        //WaterDrops::right.x = dir.y;
+        //WaterDrops::right.y = dir.z;
+        //WaterDrops::right.z = dir.x;
+
+        //WaterDrops::velvector = *(RwV3d*)((int)VelocityCameraParams + 0x50);
+        //WaterDrops::pos = *(RwV3d*)((int)CameraParams + 0x40);
+
+        WaterDrops::pos.x = (*cam).CurrentKey.Position.x;
+        WaterDrops::pos.y = (*cam).CurrentKey.Position.y;
+        WaterDrops::pos.z = (*cam).CurrentKey.Position.z;
 
         WaterDrops::Process(*pDev);
         WaterDrops::ms_rainIntensity = 0.0f;
@@ -109,6 +215,7 @@ void Init()
         {
             if ((*TheGameFlowManagerStatus_A99BBC == 6))
             {
+                (*pDev)->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
                 WaterDrops::Render(*pDev);
             }
             regs.eax = *(uint32_t*)pDev;
