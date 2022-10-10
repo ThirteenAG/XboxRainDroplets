@@ -276,15 +276,15 @@ void __stdcall OnScreenRain_Update_Hook(void* View)
 
         cam->GetUpVec();
 
-        NFSWaterDrops::up.x = UpVector.x;
-        NFSWaterDrops::up.y = UpVector.y;
-        NFSWaterDrops::up.z = UpVector.z;
+        NFSWaterDrops::up.x = -UpVector.x;
+        NFSWaterDrops::up.y = -UpVector.y;
+        NFSWaterDrops::up.z = -UpVector.z;
 
         cam->GetLeftVec();
 
-        NFSWaterDrops::right.x = LeftVector.x;
-        NFSWaterDrops::right.y = LeftVector.y;
-        NFSWaterDrops::right.z = LeftVector.z;
+        NFSWaterDrops::right.x = -LeftVector.x;
+        NFSWaterDrops::right.y = -LeftVector.y;
+        NFSWaterDrops::right.z = -LeftVector.z;
 
 
         NFSWaterDrops::at.x = (*cam).CurrentKey.RotNoise2Value.x;
