@@ -12,6 +12,10 @@ static uint32_t dword_AB0FA0;
 uint32_t* TheGameFlowManagerStatus_A99BBC = (uint32_t*)0x00A99BBC;
 uint32_t* dword_B4D964 = (uint32_t*)0xB4D964;
 
+constexpr float gravity = 9.807f;
+constexpr float gdivmin = 100.0f;
+constexpr float gdivmax = 30.0f;
+
 // TODO: fix the "pulsating" drops and make it look more "rainy", also make it better at higher speeds
 class NFSWaterDrops : public WaterDrops
 {
@@ -40,12 +44,14 @@ public:
             return;
         }
 
-        if (!ms_noCamTurns && (ms_vec.z <= 0.0f || ms_distMoved <= 0.0f))
-            return;
+        static float randgravity = bRandom_Float((gravity / gdivmax));
+        if (randgravity < (gravity / gdivmin))
+            randgravity = (gravity / gdivmin);
+        
         float d = abs(ms_vec.z * 0.2f);
         float dx, dy, sum;
         dx = drop->x - ms_fbWidth * 0.5f + ms_vec.x;
-        dy = drop->y - ms_fbHeight * 0.5f - ms_vec.y;
+        dy = drop->y - ms_fbHeight * 0.5f - (ms_vec.y + randgravity);
         sum = fabs(dx) + fabs(dy);
         if (sum >= 0.001f) {
             dx *= (1.0f / sum);
@@ -58,10 +64,10 @@ public:
             NewTrace(moving, movttl);
         }
         drop->x += (dx * d) - ms_vec.x;
-        drop->y += (dy * d) + ms_vec.y;
+        drop->y += (dy * d) + (ms_vec.y + randgravity);
 
         if (drop->x < 0.0f || drop->y < 0.0f ||
-            drop->x > ms_fbWidth || drop->y > ms_fbHeight) {
+            drop->x > (ms_fbWidth + SC(MAXSIZE)) || drop->y > (ms_fbHeight + SC(MAXSIZE))) {
             moving->drop = NULL;
             ms_numDropsMoving--;
         }
@@ -80,7 +86,7 @@ public:
                 float x = bRandom_Float((float)ms_fbWidth);
                 float y = bRandom_Float((float)ms_fbHeight);
                 float size = bRandom_Float((float)(SC(MAXSIZE) - SC(MINSIZE)) + SC(MINSIZE));
-                float ttl = bRandom_Float(8000.0f);
+                float ttl = bRandom_Float((float)(8000.0f));
                 if (ttl < 2000.0f)
                     ttl = 2000.0f;
                 if (!isBlood)
