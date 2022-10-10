@@ -246,6 +246,16 @@ void __stdcall OnScreenRain_Update_Hook(void* View)
     }
 }
 
+injector::hook_back<bool(__cdecl*)(int EVIEW_ID)> hb_RVMVisible;
+bool __cdecl FEngHud_ShouldRearViewMirrorBeVisible(int EVIEW_ID)
+{
+    if ((*TheGameFlowManagerStatus_A99BBC == 6))
+    {
+        NFSWaterDrops::Render(*pDev);
+    }
+    return hb_RVMVisible.fun(EVIEW_ID);
+}
+
 void Init()
 {
 #ifdef USE_D3D_HOOK
@@ -304,35 +314,39 @@ void Init()
     dword_AB0FA0 = *hook::get_pattern<uint32_t>("B1 01 C7 05 ? ? ? ? ? ? ? ? C7 05 ? ? ? ? ? ? ? ? 88 0D ? ? ? ? A3", 8);
     pattern = hook::pattern("C7 05 ? ? ? ? ? ? ? ? B0 01 5E 81 C4 8C 00 00 00 C3");
 
-   pattern = hook::pattern("D9 9E F0 33 00 00"); 
-   struct RainIntensityHook
-   {
-       void operator()(injector::reg_pack& regs)
-       {
-            _asm fstp dword ptr[esi + 0x33F0]
-
-            if (View_AmIinATunnel(*(void**)(regs.esi + 0x288), 1))
-                NFSWaterDrops::ms_rainIntensity = 0;
-            else
-                NFSWaterDrops::ms_rainIntensity = *(float*)(regs.esi + 0x28C);
-       }
-   }; injector::MakeInline<RainIntensityHook>(pattern.get_first(0), pattern.get_first(6)); //0x007B3BBB
-
-    pattern = hook::pattern("FF 91 FC 00 00 00 8B 44 24 14 89 46 14 8B 76 44 8B 0E 57 56 FF 91 00 01 00 00 8B 0D ? ? ? ?"); //0x00731118
-    struct RainDropletsHook
+    pattern = hook::pattern("D9 9E F0 33 00 00"); 
+    struct RainIntensityHook
     {
         void operator()(injector::reg_pack& regs)
         {
-            if ((*TheGameFlowManagerStatus_A99BBC == 6))
-            {
-                NFSWaterDrops::Render(*pDev);
-            }
-            regs.eax = *(uint32_t*)pDev;
-            regs.edx = *(uint32_t*)(regs.esi + 0x48);
-            //regs.edx = *(uint32_t*)regs.ecx;
-            //regs.esi = regs.ecx;
+             _asm fstp dword ptr[esi + 0x33F0]
+    
+             if (View_AmIinATunnel(*(void**)(regs.esi + 0x288), 1))
+                 NFSWaterDrops::ms_rainIntensity = 0;
+             else
+                 NFSWaterDrops::ms_rainIntensity = *(float*)(regs.esi + 0x28C);
         }
-    }; injector::MakeInline<RainDropletsHook>(pattern.get_first(-30), pattern.get_first(-22)); //0x007310FA
+    }; injector::MakeInline<RainIntensityHook>(pattern.get_first(0), pattern.get_first(6)); //0x007B3BBB
+
+    pattern = hook::pattern("6A 01 E8 ? ? ? ? 83 C4 04 84 C0 74 2B E8 ? ? ? ? A1 ? ? ? ?");
+    hb_RVMVisible.fun = injector::MakeCALL(pattern.get_first(2), FEngHud_ShouldRearViewMirrorBeVisible, true).get();
+
+
+    //pattern = hook::pattern("FF 91 FC 00 00 00 8B 44 24 14 89 46 14 8B 76 44 8B 0E 57 56 FF 91 00 01 00 00 8B 0D ? ? ? ?"); //0x00731118
+    //struct RainDropletsHook
+    //{
+    //    void operator()(injector::reg_pack& regs)
+    //    {
+    //        if ((*TheGameFlowManagerStatus_A99BBC == 6))
+    //        {
+    //            NFSWaterDrops::Render(*pDev);
+    //        }
+    //        regs.eax = *(uint32_t*)pDev;
+    //        regs.edx = *(uint32_t*)(regs.esi + 0x48);
+    //        //regs.edx = *(uint32_t*)regs.ecx;
+    //        //regs.esi = regs.ecx;
+    //    }
+    //}; injector::MakeInline<RainDropletsHook>(pattern.get_first(-30), pattern.get_first(-22)); //0x007310FA
 
 #endif
 
