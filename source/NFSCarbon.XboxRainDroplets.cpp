@@ -73,12 +73,12 @@ struct CameraParams
 
 bVector3* bNormalize(bVector3* dest, bVector3* v)
 {
-    double v2; // fp0
-    double v3; // fp0
-    double v4; // fp12
-    double v5; // fp11
+    float v2;
+    float v3;
+    float v4;
+    float v5;
 
-    v2 = sqrt((float)((float)(v->z * v->z) + (float)((float)(v->x * v->x) + (float)(v->y * v->y))));
+    v2 = sqrt(((v->z * v->z) + ((v->x * v->x) + (v->y * v->y))));
     if (v2 == 0.0)
     {
         dest->x = 1.0f;
@@ -87,12 +87,12 @@ bVector3* bNormalize(bVector3* dest, bVector3* v)
     }
     else
     {
-        v3 = (float)(1.0f / (float)v2);
+        v3 = (1.0f / v2);
         v4 = v->y;
         v5 = v->z;
-        dest->x = v->x * (float)v3;
-        dest->y = (float)v4 * (float)v3;
-        dest->z = (float)v5 * (float)v3;
+        dest->x = v->x * v3;
+        dest->y = v4 * v3;
+        dest->z = v5 * v3;
     }
     return dest;
 }
