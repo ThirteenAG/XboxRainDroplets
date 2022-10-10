@@ -3,20 +3,22 @@
 //#define USE_D3D_HOOK
 
 bool(__thiscall* View_AmIinATunnel)(void* View, int viewnum) = (bool(__thiscall*)(void*, int))0x007365E0;
-int(__cdecl* bRandom_Int)(int range) = (int(__cdecl*)(int))0x0046DB30;
+//int(__cdecl* bRandom_Int)(int range) = (int(__cdecl*)(int))0x0046DB30;
 float(__cdecl* bRandom_Float)(float range) = (float(__cdecl*)(float))0x0046DB70;
 
 static LPDIRECT3DDEVICE9* pDev;
 static uint32_t dword_AB0FA0;
 
 uint32_t* TheGameFlowManagerStatus_A99BBC = (uint32_t*)0x00A99BBC;
-uint32_t* dword_B4D964 = (uint32_t*)0xB4D964;
 
 constexpr float gravity = 9.807f;
 constexpr float gdivmin = 100.0f;
 constexpr float gdivmax = 30.0f;
 
-// TODO: fix the "pulsating" drops and make it look more "rainy", also make it better at higher speeds
+// configurations
+bool bRadial = true;
+bool bGravity = true;
+
 class NFSWaterDrops : public WaterDrops
 {
 public:
@@ -24,6 +26,40 @@ public:
         MAXDROPS = 6000,
         MAXDROPSMOVING = 700
     };
+
+    static inline void CalculateMovement()
+    {
+        RwV3dSub(&ms_posDelta, &pos, &ms_lastPos);
+
+        ms_distMoved = RwV3dDotProduct(&ms_posDelta, &ms_posDelta);
+        ms_distMoved = sqrt(ms_distMoved);
+        //ms_distMoved = RwV3dLength(&ms_posDelta);
+
+        ms_lastAt = at;
+        ms_lastPos = pos;
+
+        ms_vec.x = -RwV3dDotProduct(&right, &ms_posDelta);
+        if (bRadial)
+        {
+            ms_vec.y = RwV3dDotProduct(&up, &ms_posDelta);
+            ms_vec.z = RwV3dDotProduct(&at, &ms_posDelta);
+        }
+        else
+        {
+            ms_vec.y = RwV3dDotProduct(&at, &ms_posDelta);
+            ms_vec.z = RwV3dDotProduct(&up, &ms_posDelta);
+        }
+        RwV3dScale(&ms_vec, &ms_vec, 10.0f);
+        ms_vecLen = sqrt(ms_vec.y * ms_vec.y + ms_vec.x * ms_vec.x);
+
+        ms_enabled = true; //!istopdown && !carlookdirection;
+        ms_movingEnabled = true; //!istopdown && !carlookdirection;
+
+        float c = at.z;
+        if (c > 1.0f) c = 1.0f;
+        if (c < -1.0f) c = -1.0f;
+        ms_rainStrength = (float)RAD2DEG(acos(c));
+    }
 
     static inline void NewTrace(WaterDropMoving* moving, float ttl)
     {
@@ -44,10 +80,14 @@ public:
             return;
         }
 
-        static float randgravity = bRandom_Float((gravity / gdivmax));
-        if (randgravity < (gravity / gdivmin))
-            randgravity = (gravity / gdivmin);
-        
+        static float randgravity = 0;
+        if (bGravity)
+        {
+            randgravity = bRandom_Float((gravity / gdivmax));
+            if (randgravity < (gravity / gdivmin))
+                randgravity = (gravity / gdivmin);
+        }
+
         float d = abs(ms_vec.z * 0.2f);
         float dx, dy, sum;
         dx = drop->x - ms_fbWidth * 0.5f + ms_vec.x;
@@ -392,7 +432,6 @@ void Init()
     pattern = hook::pattern("6A 01 E8 ? ? ? ? 83 C4 04 84 C0 74 2B E8 ? ? ? ? A1 ? ? ? ?");
     hb_RVMVisible.fun = injector::MakeCALL(pattern.get_first(2), FEngHud_ShouldRearViewMirrorBeVisible, true).get();
 
-
     //pattern = hook::pattern("FF 91 FC 00 00 00 8B 44 24 14 89 46 14 8B 76 44 8B 0E 57 56 FF 91 00 01 00 00 8B 0D ? ? ? ?"); //0x00731118
     //struct RainDropletsHook
     //{
@@ -428,6 +467,8 @@ void Init()
     pattern = hook::pattern("55 8B EC 83 E4 F0 83 EC 24 A1 ? ? ? ? 53 56"); // 0x007C5AD0
     injector::MakeJMP(pattern.get_first(0), OnScreenRain_Update_Hook);
     TheGameFlowManagerStatus_A99BBC = *pattern.count(1).get(0).get<uint32_t*>(0x68);
+
+    bRandom_Float = (float(__cdecl*)(float))hook::pattern("51 8B 0D ? ? ? ? 56 8B C1").get_first();
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()
