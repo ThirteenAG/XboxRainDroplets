@@ -137,13 +137,6 @@ public:
     }
 };
 
-bVector3* NormalizeVector(bVector3* dest, bMatrix4* m, int i)
-{
-    D3DXMATRIX v2;
-    D3DXMatrixTranspose(&v2, (D3DXMATRIX*)m);
-    return bNormalize(dest, (bVector3*)v2.m[i]);
-}
-
 void __stdcall OnScreenRain_Update_Hook(void* View)
 {
     if ((*TheGameFlowManagerStatus_A99BBC == 6))
@@ -154,8 +147,6 @@ void __stdcall OnScreenRain_Update_Hook(void* View)
             WaterDrops::Clear();
 
         cam->GetUpVec();
-
-        NormalizeVector(&UpVector, &((*cam).CurrentKey.Matrix), 1);
 
         WaterDrops::up.x = UpVector.x;
         WaterDrops::up.y = UpVector.y;
