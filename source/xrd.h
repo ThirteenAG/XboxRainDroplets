@@ -322,7 +322,7 @@ public:
             drop->y += ms_vec.y;
         }
 
-        if (drop->x < 0.0f || drop->y < 0.0f ||
+        if (drop->x < -(float)(SC(MAXSIZE)) || drop->y < -(float)(SC(MAXSIZE)) ||
             drop->x >(ms_fbWidth + SC(MAXSIZE)) || drop->y >(ms_fbHeight + SC(MAXSIZE))) {
             moving->drop = NULL;
             ms_numDropsMoving--;
