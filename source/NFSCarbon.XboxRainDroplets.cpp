@@ -10,6 +10,79 @@ static uint32_t dword_AB0FA0;
 uint32_t* TheGameFlowManagerStatus_A99BBC = (uint32_t*)0x00A99BBC;
 uint32_t* dword_B4D964 = (uint32_t*)0xB4D964;
 
+// TODO: fix the "pulsating" drops and make it look more "rainy", also make it better at higher speeds
+class NFSWaterDrops : public WaterDrops
+{
+public:
+    enum {
+        MAXDROPS = 6000,
+        MAXDROPSMOVING = 700
+    };
+
+    static inline void NewTrace(WaterDropMoving* moving)
+    {
+        if (ms_numDrops < MAXDROPS) {
+            moving->dist = 0.0f;
+            PlaceNew(moving->drop->x, moving->drop->y, (float)(SC(MINSIZE)), 500.0f, 1, moving->drop->r, moving->drop->g, moving->drop->b);
+        }
+    }
+
+    static void MoveDrop(WaterDropMoving* moving)
+    {
+        WaterDrop* drop = moving->drop;
+        if (!ms_movingEnabled)
+            return;
+        if (!drop->active) {
+            moving->drop = NULL;
+            ms_numDropsMoving--;
+            return;
+        }
+
+        if (!ms_noCamTurns && (ms_vec.z <= 0.0f || ms_distMoved <= 0.0f))
+            return;
+        float d = abs(ms_vec.z * 0.2f);
+        float dx, dy, sum;
+        dx = drop->x - ms_fbWidth * 0.5f + ms_vec.x;
+        dy = drop->y - ms_fbHeight * 0.5f - ms_vec.y;
+        sum = fabs(dx) + fabs(dy);
+        if (sum >= 0.001f) {
+            dx *= (1.0f / sum);
+            dy *= (1.0f / sum);
+        }
+        moving->dist += ((d + ms_vecLen) / 2);
+        NewTrace(moving);
+        drop->x += (dx * d) - ms_vec.x;
+        drop->y += (dy * d) + ms_vec.y;
+
+        if (drop->x < 0.0f || drop->y < 0.0f ||
+            drop->x > ms_fbWidth || drop->y > ms_fbHeight) {
+            moving->drop = NULL;
+            ms_numDropsMoving--;
+        }
+    }
+
+    static inline void ProcessMoving()
+    {
+        WaterDropMoving* moving;
+        if (!ms_movingEnabled)
+            return;
+        for (moving = ms_dropsMoving; moving < &ms_dropsMoving[MAXDROPSMOVING]; moving++)
+            if (moving->drop)
+                MoveDrop(moving);
+    }
+
+    static inline void Process(LPDIRECT3DDEVICE9 pDevice)
+    {
+        fps.update();
+        if (!ms_initialised)
+            InitialiseRender(pDevice);
+        CalculateMovement();
+        SprayDrops();
+        ProcessMoving();
+        Fade();
+    }
+};
+
 struct bVector2
 {
     float x;
@@ -143,33 +216,33 @@ void __stdcall OnScreenRain_Update_Hook(void* View)
     {
         Camera* cam = *(Camera**)(((int)View) + 0x40);
 
-        if (WaterDrops::fTimeStep && !WaterDrops::ms_rainIntensity && !*WaterDrops::fTimeStep && (WaterDrops::ms_numDrops || WaterDrops::ms_numDropsMoving))
-            WaterDrops::Clear();
+        if (NFSWaterDrops::fTimeStep && !NFSWaterDrops::ms_rainIntensity && !*NFSWaterDrops::fTimeStep && (NFSWaterDrops::ms_numDrops || NFSWaterDrops::ms_numDropsMoving))
+            NFSWaterDrops::Clear();
 
         cam->GetUpVec();
 
-        WaterDrops::up.x = UpVector.x;
-        WaterDrops::up.y = UpVector.y;
-        WaterDrops::up.z = UpVector.z;
+        NFSWaterDrops::up.x = UpVector.x;
+        NFSWaterDrops::up.y = UpVector.y;
+        NFSWaterDrops::up.z = UpVector.z;
 
         cam->GetLeftVec();
 
-        WaterDrops::right.x = LeftVector.x;
-        WaterDrops::right.y = LeftVector.y;
-        WaterDrops::right.z = LeftVector.z;
+        NFSWaterDrops::right.x = LeftVector.x;
+        NFSWaterDrops::right.y = LeftVector.y;
+        NFSWaterDrops::right.z = LeftVector.z;
 
 
-        WaterDrops::at.x = (*cam).CurrentKey.RotNoise2Value.x;
-        WaterDrops::at.y = (*cam).CurrentKey.RotNoise2Value.y;
-        WaterDrops::at.z = (*cam).CurrentKey.RotNoise2Value.z;
+        NFSWaterDrops::at.x = (*cam).CurrentKey.RotNoise2Value.x;
+        NFSWaterDrops::at.y = (*cam).CurrentKey.RotNoise2Value.y;
+        NFSWaterDrops::at.z = (*cam).CurrentKey.RotNoise2Value.z;
 
 
-        WaterDrops::pos.x = (*cam).CurrentKey.PosNoise2Value.x;
-        WaterDrops::pos.y = (*cam).CurrentKey.PosNoise2Value.y;
-        WaterDrops::pos.z = (*cam).CurrentKey.PosNoise2Value.z;
+        NFSWaterDrops::pos.x = (*cam).CurrentKey.PosNoise2Value.x;
+        NFSWaterDrops::pos.y = (*cam).CurrentKey.PosNoise2Value.y;
+        NFSWaterDrops::pos.z = (*cam).CurrentKey.PosNoise2Value.z;
 
-        WaterDrops::Process(*pDev);
-        WaterDrops::ms_rainIntensity = 0.0f;
+        NFSWaterDrops::Process(*pDev);
+        NFSWaterDrops::ms_rainIntensity = 0.0f;
     }
 }
 
@@ -177,12 +250,12 @@ void Init()
 {
 #ifdef USE_D3D_HOOK
     //vtable gets overwritten at startup, so no point in patching it right away
-    WaterDrops::bPatchD3D = false;
+    NFSWaterDrops::bPatchD3D = false;
 
     //resetting rain
-    WaterDrops::ProcessCallback2 = []()
+    NFSWaterDrops::ProcessCallback2 = []()
     {
-        WaterDrops::ms_rainIntensity = 0.0f;
+        NFSWaterDrops::ms_rainIntensity = 0.0f;
     };
 
     //hooking create to get EndScene and Reset
@@ -192,9 +265,9 @@ void Init()
     {
         auto pID3D9 = Direct3DCreate9.fun(SDKVersion);
         auto pVTable = (UINT_PTR*)(*((UINT_PTR*)pID3D9));
-        if (!WaterDrops::RealD3D9CreateDevice)
-            WaterDrops::RealD3D9CreateDevice = (CreateDevice_t)pVTable[IDirect3D9VTBL::CreateDevice];
-        injector::WriteMemory(&pVTable[IDirect3D9VTBL::CreateDevice], &WaterDrops::d3dCreateDevice, true);
+        if (!NFSWaterDrops::RealD3D9CreateDevice)
+            NFSWaterDrops::RealD3D9CreateDevice = (CreateDevice_t)pVTable[IDirect3D9VTBL::CreateDevice];
+        injector::WriteMemory(&pVTable[IDirect3D9VTBL::CreateDevice], &NFSWaterDrops::d3dCreateDevice, true);
         return pID3D9;
     }; Direct3DCreate9.fun = injector::MakeCALL(pattern.get_first(0), static_cast<IDirect3D9*(WINAPI*)(UINT)>(Direct3DCreate9Hook), true).get(); //0x73088C
 
@@ -207,13 +280,13 @@ void Init()
         void operator()(injector::reg_pack& regs)
         {
             *dword_AB0BA4 = 0;
-            if (*WaterDrops::pEndScene == (uint32_t)WaterDrops::RealD3D9EndScene)
-                injector::WriteMemory(WaterDrops::pEndScene, &WaterDrops::d3dEndScene, true);
+            if (*NFSWaterDrops::pEndScene == (uint32_t)NFSWaterDrops::RealD3D9EndScene)
+                injector::WriteMemory(NFSWaterDrops::pEndScene, &NFSWaterDrops::d3dEndScene, true);
 
-            if (*WaterDrops::pReset == (uint32_t)WaterDrops::RealD3D9Reset)
-                injector::WriteMemory(WaterDrops::pReset, &WaterDrops::d3dReset, true);
+            if (*NFSWaterDrops::pReset == (uint32_t)NFSWaterDrops::RealD3D9Reset)
+                injector::WriteMemory(NFSWaterDrops::pReset, &NFSWaterDrops::d3dReset, true);
 
-            WaterDrops::ms_rainIntensity = float(**dword_B4AFFC / 20);
+            NFSWaterDrops::ms_rainIntensity = float(**dword_B4AFFC / 20);
         }
     }; injector::MakeInline<RainDropletsHook>(pattern.get_first(0), pattern.get_first(10)); //0x722FA0
 #else
@@ -224,7 +297,7 @@ void Init()
         void operator()(injector::reg_pack& regs)
         {
             regs.eax = *(uint32_t*)pDev;
-            WaterDrops::Reset();
+            NFSWaterDrops::Reset();
         }
     }; injector::MakeInline<ResetHook>(pattern.get_first(0)); //0x72B3C5
 
@@ -239,9 +312,9 @@ void Init()
             _asm fstp dword ptr[esi + 0x33F0]
 
             if (View_AmIinATunnel(*(void**)(regs.esi + 0x288), 1))
-                WaterDrops::ms_rainIntensity = 0;
+                NFSWaterDrops::ms_rainIntensity = 0;
             else
-                WaterDrops::ms_rainIntensity = *(float*)(regs.esi + 0x28C);
+                NFSWaterDrops::ms_rainIntensity = *(float*)(regs.esi + 0x28C);
        }
    }; injector::MakeInline<RainIntensityHook>(pattern.get_first(0), pattern.get_first(6)); //0x007B3BBB
 
@@ -253,7 +326,7 @@ void Init()
             if ((*TheGameFlowManagerStatus_A99BBC == 6))
             {
                 (*pDev)->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
-                WaterDrops::Render(*pDev);
+                NFSWaterDrops::Render(*pDev);
             }
             regs.eax = *(uint32_t*)pDev;
             regs.edx = *(uint32_t*)(regs.esi + 0x48);
@@ -271,7 +344,7 @@ void Init()
 
     //Sim::Internal::mLastFrameTime
     pattern = hook::pattern("A1 ? ? ? ? 6A 01 6A 1C C7 44 24");
-    WaterDrops::fTimeStep = *pattern.get_first<float*>(1);
+    NFSWaterDrops::fTimeStep = *pattern.get_first<float*>(1);
 
     //View::AmIinATunnel(int viewnum)
     pattern = hook::pattern("8B 41 6C 85 C0 74 1C 8B 4C 24 04"); //0x007365E0
