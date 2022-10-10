@@ -49,7 +49,7 @@ public:
             dx *= (1.0f / sum);
             dy *= (1.0f / sum);
         }
-        moving->dist += ((d + ms_vecLen) / 2);
+        moving->dist += ((d + ms_vecLen));
         NewTrace(moving);
         drop->x += (dx * d) - ms_vec.x;
         drop->y += (dy * d) + ms_vec.y;
