@@ -325,7 +325,6 @@ void Init()
         {
             if ((*TheGameFlowManagerStatus_A99BBC == 6))
             {
-                (*pDev)->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
                 NFSWaterDrops::Render(*pDev);
             }
             regs.eax = *(uint32_t*)pDev;
