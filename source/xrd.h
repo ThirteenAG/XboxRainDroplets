@@ -323,7 +323,7 @@ public:
         }
 
         if (drop->x < 0.0f || drop->y < 0.0f ||
-            drop->x > ms_fbWidth || drop->y > ms_fbHeight) {
+            drop->x >(ms_fbWidth + SC(MAXSIZE)) || drop->y >(ms_fbHeight + SC(MAXSIZE))) {
             moving->drop = NULL;
             ms_numDropsMoving--;
         }
