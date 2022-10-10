@@ -3,6 +3,8 @@
 //#define USE_D3D_HOOK
 
 bool(__thiscall* View_AmIinATunnel)(void* View, int viewnum) = (bool(__thiscall*)(void*, int))0x007365E0;
+int(__cdecl* bRandom_Int)(int range) = (int(__cdecl*)(int))0x0046DB30;
+float(__cdecl* bRandom_Float)(float range) = (float(__cdecl*)(float))0x0046DB70;
 
 static LPDIRECT3DDEVICE9* pDev;
 static uint32_t dword_AB0FA0;
@@ -19,11 +21,11 @@ public:
         MAXDROPSMOVING = 700
     };
 
-    static inline void NewTrace(WaterDropMoving* moving)
+    static inline void NewTrace(WaterDropMoving* moving, float ttl)
     {
         if (ms_numDrops < MAXDROPS) {
             moving->dist = 0.0f;
-            PlaceNew(moving->drop->x, moving->drop->y, (float)(SC(MINSIZE)), 500.0f, 1, moving->drop->r, moving->drop->g, moving->drop->b);
+            PlaceNew(moving->drop->x, moving->drop->y, (float)(SC(MINSIZE)), ttl, 1, moving->drop->r, moving->drop->g, moving->drop->b);
         }
     }
 
@@ -50,7 +52,11 @@ public:
             dy *= (1.0f / sum);
         }
         moving->dist += ((d + ms_vecLen));
-        NewTrace(moving);
+        if (moving->dist > 20.0f)
+        {
+            float movttl = moving->drop->ttl / (float)(SC(MINSIZE));
+            NewTrace(moving, movttl);
+        }
         drop->x += (dx * d) - ms_vec.x;
         drop->y += (dy * d) + ms_vec.y;
 
@@ -61,6 +67,31 @@ public:
         }
     }
 
+    static inline void FillScreenMoving(float amount, bool isBlood = false)
+    {
+        if (ms_StaticRain)
+            amount = 1.0f;
+
+        int32_t n = int32_t((ms_vec.z <= 5.0f ? 1.0f : 1.5f) * amount * 20.0f);
+        WaterDrop* drop;
+
+        while (n--)
+            if (ms_numDrops < MAXDROPS && ms_numDropsMoving < MAXDROPSMOVING) {
+                float x = bRandom_Float((float)ms_fbWidth);
+                float y = bRandom_Float((float)ms_fbHeight);
+                float size = bRandom_Float((float)(SC(MAXSIZE) - SC(MINSIZE)) + SC(MINSIZE));
+                float ttl = bRandom_Float(8000.0f);
+                if (ttl < 2000.0f)
+                    ttl = 2000.0f;
+                if (!isBlood)
+                    drop = PlaceNew(x, y, size, ttl, 1);
+                else
+                    drop = PlaceNew(x, y, size, ttl, 1, 0xFF, 0x00, 0x00);
+                if (drop)
+                    NewDropMoving(drop);
+            }
+    }
+
     static inline void ProcessMoving()
     {
         WaterDropMoving* moving;
@@ -69,6 +100,30 @@ public:
         for (moving = ms_dropsMoving; moving < &ms_dropsMoving[MAXDROPSMOVING]; moving++)
             if (moving->drop)
                 MoveDrop(moving);
+    }
+
+    static inline void SprayDrops()
+    {
+        if (!NoRain() && ms_rainIntensity != 0.0f && ms_enabled) {
+            auto tmp = (int32_t)(180.0f - ms_rainStrength);
+            if (tmp < 40) tmp = 40;
+            FillScreenMoving((tmp - 40.0f) / 150.0f * ms_rainIntensity * 0.5f);
+        }
+        if (sprayWater)
+            FillScreenMoving(0.5f, false);
+        if (sprayBlood)
+            FillScreenMoving(0.5f, true);
+        if (ms_splashDuration >= 0) {
+            if (ms_numDrops < MAXDROPS) {
+                RwV3d dist;
+                RwV3dSub(&dist, &ms_splashPoint, &ms_lastPos);
+                float f = RwV3dDotProduct(&dist, &dist);
+                f = sqrt(f);
+                if (f <= ms_splashDistance)
+                    FillScreenMoving(1.0f);
+            }
+            ms_splashDuration--;
+        }
     }
 
     static inline void Process(LPDIRECT3DDEVICE9 pDevice)
