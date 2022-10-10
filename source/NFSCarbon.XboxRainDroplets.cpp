@@ -71,7 +71,31 @@ struct CameraParams
     bVector2 PaddingVector2;
 };
 
-bVector3*(__cdecl* bNormalize)(bVector3 *dest, bVector3 *v) = (bVector3*(__cdecl*)(bVector3*, bVector3*))0x0046F7E0;
+bVector3* bNormalize(bVector3* dest, bVector3* v)
+{
+    double v2; // fp0
+    double v3; // fp0
+    double v4; // fp12
+    double v5; // fp11
+
+    v2 = sqrt((float)((float)(v->z * v->z) + (float)((float)(v->x * v->x) + (float)(v->y * v->y))));
+    if (v2 == 0.0)
+    {
+        dest->x = 1.0f;
+        dest->y = 0.0f;
+        dest->z = 0.0f;
+    }
+    else
+    {
+        v3 = (float)(1.0f / (float)v2);
+        v4 = v->y;
+        v5 = v->z;
+        dest->x = v->x * (float)v3;
+        dest->y = (float)v4 * (float)v3;
+        dest->z = (float)v5 * (float)v3;
+    }
+    return dest;
+}
 
 bVector3 UpVector;
 bVector3 LeftVector;
@@ -113,44 +137,29 @@ public:
     }
 };
 
-
+bVector3* NormalizeVector(bVector3* dest, bMatrix4* m, int i)
+{
+    D3DXMATRIX v2;
+    D3DXMatrixTranspose(&v2, (D3DXMATRIX*)m);
+    return bNormalize(dest, (bVector3*)v2.m[i]);
+}
 
 void __stdcall OnScreenRain_Update_Hook(void* View)
 {
     if ((*TheGameFlowManagerStatus_A99BBC == 6))
     {
         Camera* cam = *(Camera**)(((int)View) + 0x40);
-        //void* VelocityCameraParams = (void*)(*(int*)(((int)View) + 0x40) + 0x320);
-       // RwV3d dir;
 
         if (WaterDrops::fTimeStep && !WaterDrops::ms_rainIntensity && !*WaterDrops::fTimeStep && (WaterDrops::ms_numDrops || WaterDrops::ms_numDropsMoving))
             WaterDrops::Clear();
 
-       // dir = *(RwV3d*)((int)CameraParams + 0x50);
-
-        // TODO: apply the values from the View properly!
-        //WaterDrops::up = *(RwV3d*)((int)CameraParams + 0x60);
-        //WaterDrops::right = *(RwV3d*)((int)CameraParams + 0x60);
-
-        //WaterDrops::pos.x = (*cam).CurrentKey.Matrix.v3.x;
-        //WaterDrops::pos.y = (*cam).CurrentKey.Matrix.v3.y;
-        //WaterDrops::pos.z = (*cam).CurrentKey.Matrix.v3.z;
-        
-        //WaterDrops::at.x = (*cam).CurrentKey.Direction.x;
-        //WaterDrops::at.y = (*cam).CurrentKey.Direction.y;
-        //WaterDrops::at.z = (*cam).CurrentKey.Direction.z;
-
         cam->GetUpVec();
 
-        
+        NormalizeVector(&UpVector, &((*cam).CurrentKey.Matrix), 1);
 
         WaterDrops::up.x = UpVector.x;
         WaterDrops::up.y = UpVector.y;
         WaterDrops::up.z = UpVector.z;
-
-        //WaterDrops::up.x = (*cam).CurrentKey.Matrix.v0.x;
-        //WaterDrops::up.y = (*cam).CurrentKey.Matrix.v0.y;
-        //WaterDrops::up.z = (*cam).CurrentKey.Matrix.v0.z;
 
         cam->GetLeftVec();
 
@@ -158,38 +167,11 @@ void __stdcall OnScreenRain_Update_Hook(void* View)
         WaterDrops::right.y = LeftVector.y;
         WaterDrops::right.z = LeftVector.z;
 
-        //
-        //WaterDrops::right.x = (*cam).CurrentKey.Matrix.v1.x;
-        //WaterDrops::right.y = (*cam).CurrentKey.Matrix.v1.y;
-        //WaterDrops::right.z = (*cam).CurrentKey.Matrix.v1.z;
-        //WaterDrops::right.w = (*cam).CurrentKey.Matrix.v0.y;
-
-        //WaterDrops::right.x = (*cam).CurrentKey.Matrix.v1.y;
-        //WaterDrops::right.y = (*cam).CurrentKey.Matrix.v1.z;
-        //WaterDrops::right.z = (*cam).CurrentKey.Matrix.v1.x;
-
-        //WaterDrops::velvector = *(RwV3d*)((int)VelocityCameraParams + 0x50);
-        //WaterDrops::pos = *(RwV3d*)((int)CameraParams + 0x40);
-
-        //cam->GetForwardVec();
-
-        //WaterDrops::at.x = ForwardVector.x;
-        //WaterDrops::at.y = ForwardVector.y;
-        //WaterDrops::at.z = ForwardVector.z;
 
         WaterDrops::at.x = (*cam).CurrentKey.RotNoise2Value.x;
         WaterDrops::at.y = (*cam).CurrentKey.RotNoise2Value.y;
         WaterDrops::at.z = (*cam).CurrentKey.RotNoise2Value.z;
 
-        //cam->GetPosVec();
-
-        //WaterDrops::pos.x = PosVector.x;
-        //WaterDrops::pos.y = PosVector.y;
-        //WaterDrops::pos.z = PosVector.z;
-
-        //WaterDrops::pos.x = (*cam).CurrentKey.Position.x;
-        //WaterDrops::pos.y = (*cam).CurrentKey.Position.y;
-        //WaterDrops::pos.z = (*cam).CurrentKey.Position.z;
 
         WaterDrops::pos.x = (*cam).CurrentKey.PosNoise2Value.x;
         WaterDrops::pos.y = (*cam).CurrentKey.PosNoise2Value.y;
