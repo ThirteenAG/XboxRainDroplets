@@ -1,8 +1,16 @@
-7za a -tzip ".\bin\GTAIV.XboxRainDroplets.zip" ".\bin\GTAIV.XboxRainDroplets.asi"
-7za a -tzip ".\bin\Mafia.XboxRainDroplets.zip" ".\bin\Mafia.XboxRainDroplets.asi"
-7za a -tzip ".\bin\NFSCarbon.XboxRainDroplets.zip" ".\bin\NFSCarbon.XboxRainDroplets.asi"
-7za a -tzip ".\bin\NFSMostWanted.XboxRainDroplets.zip" ".\bin\NFSMostWanted.XboxRainDroplets.asi"
-7za a -tzip ".\bin\NFSUnderground2.XboxRainDroplets.zip" ".\bin\NFSUnderground2.XboxRainDroplets.asi"
+copy ".\source\resources\default.ini" ".\bin\GTAIV.XboxRainDroplets.ini"
+copy ".\source\resources\default.ini" ".\bin\Mafia.XboxRainDroplets.ini"
+copy ".\source\resources\default.ini" ".\bin\NFSCarbon.XboxRainDroplets.ini"
+copy ".\source\resources\default.ini" ".\bin\NFSMostWanted.XboxRainDroplets.ini"
+copy ".\source\resources\default.ini" ".\bin\NFSUnderground2.XboxRainDroplets.ini"
+copy ".\source\resources\default.ini" ".\bin\Scarface.XboxRainDroplets.ini"
+
+7za a -tzip ".\bin\GTAIV.XboxRainDroplets.zip" ".\bin\GTAIV.XboxRainDroplets.asi" ".\bin\GTAIV.XboxRainDroplets.ini"
+7za a -tzip ".\bin\Mafia.XboxRainDroplets.zip" ".\bin\Mafia.XboxRainDroplets.asi" ".\bin\Mafia.XboxRainDroplets.ini"
+7za a -tzip ".\bin\NFSCarbon.XboxRainDroplets.zip" ".\bin\NFSCarbon.XboxRainDroplets.asi" ".\bin\NFSCarbon.XboxRainDroplets.ini"
+7za a -tzip ".\bin\NFSMostWanted.XboxRainDroplets.zip" ".\bin\NFSMostWanted.XboxRainDroplets.asi" ".\bin\NFSMostWanted.XboxRainDroplets.ini"
+7za a -tzip ".\bin\NFSUnderground2.XboxRainDroplets.zip" ".\bin\NFSUnderground2.XboxRainDroplets.asi" ".\bin\NFSUnderground2.XboxRainDroplets.ini"
+7za a -tzip ".\bin\Scarface.XboxRainDroplets.zip" ".\bin\Scarface.XboxRainDroplets.asi" ".\bin\Scarface.XboxRainDroplets.ini"
 EXIT
 
 7-Zip Extra

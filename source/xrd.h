@@ -3,11 +3,19 @@
 #include <windows.h>
 #define _USE_MATH_DEFINES
 #include <cmath>
+#ifdef DX8
+#include <d3d8.h>
+#include <d3dx8.h>
+#include <d3dx8tex.h>
+#pragma comment(lib, "legacy_stdio_definitions.lib")
+#pragma comment(lib, "D3dx8.lib")
+#else
 #include <d3d9.h>
 #include <d3dx9.h>
 #include <d3dx9tex.h>
-#include "d3dvtbl.h"
 #pragma comment(lib, "D3dx9.lib")
+#endif
+#include "d3dvtbl.h"
 #include <time.h>
 #include <injector\injector.hpp>
 #include <injector\hooking.hpp>
@@ -19,8 +27,11 @@
 #include <mutex>
 #include <map>
 #include <iomanip>
+#include <random>
 #include <subauth.h>
+#include "inireader/IniReader.h"
 #include "Hooking.Patterns.h"
+#include "ModuleList.hpp"
 
 #ifndef MACRO_START
 #define MACRO_START do
@@ -90,54 +101,17 @@ struct VertexTex2
 #define DROPFVF (D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX2)
 #define RAD2DEG(x) (180.0f*(x)/M_PI)
 
-typedef HRESULT(STDMETHODCALLTYPE* CreateDevice_t)(IDirect3D9*, UINT, D3DDEVTYPE, HWND, DWORD, D3DPRESENT_PARAMETERS *, IDirect3DDevice9 **);
-typedef HRESULT(STDMETHODCALLTYPE* Present_t)(LPDIRECT3DDEVICE9, CONST RECT *, CONST RECT *, HWND, CONST RGNDATA *);
+#ifdef DX8
+typedef HRESULT(STDMETHODCALLTYPE* CreateDevice_t)(IDirect3D8*, UINT, D3DDEVTYPE, HWND, DWORD, D3DPRESENT_PARAMETERS*, IDirect3DDevice8**);
+typedef HRESULT(STDMETHODCALLTYPE* Present_t)(LPDIRECT3DDEVICE8, CONST RECT*, CONST RECT*, HWND, CONST RGNDATA*);
+typedef HRESULT(STDMETHODCALLTYPE* EndScene_t)(LPDIRECT3DDEVICE8);
+typedef HRESULT(STDMETHODCALLTYPE* Reset_t)(LPDIRECT3DDEVICE8, D3DPRESENT_PARAMETERS*);
+#else
+typedef HRESULT(STDMETHODCALLTYPE* CreateDevice_t)(IDirect3D9*, UINT, D3DDEVTYPE, HWND, DWORD, D3DPRESENT_PARAMETERS*, IDirect3DDevice9**);
+typedef HRESULT(STDMETHODCALLTYPE* Present_t)(LPDIRECT3DDEVICE9, CONST RECT*, CONST RECT*, HWND, CONST RGNDATA*);
 typedef HRESULT(STDMETHODCALLTYPE* EndScene_t)(LPDIRECT3DDEVICE9);
 typedef HRESULT(STDMETHODCALLTYPE* Reset_t)(LPDIRECT3DDEVICE9, D3DPRESENT_PARAMETERS*);
-
-class Interval
-{
-private:
-    unsigned int initial_;
-
-public:
-    inline Interval() : initial_(GetTickCount()) { }
-
-    virtual ~Interval() { }
-
-    inline unsigned int value() const
-    {
-        return GetTickCount() - initial_;
-    }
-};
-
-class Fps
-{
-protected:
-    unsigned int m_fps;
-    unsigned int m_fpscount;
-    Interval m_fpsinterval;
-
-public:
-    Fps() : m_fps(0), m_fpscount(0) { }
-
-    void update()
-    {
-        m_fpscount++;
-
-        if (m_fpsinterval.value() > 1000)
-        {
-            m_fps = m_fpscount;
-            m_fpscount = 0;
-            m_fpsinterval = Interval();
-        }
-    }
-
-    unsigned int get() const
-    {
-        return m_fps;
-    }
-};
+#endif
 
 class WaterDrop
 {
@@ -164,11 +138,14 @@ class WaterDrops
 {
 public:
     enum {
-        MAXDROPS = 2000,
+        MAXDROPS = 6000,
         MAXDROPSMOVING = 700
     };
 
-    static inline Fps fps;
+    static inline constexpr float gravity = 9.807f;
+    static inline constexpr float gdivmin = 100.0f;
+    static inline constexpr float gdivmax = 30.0f;
+    static inline uint32_t fps = 0;
     static inline float* fTimeStep;
     static inline bool isPaused = false;
     static inline float ms_scaling;
@@ -198,8 +175,9 @@ public:
 
     static inline bool sprayWater = false;
     static inline bool sprayBlood = false;
-    static inline bool ms_noCamTurns = false;
     static inline bool ms_StaticRain = false;
+    static inline bool bRadial = false;
+    static inline bool bGravity = true;
 
     static inline RwV3d right;
     static inline RwV3d up;
@@ -214,36 +192,82 @@ public:
     static inline Reset_t RealD3D9Reset = NULL;
     static inline bool bPatchD3D = true;
 
-    static inline void(*WaterDrops::ProcessCallback1)();
-    static inline void(*WaterDrops::ProcessCallback2)();
+    static inline void(*ProcessCallback1)();
+    static inline void(*ProcessCallback2)();
 
-    static inline void WaterDrops::Process(LPDIRECT3DDEVICE9 pDevice)
+    static inline float GetRandomFloat(float range)
     {
-        fps.update();
+        static std::random_device rd;
+        static std::mt19937 gen(rd());
+        std::uniform_real_distribution<> dis(0.0f, range);
+        return static_cast<float>(dis(gen));
+    }
+    static inline float GetTimeStep()
+    {
+        if (!fTimeStep)
+            return ((1.0f / fps) * 1000.0f);
+        else
+            return *fTimeStep;
+    }
+    static inline float GetTimeStepDelta()
+    {
+        static constexpr float magic = 50.0f / 30.0f;
+        return GetTimeStep() / magic;
+    }
+#ifdef DX8
+    static inline void Process(LPDIRECT3DDEVICE8 pDevice)
+#else
+    static inline void Process(LPDIRECT3DDEVICE9 pDevice)
+#endif
+    {
+        if (!fTimeStep)
+        {
+            static std::list<int> m_times;
+            LARGE_INTEGER frequency;
+            LARGE_INTEGER time;
+            QueryPerformanceFrequency(&frequency);
+            QueryPerformanceCounter(&time);
+
+            if (m_times.size() == 50)
+                m_times.pop_front();
+            m_times.push_back(static_cast<int>(time.QuadPart));
+
+            if (m_times.size() >= 2)
+                fps = static_cast<uint32_t>(0.5f + (static_cast<float>(m_times.size() - 1) *
+                      static_cast<float>(frequency.QuadPart)) / static_cast<float>(m_times.back() - m_times.front()));
+        }
         if (!ms_initialised)
             InitialiseRender(pDevice);
-        WaterDrops::CalculateMovement();
-        WaterDrops::SprayDrops();
-        WaterDrops::ProcessMoving();
-        WaterDrops::Fade();
+        CalculateMovement();
+        SprayDrops();
+        ProcessMoving();
+        Fade();
     }
 
-    static inline void WaterDrops::CalculateMovement()
+    static inline void CalculateMovement()
     {
         RwV3dSub(&ms_posDelta, &pos, &ms_lastPos);
 
         ms_distMoved = RwV3dDotProduct(&ms_posDelta, &ms_posDelta);
-        ms_distMoved = sqrt(ms_distMoved);
+        ms_distMoved = sqrt(ms_distMoved) * GetTimeStepDelta();
         //ms_distMoved = RwV3dLength(&ms_posDelta);
 
         ms_lastAt = at;
         ms_lastPos = pos;
 
         ms_vec.x = -RwV3dDotProduct(&right, &ms_posDelta);
-        ms_vec.y = RwV3dDotProduct(&up, &ms_posDelta);
-        ms_vec.z = RwV3dDotProduct(&at, &ms_posDelta);
+        if (!bRadial)
+        {
+            ms_vec.y = RwV3dDotProduct(&up, &ms_posDelta);
+            ms_vec.z = RwV3dDotProduct(&at, &ms_posDelta);
+        }
+        else
+        {
+            ms_vec.y = RwV3dDotProduct(&at, &ms_posDelta);
+            ms_vec.z = RwV3dDotProduct(&up, &ms_posDelta);
+        }
         RwV3dScale(&ms_vec, &ms_vec, 10.0f);
-        ms_vecLen = sqrt(ms_vec.y*ms_vec.y + ms_vec.x*ms_vec.x);
+        ms_vecLen = sqrt(ms_vec.y * ms_vec.y + ms_vec.x * ms_vec.x);
 
         ms_enabled = true; //!istopdown && !carlookdirection;
         ms_movingEnabled = true; //!istopdown && !carlookdirection;
@@ -254,13 +278,8 @@ public:
         ms_rainStrength = (float)RAD2DEG(acos(c));
     }
 
-    static inline void WaterDrops::SprayDrops()
+    static inline void SprayDrops()
     {
-        static int32_t ndrops[] = {
-            125, 250, 500, 1000, 1000,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-        };
-
         if (!NoRain() && ms_rainIntensity != 0.0f && ms_enabled) {
             auto tmp = (int32_t)(180.0f - ms_rainStrength);
             if (tmp < 40) tmp = 40;
@@ -283,9 +302,9 @@ public:
         }
     }
 
-    static inline void WaterDrops::MoveDrop(WaterDropMoving* moving)
+    static void MoveDrop(WaterDropMoving* moving)
     {
-        WaterDrop *drop = moving->drop;
+        WaterDrop* drop = moving->drop;
         if (!ms_movingEnabled)
             return;
         if (!drop->active) {
@@ -294,42 +313,40 @@ public:
             return;
         }
 
-        if (!ms_noCamTurns && (ms_vec.z <= 0.0f || ms_distMoved <= 0.3f))
-            return;
-
-        if (ms_vecLen <= 0.5f || ms_noCamTurns) {
-            float d = abs(ms_vec.z*0.2f);
-            float dx, dy, sum;
-            dx = drop->x - ms_fbWidth * 0.5f + ms_vec.x;
-            dy = drop->y - ms_fbHeight * 0.5f - ms_vec.y;
-            sum = fabs(dx) + fabs(dy);
-            if (sum >= 0.001f) {
-                dx *= (1.0f / sum);
-                dy *= (1.0f / sum);
-            }
-            moving->dist += d;
-            if (moving->dist > 2.0f)
-                NewTrace(moving);
-            drop->x += dx * d;
-            drop->y += dy * d;
-        }
-        else {
-            // movement when camera turns
-            moving->dist += ms_vecLen;
-            if (moving->dist > 20.0f)
-                NewTrace(moving);
-            drop->x -= ms_vec.x;
-            drop->y += ms_vec.y;
+        static float randgravity = 0;
+        if (bGravity)
+        {
+            randgravity = GetRandomFloat((gravity / gdivmax));
+            if (randgravity < (gravity / gdivmin))
+                randgravity = (gravity / gdivmin);
         }
 
-        if (drop->x < 0.0f || drop->y < 0.0f ||
-            drop->x > ms_fbWidth || drop->y > ms_fbHeight) {
+        float d = abs(ms_vec.z * 0.2f);
+        float dx, dy, sum;
+        dx = drop->x - ms_fbWidth * 0.5f + ms_vec.x;
+        dy = drop->y - ms_fbHeight * 0.5f - (ms_vec.y + randgravity);
+        sum = fabs(dx) + fabs(dy);
+        if (sum >= 0.001f) {
+            dx *= (1.0f / sum);
+            dy *= (1.0f / sum);
+        }
+        moving->dist += ((d + ms_vecLen));
+        if (moving->dist > 20.0f)
+        {
+            float movttl = moving->drop->ttl / (float)(SC(MINSIZE));
+            NewTrace(moving, movttl);
+        }
+        drop->x += (dx * d) - ms_vec.x;
+        drop->y += (dy * d) + (ms_vec.y + randgravity);
+
+        if (drop->x < -(float)(SC(MAXSIZE)) || drop->y < -(float)(SC(MAXSIZE)) ||
+            drop->x >(ms_fbWidth + SC(MAXSIZE)) || drop->y >(ms_fbHeight + SC(MAXSIZE))) {
             moving->drop = NULL;
             ms_numDropsMoving--;
         }
     }
 
-    static inline void WaterDrops::ProcessMoving()
+    static inline void ProcessMoving()
     {
         WaterDropMoving *moving;
         if (!ms_movingEnabled)
@@ -339,7 +356,7 @@ public:
                 MoveDrop(moving);
     }
 
-    static inline void WaterDrops::Fade()
+    static inline void Fade()
     {
         WaterDrop *drop;
         for (drop = &ms_drops[0]; drop < &ms_drops[MAXDROPS]; drop++)
@@ -347,7 +364,7 @@ public:
                 drop->Fade();
     }
 
-    static inline WaterDrop* WaterDrops::PlaceNew(float x, float y, float size, float ttl, bool fades, int R = 0xFF, int G = 0xFF, int B = 0xFF)
+    static inline WaterDrop* PlaceNew(float x, float y, float size, float ttl, bool fades, int R = 0xFF, int G = 0xFF, int B = 0xFF)
     {
         WaterDrop *drop;
         int i;
@@ -376,15 +393,15 @@ public:
         return drop;
     }
 
-    static inline void WaterDrops::NewTrace(WaterDropMoving* moving)
+    static inline void NewTrace(WaterDropMoving* moving, float ttl)
     {
         if (ms_numDrops < MAXDROPS) {
             moving->dist = 0.0f;
-            PlaceNew(moving->drop->x, moving->drop->y, (float)(SC(MINSIZE)), 500.0f, 1, moving->drop->r, moving->drop->g, moving->drop->b);
+            PlaceNew(moving->drop->x, moving->drop->y, (float)(SC(MINSIZE)), ttl, 1, moving->drop->r, moving->drop->g, moving->drop->b);
         }
     }
 
-    static inline void WaterDrops::NewDropMoving(WaterDrop *drop)
+    static inline void NewDropMoving(WaterDrop *drop)
     {
         WaterDropMoving *moving;
         for (moving = ms_dropsMoving; moving < &ms_dropsMoving[MAXDROPSMOVING]; moving++)
@@ -397,29 +414,32 @@ public:
         moving->dist = 0.0f;
     }
 
-    static inline void WaterDrops::FillScreenMoving(float amount, bool isBlood = false)
+    static inline void FillScreenMoving(float amount, bool isBlood = false)
     {
         if (ms_StaticRain)
             amount = 1.0f;
 
         int32_t n = int32_t((ms_vec.z <= 5.0f ? 1.0f : 1.5f) * amount * 20.0f);
-        WaterDrop *drop;
+        WaterDrop* drop;
 
         while (n--)
             if (ms_numDrops < MAXDROPS && ms_numDropsMoving < MAXDROPSMOVING) {
-                float x = (float)(rand() % ms_fbWidth);
-                float y = (float)(rand() % ms_fbHeight);
-                float time = (float)(rand() % (SC(MAXSIZE) - SC(MINSIZE)) + SC(MINSIZE));
+                float x = GetRandomFloat((float)ms_fbWidth);
+                float y = GetRandomFloat((float)ms_fbHeight);
+                float size = GetRandomFloat((float)(SC(MAXSIZE) - SC(MINSIZE)) + SC(MINSIZE));
+                float ttl = GetRandomFloat((float)(8000.0f));
+                if (ttl < 2000.0f)
+                    ttl = 2000.0f;
                 if (!isBlood)
-                    drop = PlaceNew(x, y, time, 2000.0f, 1);
+                    drop = PlaceNew(x, y, size, ttl, 1);
                 else
-                    drop = PlaceNew(x, y, time, 2000.0f, 1, 0xFF, 0x00, 0x00);
+                    drop = PlaceNew(x, y, size, ttl, 1, 0xFF, 0x00, 0x00);
                 if (drop)
                     NewDropMoving(drop);
             }
     }
 
-    static inline void WaterDrops::FillScreen(int n)
+    static inline void FillScreen(int n)
     {
         if (!ms_initialised)
             return;
@@ -436,14 +456,14 @@ public:
         }
     }
 
-    static inline void WaterDrops::Clear()
+    static inline void Clear()
     {
         for (auto drop = &ms_drops[0]; drop < &ms_drops[MAXDROPS]; drop++)
             drop->active = 0;
         ms_numDrops = 0;
     }
 
-    static inline void WaterDrops::Reset()
+    static inline void Reset()
     {
         Clear();
         ms_splashDuration = -1;
@@ -458,55 +478,77 @@ public:
             }
         };
 
-        SafeRelease(&WaterDrops::ms_maskTex);
-        SafeRelease(&WaterDrops::ms_tex);
-        SafeRelease(&WaterDrops::ms_surf);
-        SafeRelease(&WaterDrops::ms_bbuf);
-        WaterDrops::ms_initialised = 0;
+        SafeRelease(&ms_maskTex);
+        SafeRelease(&ms_tex);
+        SafeRelease(&ms_surf);
+        SafeRelease(&ms_bbuf);
+        ms_initialised = 0;
     }
 
-    static inline void WaterDrops::RegisterSplash(RwV3d* point, float distance = 20.0f, int32_t duration = 14)
+    static inline void RegisterSplash(RwV3d* point, float distance = 20.0f, int32_t duration = 14)
     {
         ms_splashPoint = *point;
         ms_splashDistance = distance;
         ms_splashDuration = duration;
     }
 
-    static inline bool WaterDrops::NoDrops()
+    static inline bool NoDrops()
     {
         return false; //CWeather__UnderWaterness > 0.339731634f || *CEntryExitManager__ms_exitEnterState != 0;
     }
 
-    static inline bool WaterDrops::NoRain()
+    static inline bool NoRain()
     {
         return false; //CCullZones__CamNoRain() || CCullZones__PlayerNoRain() || *CGame__currArea != 0 || NoDrops();
     }
 
     // Rendering
+#ifdef DX8
+    static inline IDirect3DTexture8* ms_maskTex;
+    static inline IDirect3DTexture8* ms_tex;
+    static inline IDirect3DSurface8* ms_surf;
+    static inline IDirect3DSurface8* ms_bbuf;
+    static inline IDirect3DVertexBuffer8* ms_vertexBuf;
+    static inline IDirect3DIndexBuffer8* ms_indexBuf;
+#else
     static inline IDirect3DTexture9* ms_maskTex;
     static inline IDirect3DTexture9* ms_tex;
     static inline IDirect3DSurface9* ms_surf;
     static inline IDirect3DSurface9* ms_bbuf;
+    static inline IDirect3DVertexBuffer9* ms_vertexBuf;
+    static inline IDirect3DIndexBuffer9* ms_indexBuf;
+#endif
     static inline int32_t ms_fbWidth;
     static inline int32_t ms_fbHeight;
-    static inline IDirect3DVertexBuffer9* ms_vertexBuf;
-    static inline IDirect3DIndexBuffer9 *ms_indexBuf;
     static inline VertexTex2* ms_vertPtr;
     static inline int32_t ms_numBatchedDrops;
     static inline int32_t ms_initialised;
 
-    static inline void WaterDrops::InitialiseRender(LPDIRECT3DDEVICE9 pDevice)
+#ifdef DX8
+    static inline void InitialiseRender(LPDIRECT3DDEVICE8 pDevice)
+#else
+    static inline void InitialiseRender(LPDIRECT3DDEVICE9 pDevice)
+#endif
     {
-        srand((uint32_t)time(NULL));
-
-        IDirect3DVertexBuffer9 *vbuf;
-        IDirect3DIndexBuffer9 *ibuf;
+#ifdef DX8
+        IDirect3DVertexBuffer8* vbuf;
+        IDirect3DIndexBuffer8* ibuf;
+        pDevice->CreateVertexBuffer(MAXDROPS * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf);
+        pDevice->CreateIndexBuffer(MAXDROPS * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf);
+#else
+        IDirect3DVertexBuffer9* vbuf;
+        IDirect3DIndexBuffer9* ibuf;
         pDevice->CreateVertexBuffer(MAXDROPS * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf, nullptr);
-        ms_vertexBuf = vbuf;
         pDevice->CreateIndexBuffer(MAXDROPS * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf, nullptr);
+#endif
+        ms_vertexBuf = vbuf;
         ms_indexBuf = ibuf;
-        uint16_t *idx;
+        uint16_t* idx;
+#ifdef DX8
+        ibuf->Lock(0, 0, (BYTE**)&idx, 0);
+#else
         ibuf->Lock(0, 0, (void**)&idx, 0);
+#endif
         for (int i = 0; i < MAXDROPS; i++) {
             idx[i * 6 + 0] = i * 4 + 0;
             idx[i * 6 + 1] = i * 4 + 1;
@@ -518,52 +560,43 @@ public:
         ibuf->Unlock();
 
         D3DSURFACE_DESC d3dsDesc;
+#ifdef DX8
+        pDevice->GetBackBuffer(0, D3DBACKBUFFER_TYPE_MONO, &ms_bbuf);
+#else
         pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &ms_bbuf);
+#endif
         ms_bbuf->GetDesc(&d3dsDesc);
+#ifdef DX8
+        pDevice->CreateTexture(d3dsDesc.Width, d3dsDesc.Height, 1, D3DUSAGE_RENDERTARGET, d3dsDesc.Format, D3DPOOL_DEFAULT, &ms_tex);
+#else
         pDevice->CreateTexture(d3dsDesc.Width, d3dsDesc.Height, 1, D3DUSAGE_RENDERTARGET, d3dsDesc.Format, D3DPOOL_DEFAULT, &ms_tex, NULL);
+#endif
         ms_tex->GetSurfaceLevel(0, &ms_surf);
         ms_fbWidth = d3dsDesc.Width;
         ms_fbHeight = d3dsDesc.Height;
         ms_scaling = ms_fbHeight / 480.0f;
 
-        constexpr uint8_t dropmask_png[] = {
-            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
-            0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x40, 0x08, 0x06, 0x00, 0x00, 0x00, 0xAA, 0x69, 0x71,
-            0xDE, 0x00, 0x00, 0x00, 0x13, 0x74, 0x45, 0x58, 0x74, 0x53, 0x6F, 0x66, 0x74, 0x77, 0x61, 0x72,
-            0x65, 0x00, 0x52, 0x65, 0x6E, 0x64, 0x65, 0x72, 0x57, 0x61, 0x72, 0x65, 0xCE, 0xFE, 0x12, 0x23,
-            0x00, 0x00, 0x01, 0x6C, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0xED, 0x9B, 0xD1, 0xAE, 0x84, 0x20,
-            0x0C, 0x44, 0x5B, 0xFF, 0xFF, 0x9F, 0xBD, 0x4F, 0xBD, 0x21, 0xAC, 0x5A, 0x84, 0x4A, 0xA1, 0xD3,
-            0xF3, 0xB6, 0x09, 0x22, 0x33, 0xED, 0xB8, 0x66, 0x17, 0x98, 0x1C, 0x38, 0xCF, 0xF3, 0xD4, 0xC6,
-            0x30, 0x33, 0xCF, 0x58, 0xCB, 0xE7, 0x37, 0x69, 0x11, 0xAB, 0xF1, 0xA5, 0x19, 0xA6, 0x13, 0x5B,
-            0x88, 0x6D, 0xC1, 0xD2, 0x10, 0xB3, 0x89, 0x66, 0x89, 0x17, 0xAC, 0x4C, 0x18, 0x9E, 0x64, 0xB6,
-            0xF0, 0x9A, 0x51, 0x23, 0x86, 0x2E, 0xF6, 0x16, 0x2F, 0x8C, 0x98, 0xD0, 0x75, 0xE1, 0x2A, 0xC2,
-            0x6B, 0x7A, 0x8C, 0x78, 0x7D, 0xC1, 0xAA, 0xE2, 0x85, 0xB7, 0x26, 0x34, 0x0F, 0x5E, 0x5D, 0x78,
-            0x4D, 0xAB, 0x11, 0x4D, 0x83, 0x76, 0x13, 0x2F, 0xB4, 0x98, 0x70, 0x68, 0x03, 0x76, 0x15, 0xDF,
-            0x8A, 0x6A, 0xC0, 0xCE, 0x34, 0xBD, 0x72, 0x8F, 0x4E, 0xB0, 0x03, 0x4F, 0x51, 0xB8, 0xED, 0x80,
-            0x28, 0xE2, 0x35, 0x42, 0x47, 0x40, 0x78, 0x2A, 0xE6, 0x65, 0x6B, 0x44, 0xAD, 0xFE, 0x55, 0x14,
-            0x7E, 0x3A, 0x20, 0xAA, 0xF8, 0x3B, 0x20, 0x22, 0x20, 0x5C, 0x15, 0x97, 0xB5, 0x01, 0x11, 0x29,
-            0xA3, 0xF0, 0xDF, 0x01, 0x28, 0xE2, 0x6B, 0xA0, 0x22, 0x20, 0x94, 0xC5, 0x86, 0x34, 0xA0, 0x24,
-            0x0D, 0xF0, 0x5E, 0x80, 0x37, 0x07, 0x11, 0xEE, 0x03, 0x90, 0x08, 0xB8, 0x03, 0xA4, 0xE8, 0xB0,
-            0x06, 0x08, 0x69, 0x80, 0xF7, 0x02, 0xBC, 0x61, 0xE4, 0x07, 0x20, 0x51, 0x76, 0x40, 0x1A, 0x90,
-            0x06, 0x78, 0x2F, 0xC0, 0x9B, 0x34, 0xC0, 0x7B, 0x01, 0xDE, 0xA4, 0x01, 0xDE, 0x0B, 0xF0, 0x84,
-            0x99, 0xF9, 0x98, 0xB5, 0x1B, 0x6B, 0x55, 0xA0, 0x3B, 0x80, 0x28, 0x0D, 0xC0, 0x35, 0x40, 0xA2,
-            0x7F, 0x94, 0x1F, 0x10, 0x81, 0xED, 0x00, 0x01, 0xD2, 0x80, 0xCB, 0x7F, 0x86, 0x50, 0x63, 0xF0,
-            0x23, 0x3A, 0xFA, 0x0F, 0x24, 0x75, 0xA1, 0xA1, 0x22, 0xD0, 0xB4, 0x3F, 0x00, 0x2D, 0x0A, 0xB7,
-            0x62, 0xA3, 0x45, 0xE1, 0xAE, 0xB0, 0x10, 0x11, 0xE8, 0xDA, 0x25, 0x86, 0x12, 0x05, 0x55, 0xE4,
-            0xEE, 0x51, 0xD0, 0x0A, 0x19, 0x3A, 0x02, 0x26, 0x7B, 0x85, 0xA3, 0x47, 0xE1, 0x95, 0xB8, 0x5D,
-            0xE2, 0xF0, 0xA6, 0x68, 0x79, 0x60, 0xA2, 0xF7, 0x46, 0xAB, 0x19, 0xD1, 0x1B, 0xD5, 0x3C, 0x34,
-            0x65, 0xB1, 0x00, 0x2F, 0x23, 0x2C, 0x1E, 0xD0, 0x79, 0x70, 0xD2, 0x62, 0x92, 0x92, 0xAF, 0x8D,
-            0xB0, 0xFE, 0x5A, 0xCE, 0xC3, 0xD3, 0x5F, 0x4D, 0xFC, 0x84, 0x66, 0xCA, 0xCC, 0x97, 0xAF, 0x3F,
-            0x12, 0xC8, 0x90, 0x6B, 0x76, 0x10, 0xAE, 0x6C, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44,
-            0xAE, 0x42, 0x60, 0x82
-        };
-
-        D3DXCreateTextureFromFileInMemory(pDevice, &dropmask_png[0], sizeof(dropmask_png), &ms_maskTex);
-
+        static constexpr auto MaskSize = 128;
+        D3DXCreateTexture(pDevice, MaskSize, MaskSize, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &ms_maskTex);
+        D3DLOCKED_RECT LockedRect;
+        ms_maskTex->LockRect(0, &LockedRect, NULL, 0);
+        uint8_t* pixels = (uint8_t*)LockedRect.pBits;
+        int32_t stride = LockedRect.Pitch;
+        for (int y = 0; y < MaskSize; y++) 
+        {
+            float yf = ((y + 0.5f) / MaskSize - 0.5f) * 2.0f;
+            for (int x = 0; x < MaskSize; x++) 
+            {
+                float xf = ((x + 0.5f) / MaskSize - 0.5f) * 2.0f;
+                memset(&pixels[y * stride + x * 4], xf * xf + yf * yf < 1.0f ? 0xFF : 0x00, 4);
+            }
+        }
+        ms_maskTex->UnlockRect(0);
+        
         ms_initialised = 1;
     }
 
-    static inline void WaterDrops::AddToRenderList(WaterDrop *drop)
+    static inline void AddToRenderList(WaterDrop *drop)
     {
         static float xy[] = {
             -1.0f, -1.0f, -1.0f,  1.0f,
@@ -607,24 +640,41 @@ public:
         ms_numBatchedDrops++;
     }
 
-    static inline void WaterDrops::Render(LPDIRECT3DDEVICE9 pDevice)
+#ifdef DX8
+    static inline void Render(LPDIRECT3DDEVICE8 pDevice)
+#else
+    static inline void Render(LPDIRECT3DDEVICE9 pDevice)
+#endif
     {
         if (!ms_enabled || ms_numDrops <= 0)
             return;
 
-        IDirect3DVertexBuffer9 *vbuf = ms_vertexBuf;
+#ifdef DX8
+        IDirect3DVertexBuffer8* vbuf = ms_vertexBuf;
+        vbuf->Lock(0, 0, (BYTE**)&ms_vertPtr, 0);
+#else
+        IDirect3DVertexBuffer9* vbuf = ms_vertexBuf;
         vbuf->Lock(0, 0, (void**)&ms_vertPtr, 0);
+#endif
         ms_numBatchedDrops = 0;
         for (WaterDrop *drop = &ms_drops[0]; drop < &ms_drops[MAXDROPS]; drop++)
             if (drop->active)
                 AddToRenderList(drop);
         vbuf->Unlock();
 
+#ifdef DX8
+        DWORD pStateBlock = NULL;
+        pDevice->CreateStateBlock(D3DSBT_ALL, &pStateBlock);
+        pDevice->CaptureStateBlock(pStateBlock);
+
+        pDevice->CopyRects(ms_bbuf, 0, 0, ms_surf, 0);
+#else
         LPDIRECT3DSTATEBLOCK9 pStateBlock = NULL;
         pDevice->CreateStateBlock(D3DSBT_ALL, &pStateBlock);
         pStateBlock->Capture();
 
         pDevice->StretchRect(ms_bbuf, NULL, ms_surf, NULL, D3DTEXF_LINEAR);
+#endif
 
         pDevice->SetTexture(0, ms_maskTex);
         pDevice->SetTexture(1, ms_tex);
@@ -650,36 +700,53 @@ public:
         pDevice->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
         pDevice->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
         pDevice->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+#ifndef DX8
         pDevice->SetRenderState(D3DRS_SCISSORTESTENABLE, 1);
+#endif
         pDevice->SetRenderState(D3DRS_COLORWRITEENABLE, 0xFFFFFFFF);
 
+        pDevice->SetPixelShader(NULL);
+        pDevice->SetVertexShader(NULL);
+
+#ifdef DX8
+        pDevice->SetVertexShader(DROPFVF);
+        pDevice->SetStreamSource(0, vbuf, sizeof(VertexTex2));
+        pDevice->SetIndices(ms_indexBuf, 0);
+        pDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, ms_numBatchedDrops * 4, 0, ms_numBatchedDrops * 2);
+#else
         pDevice->SetFVF(DROPFVF);
         pDevice->SetStreamSource(0, vbuf, 0, sizeof(VertexTex2));
         pDevice->SetIndices(ms_indexBuf);
         pDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, ms_numBatchedDrops * 4, 0, ms_numBatchedDrops * 2);
-
+#endif
         pDevice->SetTexture(1, NULL);
         pDevice->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
         pDevice->SetTextureStageState(1, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
 
+#ifdef DX8
+        pDevice->ApplyStateBlock(pStateBlock);
+        pDevice->DeleteStateBlock(pStateBlock);
+#else
         pStateBlock->Apply();
         pStateBlock->Release();
+#endif
     }
 
+#ifndef DX8
     static inline HRESULT WINAPI d3dReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresentationParameters)
     {
-        WaterDrops::Reset();
+        Reset();
         return RealD3D9Reset(pDevice, pPresentationParameters);
     }
 
     static inline HRESULT WINAPI d3dEndScene(LPDIRECT3DDEVICE9 pDevice)
     {
-        if (WaterDrops::ProcessCallback1)
-            WaterDrops::ProcessCallback1();
-        WaterDrops::Process(pDevice);
-        WaterDrops::Render(pDevice);
-        if (WaterDrops::ProcessCallback2)
-            WaterDrops::ProcessCallback2();
+        if (ProcessCallback1)
+            ProcessCallback1();
+        Process(pDevice);
+        Render(pDevice);
+        if (ProcessCallback2)
+            ProcessCallback2();
         return RealD3D9EndScene(pDevice);
     }
 
@@ -695,12 +762,12 @@ public:
             //...
         };
 
-        if (WaterDrops::ProcessCallback1)
-            WaterDrops::ProcessCallback1();
-        WaterDrops::Process(((Direct3DDevice8*)pDevice)->ProxyInterface);
-        WaterDrops::Render(((Direct3DDevice8*)pDevice)->ProxyInterface);
-        if (WaterDrops::ProcessCallback2)
-            WaterDrops::ProcessCallback2();
+        if (ProcessCallback1)
+            ProcessCallback1();
+        Process(((Direct3DDevice8*)pDevice)->ProxyInterface);
+        Render(((Direct3DDevice8*)pDevice)->ProxyInterface);
+        if (ProcessCallback2)
+            ProcessCallback2();
         return RealD3D9EndScene(pDevice);
     }
 
@@ -745,6 +812,7 @@ public:
         }
         return retval;
     }
+#endif
 };
 
 void WaterDrop::Fade()
@@ -752,7 +820,7 @@ void WaterDrop::Fade()
     float delta = 0.0f;
     if (!WaterDrops::fTimeStep)
     {
-        auto dt = ((1.0f / WaterDrops::fps.get()) / 2.0f) * 100.0f;
+        auto dt = ((1.0f / WaterDrops::fps) / 2.0f) * 100.0f;
         delta = (float)(((dt > 3.0f) ? 3.0f : ((dt < 0.0000099999997f) ? 0.0000099999997f : dt)) * 1000.0f / 50.0f);
         if (WaterDrops::isPaused)
             delta = 0.0f;
@@ -945,3 +1013,15 @@ private:
 public:
     static inline std::once_flag flag;
 };
+
+bool IsUALPresent()
+{
+    ModuleList dlls;
+    dlls.Enumerate(ModuleList::SearchLocation::LocalOnly);
+    for (auto& e : dlls.m_moduleList)
+    {
+        if (GetProcAddress(std::get<HMODULE>(e), "DirectInput8Create") != NULL && GetProcAddress(std::get<HMODULE>(e), "DirectSoundCreate8") != NULL && GetProcAddress(std::get<HMODULE>(e), "InternetOpenA") != NULL)
+            return true;
+    }
+    return false;
+}
