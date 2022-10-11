@@ -9,7 +9,6 @@ void Init()
     {
         CMotionBlurStreaksRender.fun();
         WaterDrops::ms_rainIntensity = 1.0f;
-        WaterDrops::ms_noCamTurns = false;
         WaterDrops::right = matrix->right;
         WaterDrops::up = matrix->up;
         WaterDrops::at = matrix->at;
