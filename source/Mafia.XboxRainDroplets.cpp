@@ -156,7 +156,8 @@ void Init()
         void operator()(injector::reg_pack& regs)
         {
             *(float*)(regs.esp + 0x24) = 1.0f;
-            RwV3d prt_pos = *(RwV3d*)(regs.esp + 0x30);
+            RwV3d vec = *(RwV3d*)(regs.esp + 0x30);
+            RwV3d prt_pos = { vec.z, vec.x, vec.y };
             RwV3d dist;
             RwV3dSub(&dist, &prt_pos, &WaterDrops::pos);
             if (RwV3dDotProduct(&dist, &dist) <= 20.0f)
