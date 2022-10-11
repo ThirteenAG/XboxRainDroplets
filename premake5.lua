@@ -8,6 +8,7 @@ workspace "XboxRainDroplets"
    targetdir "bin/%{cfg.buildcfg}"
    targetextension ".asi"
    linkoptions "/SAFESEH:NO"
+   defines { "_CRT_SECURE_NO_WARNINGS" }
    
    defines { "rsc_CompanyName=\"ThirteenAG\"" }
    defines { "rsc_LegalCopyright=\"MIT License\""} 
