@@ -205,14 +205,14 @@ public:
     static inline float GetTimeStep()
     {
         if (!fTimeStep)
-            return ((1.0f / fps) * 1000.0f);
+            return (1.0f / fps);
         else
             return *fTimeStep;
     }
     static inline float GetTimeStepDelta()
     {
         static constexpr float magic = 50.0f / 30.0f;
-        return GetTimeStep() / magic;
+        return GetTimeStep() * 1000.0f / magic;
     }
 #ifdef DX8
     static inline void Process(LPDIRECT3DDEVICE8 pDevice)
@@ -817,17 +817,7 @@ public:
 
 void WaterDrop::Fade()
 {
-    float delta = 0.0f;
-    if (!WaterDrops::fTimeStep)
-    {
-        auto dt = ((1.0f / WaterDrops::fps) / 2.0f) * 100.0f;
-        delta = (float)(((dt > 3.0f) ? 3.0f : ((dt < 0.0000099999997f) ? 0.0000099999997f : dt)) * 1000.0f / 50.0f);
-        if (WaterDrops::isPaused)
-            delta = 0.0f;
-    }
-    else
-        delta = *WaterDrops::fTimeStep * 1000.0f;
-    this->time += delta;
+    this->time += WaterDrops::GetTimeStepDelta();
     if (this->time >= this->ttl) {
         WaterDrops::ms_numDrops--;
         this->active = 0;
