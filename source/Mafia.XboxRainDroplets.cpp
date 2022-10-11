@@ -1,10 +1,19 @@
+//#define USE_D3D_HOOK
+//#define USE_D3D8TO9_HOOK
+
+#ifndef USE_D3D8TO9_HOOK
+#define DX8
+#endif
+
 #include "xrd.h"
 #include <set>
 
-//#define USE_D3D_HOOK
-
 void Init()
 {
+    CIniReader iniReader("");
+    WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) != 0;
+    WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
+
 #ifdef USE_D3D_HOOK
     //setting rain
     WaterDrops::ProcessCallback1 = []()
@@ -32,7 +41,6 @@ void Init()
     }; Direct3DCreate8.fun = injector::MakeCALL(pattern.get_first(0), static_cast<IDirect3D9*(WINAPI*)(UINT)>(Direct3DCreate8Hook), true).get();
 #else
     WaterDrops::ms_StaticRain = true;
-    WaterDrops::ms_noCamTurns = true;
     WaterDrops::ms_rainIntensity = 0.0f;
     static std::set<uint32_t> m;
 
@@ -48,6 +56,11 @@ void Init()
         void operator()(injector::reg_pack& regs)
         {
             *byte_101C4D14 = 1;
+#ifdef DX8
+            auto pDevice = **(LPDIRECT3DDEVICE8**)pDev;
+            WaterDrops::Process(pDevice);
+            WaterDrops::Render(pDevice);
+#else
             auto pDevice = **(LPDIRECT3DDEVICE9**)pDev;
             class Direct3DDevice8 : public IUnknown
             {
@@ -64,6 +77,7 @@ void Init()
 
             WaterDrops::Process(((Direct3DDevice8*)pDevice)->ProxyInterface);
             WaterDrops::Render(((Direct3DDevice8*)pDevice)->ProxyInterface);
+#endif
             WaterDrops::ms_rainIntensity = 0.0f;
             WaterDrops::isPaused = false;
         }
@@ -113,10 +127,26 @@ void Init()
         {
             regs.ecx = *(uint32_t*)(regs.esi + 0x40);
             regs.edx = *(uint32_t*)(regs.esi + 0x44);
-            WaterDrops::right = *(RwV3d*)(regs.esi + 0x10);
-            WaterDrops::up = *(RwV3d*)(regs.esi + 0x20);
-            WaterDrops::at = *(RwV3d*)(regs.esi + 0x30);
-            WaterDrops::pos = *(RwV3d*)(regs.esi + 0x40);
+            //WaterDrops::right = *(RwV3d*)(regs.esi + 0x10);
+            //WaterDrops::up = *(RwV3d*)(regs.esi + 0x20);
+            //WaterDrops::at = *(RwV3d*)(regs.esi + 0x30);
+            //WaterDrops::pos = *(RwV3d*)(regs.esi + 0x40);
+
+            auto up = *(RwV3d*)(regs.esi + 0x20);
+            auto right = *(RwV3d*)(regs.esi + 0x10);
+            auto at = *(RwV3d*)(regs.esi + 0x30);
+            auto pos = *(RwV3d*)(regs.esi + 0x40);
+
+            RwMatrix dst;
+            dst.right = { at.z, at.x, at.y };
+            dst.up = { right.z, right.x, right.y };
+            dst.at = { up.z, up.x, up.y };
+            dst.pos = { pos.z, pos.x, pos.y };
+
+            WaterDrops::right = dst.up;
+            WaterDrops::up = dst.right;
+            WaterDrops::at = dst.at;
+            WaterDrops::pos = dst.pos;
         }
     }; injector::MakeInline<Cam>(pattern.get_first(0), pattern.get_first(6));
 
@@ -152,16 +182,16 @@ void Init()
 extern "C" __declspec(dllexport) void InitializeASI()
 {
     std::call_once(CallbackHandler::flag, []()
-        {
-            CallbackHandler::RegisterCallback(L"LS3DF.dll", Init);
-        });
+    {
+        CallbackHandler::RegisterCallback(L"LS3DF.dll", Init);
+    });
 }
 
 BOOL APIENTRY DllMain(HMODULE /*hModule*/, DWORD reason, LPVOID /*lpReserved*/)
 {
     if (reason == DLL_PROCESS_ATTACH)
     {
-
+        if (!IsUALPresent()) { InitializeASI(); }
     }
     return TRUE;
 }

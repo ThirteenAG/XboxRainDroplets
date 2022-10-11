@@ -26,7 +26,12 @@ workspace "XboxRainDroplets"
    if dxsdk then
       includedirs { dxsdk .. "/include" }
       libdirs { dxsdk .. "/lib/x86" }
+   else
+      includedirs { "source/dxsdk" }
+      libdirs { "source/dxsdk/lib/x86" }
    end
+   includedirs { "source/dxsdk/dx8" }
+   libdirs { "source/dxsdk/dx8" }
    
    characterset ("Unicode")
    
@@ -73,6 +78,12 @@ project "NFSMostWanted.XboxRainDroplets"
 project "NFSCarbon.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Need For Speed/Need for Speed Carbon/", "NFSC.exe")
 project "GTAIV.XboxRainDroplets"
-   setpaths("G:/Games/Grand Theft Auto IV v1.0.8.0 - DLC/", "GTAIV.exe", "plugins/")
+   setpaths("Z:/WGTA/IV/Episodes from Liberty City/", "EFLC.exe", "plugins/")
+project "GTASA.XboxRainDroplets"
+   setpaths("Z:/WFP/Games/Grand Theft Auto/GTA San Andreas/", "gta_sa.exe", "scripts/")
+project "GTA3.XboxRainDroplets"
+   setpaths("Z:/WFP/Games/Grand Theft Auto/GTAIII/", "gta3.exe", "scripts/")
 project "Mafia.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Mafia/", "GameV12.exe")
+project "Scarface.XboxRainDroplets"
+   setpaths("Z:/WFP/Games/Scarface/", "Scarface.exe")

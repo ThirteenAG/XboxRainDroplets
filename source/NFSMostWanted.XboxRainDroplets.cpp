@@ -4,6 +4,10 @@
 
 void Init()
 {
+    CIniReader iniReader("");
+    WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) == 0;
+    WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
+    
 #ifdef USE_D3D_HOOK
     //vtable gets overwritten at startup, so no point in patching it right away
     WaterDrops::bPatchD3D = false;
@@ -67,7 +71,6 @@ void Init()
         {
             *dword_982C80 = 0;
             WaterDrops::ms_rainIntensity = float(**dword_9196B8 / 20);
-            WaterDrops::ms_noCamTurns = true;
             WaterDrops::right = *(RwV3d*)(dword_982D80 + 0x00);
             WaterDrops::up = *(RwV3d*)(dword_982D80 + 0x10);
             WaterDrops::at = *(RwV3d*)(dword_982D80 + 0x20);
@@ -105,7 +108,7 @@ BOOL APIENTRY DllMain(HMODULE /*hModule*/, DWORD reason, LPVOID /*lpReserved*/)
 {
     if (reason == DLL_PROCESS_ATTACH)
     {
-
+        if (!IsUALPresent()) { InitializeASI(); }
     }
     return TRUE;
 }

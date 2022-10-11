@@ -4,6 +4,10 @@
 
 void Init()
 {
+    CIniReader iniReader("");
+    WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) == 0;
+    WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
+    
     auto pattern = hook::pattern("A1 ? ? ? ? 8B 10 68 ? ? ? ? 50 FF 52 40");
     static auto pDev = *pattern.get_first<LPDIRECT3DDEVICE9*>(1);
     struct ResetHook
@@ -24,7 +28,6 @@ void Init()
         {
             *(uint32_t*)(regs.esi + 0x1F0) = regs.eax;
 
-            WaterDrops::ms_noCamTurns = true;
             WaterDrops::ms_rainIntensity = 1.0f;
             WaterDrops::right = *(RwV3d*)(dword_982D80 + 0x00);
             WaterDrops::up = *(RwV3d*)(dword_982D80 + 0x10);
