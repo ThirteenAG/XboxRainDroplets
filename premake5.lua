@@ -7,6 +7,7 @@ workspace "XboxRainDroplets"
    language "C++"
    targetdir "bin/%{cfg.buildcfg}"
    targetextension ".asi"
+   linkoptions "/SAFESEH:NO"
    
    defines { "rsc_CompanyName=\"ThirteenAG\"" }
    defines { "rsc_LegalCopyright=\"MIT License\""} 
