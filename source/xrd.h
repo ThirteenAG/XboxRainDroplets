@@ -138,7 +138,7 @@ class WaterDrops
 {
 public:
     enum {
-        MAXDROPS = 6000,
+        MAXDROPS = 2000,
         MAXDROPSMOVING = 700
     };
 

@@ -3,7 +3,6 @@
 //#define USE_D3D_HOOK
 
 static LPDIRECT3DDEVICE9* pDev;
-static uint32_t dword_AB0FA0;
 uint32_t* TheGameFlowManagerStatus_A99BBC = (uint32_t*)0x00A99BBC;
 bool(__thiscall* View_AmIinATunnel)(void* View, int viewnum) = (bool(__thiscall*)(void*, int))0x007365E0;
 
@@ -237,9 +236,6 @@ void Init()
         }
     }; injector::MakeInline<ResetHook>(pattern.get_first(0)); //0x72B3C5
 
-    dword_AB0FA0 = *hook::get_pattern<uint32_t>("B1 01 C7 05 ? ? ? ? ? ? ? ? C7 05 ? ? ? ? ? ? ? ? 88 0D ? ? ? ? A3", 8);
-    pattern = hook::pattern("C7 05 ? ? ? ? ? ? ? ? B0 01 5E 81 C4 8C 00 00 00 C3");
-
     pattern = hook::pattern("D9 9E F0 33 00 00");
     struct RainIntensityHook
     {
@@ -258,6 +254,11 @@ void Init()
 
     pattern = hook::pattern("6A 01 E8 ? ? ? ? 83 C4 04 84 C0 74 2B E8 ? ? ? ? A1 ? ? ? ?");
     hb_RVMVisible.fun = injector::MakeCALL(pattern.get_first(2), FEngHud_ShouldRearViewMirrorBeVisible, true).get();
+
+    //OnScreenRain::Update(View*)
+    pattern = hook::pattern("55 8B EC 83 E4 F0 83 EC 24 A1 ? ? ? ? 53 56"); // 0x007C5AD0
+    injector::MakeJMP(pattern.get_first(0), OnScreenRain_Update_Hook);
+    TheGameFlowManagerStatus_A99BBC = *pattern.count(1).get(0).get<uint32_t*>(0x68);
 #endif
     //hiding original droplets
     //eRenderRainDrops
@@ -271,11 +272,6 @@ void Init()
     //View::AmIinATunnel(int viewnum)
     pattern = hook::pattern("8B 41 6C 85 C0 74 1C 8B 4C 24 04"); //0x007365E0
     View_AmIinATunnel = (bool(__thiscall*)(void*, int))pattern.get_first(0);
-
-    //OnScreenRain::Update(View*)
-    pattern = hook::pattern("55 8B EC 83 E4 F0 83 EC 24 A1 ? ? ? ? 53 56"); // 0x007C5AD0
-    injector::MakeJMP(pattern.get_first(0), OnScreenRain_Update_Hook);
-    TheGameFlowManagerStatus_A99BBC = *pattern.count(1).get(0).get<uint32_t*>(0x68);
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()
