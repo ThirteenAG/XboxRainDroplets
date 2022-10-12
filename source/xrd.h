@@ -139,7 +139,7 @@ class WaterDrops
 public:
     enum {
         MAXDROPS = 2000,
-        MAXDROPSMOVING = 700
+        MAXDROPSMOVING = 500
     };
 
     static inline constexpr float gravity = 9.807f;
@@ -209,10 +209,9 @@ public:
         else
             return *fTimeStep;
     }
-    static inline float GetTimeStepDelta()
+    static inline float GetTimeStepInMilliseconds()
     {
-        static constexpr float magic = 50.0f / 30.0f;
-        return GetTimeStep() * 1000.0f / magic;
+        return GetTimeStep() / 50.0f * 1000.0f;
     }
 #ifdef DX8
     static inline void Process(LPDIRECT3DDEVICE8 pDevice)
@@ -249,7 +248,7 @@ public:
         RwV3dSub(&ms_posDelta, &pos, &ms_lastPos);
 
         ms_distMoved = RwV3dDotProduct(&ms_posDelta, &ms_posDelta);
-        ms_distMoved = sqrt(ms_distMoved) * GetTimeStepDelta();
+        ms_distMoved = sqrt(ms_distMoved) * GetTimeStepInMilliseconds();
         //ms_distMoved = RwV3dLength(&ms_posDelta);
 
         ms_lastAt = at;
@@ -817,7 +816,12 @@ public:
 
 void WaterDrop::Fade()
 {
-    this->time += WaterDrops::GetTimeStepDelta();
+    float delta = 0.0f;
+    auto dt = (WaterDrops::GetTimeStep() / 2.0f) * 100.0f;
+    delta = (float)(((dt > 3.0f) ? 3.0f : ((dt < 0.0000099999997f) ? 0.0000099999997f : dt)) * 1000.0f / 50.0f);
+    if (WaterDrops::isPaused)
+        delta = 0.0f;
+    this->time += delta;
     if (this->time >= this->ttl) {
         WaterDrops::ms_numDrops--;
         this->active = 0;
