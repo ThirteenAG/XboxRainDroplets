@@ -2,6 +2,182 @@
 
 //#define USE_D3D_HOOK
 
+static LPDIRECT3DDEVICE9* pDev;
+static uint32_t dword_AB0FA0;
+uint32_t* TheGameFlowManagerStatus_A99BBC = (uint32_t*)0x00A99BBC;
+bool(__thiscall* View_AmIinATunnel)(void* View, int viewnum) = (bool(__thiscall*)(void*, int))0x007365E0;
+
+struct bVector2
+{
+    float x;
+    float y;
+};
+
+struct bVector3
+{
+    float x;
+    float y;
+    float z;
+    float pad;
+};
+
+struct bVector4
+{
+    float x;
+    float y;
+    float z;
+    float w;
+};
+
+struct bMatrix4
+{
+    bVector4 v0;
+    bVector4 v1;
+    bVector4 v2;
+    bVector4 v3;
+};
+
+struct WaveData3
+{
+    struct bVector3 frequency;
+    struct bVector3 amplitude;
+};
+
+struct CameraParams
+{
+    bMatrix4 Matrix;
+    bVector3 Position;
+    bVector3 Direction;
+    bVector3 Target;
+    WaveData3 PosNoise[3];
+    WaveData3 RotNoise[3];
+    bVector3 PosNoise2Value;
+    bVector3 RotNoise2Value;
+    float FocalDistance;
+    float DepthOfField;
+    float DOFFalloff;
+    float DOFMaxIntensity;
+    float NearZ;
+    float FarZ;
+    float LB_height;
+    float SimTimeMultiplier;
+    bVector4 FadeColor;
+    float TargetDistance;
+    unsigned short FieldOfView;
+    unsigned short PaddingAngle;
+    bVector2 PaddingVector2;
+};
+
+bVector3* bNormalize(bVector3* dest, bVector3* v)
+{
+    float v2;
+    float v3;
+    float v4;
+    float v5;
+
+    v2 = sqrt(((v->z * v->z) + ((v->x * v->x) + (v->y * v->y))));
+    if (v2 == 0.0)
+    {
+        dest->x = 1.0f;
+        dest->y = 0.0f;
+        dest->z = 0.0f;
+    }
+    else
+    {
+        v3 = (1.0f / v2);
+        v4 = v->y;
+        v5 = v->z;
+        dest->x = v->x * v3;
+        dest->y = v4 * v3;
+        dest->z = v5 * v3;
+    }
+    return dest;
+}
+
+bVector3 UpVector;
+bVector3 LeftVector;
+bVector3 ForwardVector;
+
+class Camera
+{
+public:
+    CameraParams CurrentKey;
+    CameraParams PreviousKey;
+    CameraParams VelocityKey;
+    BOOL bClearVelocity;
+    char Padding_820[3];
+    float ElapsedTime;
+    int LastUpdateTime;
+    int LastDisparateTime;
+    int RenderDash;
+    float NoiseIntensity;
+
+    bVector3* GetForwardVec()
+    {
+        D3DXMATRIX v2;
+        D3DXMatrixTranspose(&v2, (D3DXMATRIX*)&(CurrentKey.Matrix));
+        return bNormalize(&ForwardVector, (bVector3*)v2.m[2]);
+    }
+
+    bVector3* GetUpVec()
+    {
+        D3DXMATRIX v2;
+        D3DXMatrixTranspose(&v2, (D3DXMATRIX*)&(CurrentKey.Matrix));
+        return bNormalize(&UpVector, (bVector3*)v2.m[1]);
+    }
+
+    bVector3* GetLeftVec()
+    {
+        D3DXMATRIX v2;
+        D3DXMatrixTranspose(&v2, (D3DXMATRIX*)&(CurrentKey.Matrix));
+        return bNormalize(&LeftVector, (bVector3*)v2.m[0]);
+    }
+};
+
+void __stdcall OnScreenRain_Update_Hook(void* View)
+{
+    if ((*TheGameFlowManagerStatus_A99BBC == 6))
+    {
+        Camera* cam = *(Camera**)(((int)View) + 0x40);
+
+        if (WaterDrops::fTimeStep && !*WaterDrops::fTimeStep && (WaterDrops::ms_numDrops || WaterDrops::ms_numDropsMoving))
+            WaterDrops::Clear();
+
+        cam->GetUpVec();
+
+        WaterDrops::up.x = -UpVector.x;
+        WaterDrops::up.y = -UpVector.y;
+        WaterDrops::up.z = -UpVector.z;
+
+        cam->GetLeftVec();
+
+        WaterDrops::right.x = -LeftVector.x;
+        WaterDrops::right.y = -LeftVector.y;
+        WaterDrops::right.z = -LeftVector.z;
+
+        WaterDrops::at.x = (*cam).CurrentKey.RotNoise2Value.x;
+        WaterDrops::at.y = (*cam).CurrentKey.RotNoise2Value.y;
+        WaterDrops::at.z = (*cam).CurrentKey.RotNoise2Value.z;
+
+        WaterDrops::pos.x = (*cam).CurrentKey.PosNoise2Value.x;
+        WaterDrops::pos.y = (*cam).CurrentKey.PosNoise2Value.y;
+        WaterDrops::pos.z = (*cam).CurrentKey.PosNoise2Value.z;
+
+        WaterDrops::Process(*pDev);
+        WaterDrops::ms_rainIntensity = 0.0f;
+    }
+}
+
+injector::hook_back<bool(__cdecl*)(int EVIEW_ID)> hb_RVMVisible;
+bool __cdecl FEngHud_ShouldRearViewMirrorBeVisible(int EVIEW_ID)
+{
+    if ((*TheGameFlowManagerStatus_A99BBC == 6))
+    {
+        WaterDrops::Render(*pDev);
+    }
+    return hb_RVMVisible.fun(EVIEW_ID);
+}
+
 void Init()
 {
     CIniReader iniReader("");
@@ -51,7 +227,7 @@ void Init()
     }; injector::MakeInline<RainDropletsHook>(pattern.get_first(0), pattern.get_first(10));
 #else
     auto pattern = hook::pattern("A1 ? ? ? ? 8B 10 68 ? ? ? ? 50 FF 52 40");
-    static auto pDev = *pattern.get_first<LPDIRECT3DDEVICE9*>(1);
+    pDev = *pattern.get_first<LPDIRECT3DDEVICE9*>(1);
     struct ResetHook
     {
         void operator()(injector::reg_pack& regs)
