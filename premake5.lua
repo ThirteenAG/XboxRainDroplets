@@ -91,3 +91,5 @@ project "Scarface.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Scarface/", "Scarface.exe")
 project "Manhunt.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Manhunt/", "manhunt.exe", "scripts/")
+project "MaxPayne2.XboxRainDroplets"
+   setpaths("Z:/WFP/Games/Max Payne/Max Payne 2 The Fall of Max Payne/", "MaxPayne2.exe", "scripts/")
