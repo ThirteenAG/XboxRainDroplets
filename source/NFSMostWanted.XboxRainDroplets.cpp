@@ -254,13 +254,14 @@ void Init()
         }
     }; injector::MakeInline<RainIntensityHook>(pattern.get_first(0), pattern.get_first(6)); //0x73CCDB
 
-    //pattern = hook::pattern("C7 44 24 70 00 00 E1 43 C7 44 24 74 00 00 98 41 C7 84 24 80 00 00 00 00 00 3E 43"); // 0x6E70C0
-    hb_PreRVM.fun = injector::MakeCALL(0x006E7094, PreRVMHook, true).get();
+    pattern = hook::pattern("6A 00 6A 07 50 FF 92 E4 00 00 00 8B 45 08"); // 0x006E7077
+    hb_PreRVM.fun = injector::MakeCALL(pattern.get_first(0x1D), PreRVMHook, true).get(); // 0x006E7094
 
     //OnScreenRain::Update(View*)
     pattern = hook::pattern("55 8B EC 83 E4 F0 83 EC 24 A1 ? ? ? ? 53 56"); // 0x0073CDB0
     injector::MakeJMP(pattern.get_first(0), OnScreenRain_Update_Hook);
-    TheGameFlowManagerStatus = *pattern.count(1).get(0).get<uint32_t*>(0x68);
+    pattern = hook::pattern("55 8B EC 83 E4 F0 81 EC D4 00 00 00 83 3D"); // 0x00757770
+    TheGameFlowManagerStatus = *pattern.count(1).get(0).get<uint32_t*>(0xE);
 #endif
 
     //hiding original droplets
