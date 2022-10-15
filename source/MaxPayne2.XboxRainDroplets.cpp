@@ -25,7 +25,7 @@ void __fastcall sub_10004820(float* _this, void* edx, float* a2)
 
     WaterDrops::right = { -at.x, -at.y, -at.z };
     WaterDrops::up = { right.x, right.y, right.z };
-    WaterDrops::at = { up.x, up.y, up.z };
+    WaterDrops::at = { -up.x, -up.y, -up.z };
     WaterDrops::pos = { pos.x, pos.y, pos.z };
 }
 

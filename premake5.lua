@@ -21,6 +21,7 @@ workspace "XboxRainDroplets"
    includedirs { "external" }
    files { "source/%{prj.name}.cpp" }
    files { "source/resources/Versioninfo.rc" }
+   files { "source/resources/Dropmask.rc" }
    files { "external/hooking/Hooking.Patterns.h", "external/hooking/Hooking.Patterns.cpp" }
    includedirs { "external/hooking" }
    includedirs { "external/injector/include" }
@@ -91,5 +92,7 @@ project "Scarface.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Scarface/", "Scarface.exe")
 project "Manhunt.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Manhunt/", "manhunt.exe", "scripts/")
+project "MaxPayne.XboxRainDroplets"
+   setpaths("Z:/WFP/Games/Max Payne/Max Payne/", "MaxPayne.exe", "scripts/")
 project "MaxPayne2.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Max Payne/Max Payne 2 The Fall of Max Payne/", "MaxPayne2.exe", "scripts/")
