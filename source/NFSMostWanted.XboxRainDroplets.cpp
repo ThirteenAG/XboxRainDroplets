@@ -3,9 +3,8 @@
 //#define USE_D3D_HOOK
 
 static LPDIRECT3DDEVICE9* pDev;
-static uint32_t dword_AB0FA0;
-uint32_t* TheGameFlowManagerStatus_A99BBC = (uint32_t*)0x00A99BBC;
-bool(__thiscall* View_AmIinATunnel)(void* View, int viewnum) = (bool(__thiscall*)(void*, int))0x007365E0;
+uint32_t* TheGameFlowManagerStatus = (uint32_t*)0x00925E90;
+bool(__cdecl* View_AmIinATunnel)(void* View, int viewnum) = (bool(__cdecl*)(void*, int))0x0073CFE0;
 
 struct bVector2
 {
@@ -136,7 +135,7 @@ public:
 
 void __stdcall OnScreenRain_Update_Hook(void* View)
 {
-    if ((*TheGameFlowManagerStatus_A99BBC == 6))
+    if ((*TheGameFlowManagerStatus == 6))
     {
         Camera* cam = *(Camera**)(((int)View) + 0x40);
 
@@ -155,27 +154,29 @@ void __stdcall OnScreenRain_Update_Hook(void* View)
         WaterDrops::right.y = -LeftVector.y;
         WaterDrops::right.z = -LeftVector.z;
 
-        WaterDrops::at.x = (*cam).CurrentKey.RotNoise2Value.x;
-        WaterDrops::at.y = (*cam).CurrentKey.RotNoise2Value.y;
-        WaterDrops::at.z = (*cam).CurrentKey.RotNoise2Value.z;
+        WaterDrops::at.x = (*cam).CurrentKey.Direction.x;
+        WaterDrops::at.y = (*cam).CurrentKey.Direction.y;
+        WaterDrops::at.z = (*cam).CurrentKey.Direction.z;
 
-        WaterDrops::pos.x = (*cam).CurrentKey.PosNoise2Value.x;
-        WaterDrops::pos.y = (*cam).CurrentKey.PosNoise2Value.y;
-        WaterDrops::pos.z = (*cam).CurrentKey.PosNoise2Value.z;
+        WaterDrops::pos.x = (*cam).CurrentKey.Position.x;
+        WaterDrops::pos.y = (*cam).CurrentKey.Position.y;
+        WaterDrops::pos.z = (*cam).CurrentKey.Position.z;
 
         WaterDrops::Process(*pDev);
         WaterDrops::ms_rainIntensity = 0.0f;
     }
 }
 
-injector::hook_back<bool(__cdecl*)(int EVIEW_ID)> hb_RVMVisible;
-bool __cdecl FEngHud_ShouldRearViewMirrorBeVisible(int EVIEW_ID)
+injector::hook_back<void(__cdecl*)(int unk1, int unk2)> hb_PreRVM;
+void __cdecl PreRVMHook(int unk1, int unk2)
 {
-    if ((*TheGameFlowManagerStatus_A99BBC == 6))
+
+    if ((*TheGameFlowManagerStatus == 6))
     {
         WaterDrops::Render(*pDev);
     }
-    return hb_RVMVisible.fun(EVIEW_ID);
+
+    return hb_PreRVM.fun(unk1, unk2);
 }
 
 void Init()
@@ -237,24 +238,29 @@ void Init()
         }
     }; injector::MakeInline<ResetHook>(pattern.get_first(0));
 
-    static auto dword_9196B8 = *hook::get_pattern<uint32_t**>("8B 15 ? ? ? ? D9 82 A0 36 00 00", 2);
-    static auto dword_982D80 = *hook::get_pattern<uint32_t>("B1 01 C7 05 ? ? ? ? ? ? ? ? C7 05 ? ? ? ? ? ? ? ? 88 0D ? ? ? ? A3", 8);
-    pattern = hook::pattern("C7 05 ? ? ? ? ? ? ? ? 5E 81 C4 8C 00 00 00 C3");
-    static auto dword_982C80 = *pattern.get_first<uint32_t*>(2);
-    struct RainDropletsHook
+    pattern = hook::pattern("D9 9E F0 33 00 00");
+    struct RainIntensityHook
     {
         void operator()(injector::reg_pack& regs)
         {
-            *dword_982C80 = 0;
-            WaterDrops::ms_rainIntensity = float(**dword_9196B8 / 20);
-            WaterDrops::right = *(RwV3d*)(dword_982D80 + 0x00);
-            WaterDrops::up = *(RwV3d*)(dword_982D80 + 0x10);
-            WaterDrops::at = *(RwV3d*)(dword_982D80 + 0x20);
-            WaterDrops::pos = *(RwV3d*)(dword_982D80 + 0x60);
-            WaterDrops::Process(*pDev);
-            WaterDrops::Render(*pDev);
+            float f = 0.0f;
+            _asm {fstp dword ptr[f]}
+            *(float*)(regs.esi + 0x33F0) = f;
+
+            if (View_AmIinATunnel(*(void**)(regs.esi + 0x288), 1))
+                WaterDrops::ms_rainIntensity = 0.0f;
+            else
+                WaterDrops::ms_rainIntensity = *(float*)(regs.esi + 0x28C);
         }
-    }; injector::MakeInline<RainDropletsHook>(pattern.get_first(0), pattern.get_first(10));
+    }; injector::MakeInline<RainIntensityHook>(pattern.get_first(0), pattern.get_first(6)); //0x73CCDB
+
+    //pattern = hook::pattern("C7 44 24 70 00 00 E1 43 C7 44 24 74 00 00 98 41 C7 84 24 80 00 00 00 00 00 3E 43"); // 0x6E70C0
+    hb_PreRVM.fun = injector::MakeCALL(0x006E7094, PreRVMHook, true).get();
+
+    //OnScreenRain::Update(View*)
+    pattern = hook::pattern("55 8B EC 83 E4 F0 83 EC 24 A1 ? ? ? ? 53 56"); // 0x0073CDB0
+    injector::MakeJMP(pattern.get_first(0), OnScreenRain_Update_Hook);
+    TheGameFlowManagerStatus = *pattern.count(1).get(0).get<uint32_t*>(0x68);
 #endif
 
     //hiding original droplets
@@ -263,13 +269,13 @@ void Init()
     pattern = hook::pattern("8B 0D ? ? ? ? 8B 01 33 FF 85 C0");
     injector::WriteMemory(pattern.get_first(2), &pDrops, true);
 
-    //disabling rain check so new droplets can fade out
-    pattern = hook::pattern("A1 ? ? ? ? 8B 08 81 EC ? ? ? ? 85 C9 0F 84");
-    injector::MakeNOP(pattern.get_first(15), 6, true);
-
     //Sim::Internal::mLastFrameTime
     pattern = hook::pattern("D9 1D ? ? ? ? E8 ? ? ? ? 53 E8 ? ? ? ? D8 05 ? ? ? ? A1 ? ? ? ? 83 C4 04");
     WaterDrops::fTimeStep = *pattern.get_first<float*>(2);
+
+    //View::AmIinATunnel(int viewnum)
+    pattern = hook::pattern("8B 44 24 04 8B 40 68 85 C0 74 1C 8B 4C 24"); //0x0073CFE0
+    View_AmIinATunnel = (bool(__cdecl*)(void*, int))pattern.get_first(0);
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()
