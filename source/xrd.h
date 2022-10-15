@@ -33,6 +33,9 @@
 #include "Hooking.Patterns.h"
 #include "ModuleList.hpp"
 
+#define IDR_DROPMASK 100
+#define IDR_SNOWDROPMASK 101
+
 #ifndef MACRO_START
 #define MACRO_START do
 #endif /* MACRO_START */
@@ -117,6 +120,7 @@ class WaterDrop
 {
 public:
     float x, y, time;
+    int uv_index;
     float size, uvsize, ttl;
     uint8_t r;
     uint8_t g;
@@ -195,6 +199,13 @@ public:
     static inline void(*ProcessCallback1)();
     static inline void(*ProcessCallback2)();
 
+    static inline int GetRandomInt(int range)
+    {
+        static std::random_device rd;
+        static std::mt19937 gen(rd());
+        std::uniform_int_distribution<> dis(0, range);
+        return dis(gen);
+    }
     static inline float GetRandomFloat(float range)
     {
         static std::random_device rd;
@@ -380,6 +391,7 @@ public:
         drop->x = x;
         drop->y = y;
         drop->size = size;
+        drop->uv_index = ms_atlasUsed ? GetRandomInt(3) : 4; //sizeof(uv) - 2 || uv[last]
         drop->uvsize = (SC(MAXSIZE) - size + 1.0f) / (SC(MAXSIZE) - SC(MINSIZE) + 1.0f);
         drop->fades = fades;
         drop->active = 1;
@@ -522,6 +534,7 @@ public:
     static inline VertexTex2* ms_vertPtr;
     static inline int32_t ms_numBatchedDrops;
     static inline int32_t ms_initialised;
+    static inline bool ms_atlasUsed = true;
 
 #ifdef DX8
     static inline void InitialiseRender(LPDIRECT3DDEVICE8 pDevice)
@@ -575,36 +588,66 @@ public:
         ms_fbHeight = d3dsDesc.Height;
         ms_scaling = ms_fbHeight / 480.0f;
 
-        static constexpr auto MaskSize = 128;
-        D3DXCreateTexture(pDevice, MaskSize, MaskSize, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &ms_maskTex);
-        D3DLOCKED_RECT LockedRect;
-        ms_maskTex->LockRect(0, &LockedRect, NULL, 0);
-        uint8_t* pixels = (uint8_t*)LockedRect.pBits;
-        int32_t stride = LockedRect.Pitch;
-        for (int y = 0; y < MaskSize; y++) 
-        {
-            float yf = ((y + 0.5f) / MaskSize - 0.5f) * 2.0f;
-            for (int x = 0; x < MaskSize; x++) 
-            {
-                float xf = ((x + 0.5f) / MaskSize - 0.5f) * 2.0f;
-                memset(&pixels[y * stride + x * 4], xf * xf + yf * yf < 1.0f ? 0xFF : 0x00, 4);
+        HRESULT res = NULL;
+        HMODULE hm = NULL;
+        GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)&InitialiseRender, &hm);
+#ifndef SNOWDROPS
+        res = D3DXCreateTextureFromResource(pDevice, hm, MAKEINTRESOURCE(IDR_DROPMASK), &ms_maskTex);
+#else
+        //res = D3DXCreateTextureFromResource(pDevice, hm, MAKEINTRESOURCE(IDR_SNOWDROPMASK), &ms_maskTex);
+        HRSRC hResource = FindResource(hm, MAKEINTRESOURCE(IDR_SNOWDROPMASK), RT_RCDATA);
+        if (hResource) {
+            HGLOBAL hLoadedResource = LoadResource(hm, hResource);
+            if (hLoadedResource) {
+                LPVOID pLockedResource = LockResource(hLoadedResource);
+                if (pLockedResource) {
+                    size_t dwResourceSize = SizeofResource(hm, hResource);
+                    if (dwResourceSize) {
+                        res = D3DXCreateTextureFromFileInMemory(pDevice, pLockedResource, dwResourceSize, &ms_maskTex);
+                    }
+                }
+                FreeResource(hLoadedResource);
             }
         }
-        ms_maskTex->UnlockRect(0);
+#endif
+        if (FAILED(res) || ms_maskTex == nullptr)
+        {
+            static constexpr auto MaskSize = 128;
+            D3DXCreateTexture(pDevice, MaskSize, MaskSize, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &ms_maskTex);
+            D3DLOCKED_RECT LockedRect;
+            ms_maskTex->LockRect(0, &LockedRect, NULL, 0);
+            uint8_t* pixels = (uint8_t*)LockedRect.pBits;
+            int32_t stride = LockedRect.Pitch;
+            for (int y = 0; y < MaskSize; y++)
+            {
+                float yf = ((y + 0.5f) / MaskSize - 0.5f) * 2.0f;
+                for (int x = 0; x < MaskSize; x++)
+                {
+                    float xf = ((x + 0.5f) / MaskSize - 0.5f) * 2.0f;
+                    memset(&pixels[y * stride + x * 4], xf * xf + yf * yf < 1.0f ? 0xFF : 0x00, 4);
+                }
+            }
+            ms_maskTex->UnlockRect(0);
+            ms_atlasUsed = false;
+        }
         
         ms_initialised = 1;
     }
 
     static inline void AddToRenderList(WaterDrop *drop)
     {
+        static float uv[5][8] = {
+            { 0.0f, 0.0f, 0.0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.0f },
+            { 0.0f, 0.5f, 0.0f, 1.0f, 0.5f, 1.0f, 0.5f, 0.5f },
+            { 0.5f, 0.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 0.5f },
+            { 0.5f, 0.0f, 0.5f, 0.5f, 1.0f, 0.5f, 1.0f, 0.0f },
+            { 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f }
+        };
         static float xy[] = {
             -1.0f, -1.0f, -1.0f,  1.0f,
             1.0f,  1.0f,  1.0f, -1.0f
         };
-        static float uv[] = {
-            0.0f, 0.0f, 0.0f, 1.0f,
-            1.0f, 1.0f, 1.0f, 0.0f
-        };
+
         int i;
         float scale;
 
@@ -630,8 +673,8 @@ public:
             ms_vertPtr->z = 0.0f;
             ms_vertPtr->rhw = 1.0f;
             ms_vertPtr->emissiveColor = D3DCOLOR_ARGB(drop->alpha, drop->r, drop->g, drop->b);
-            ms_vertPtr->u0 = uv[i * 2];
-            ms_vertPtr->v0 = uv[i * 2 + 1];
+            ms_vertPtr->u0 = uv[drop->uv_index][i * 2];
+            ms_vertPtr->v0 = uv[drop->uv_index][i * 2 + 1];
             ms_vertPtr->u1 = i >= 2 ? u1_2 : u1_1;
             ms_vertPtr->v1 = i % 3 == 0 ? v1_2 : v1_1;
             ms_vertPtr++;
@@ -687,7 +730,11 @@ public:
         pDevice->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_DIFFUSE);
         pDevice->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_TEXTURE);
         pDevice->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_MODULATE);
+#ifndef SNOWDROPS
         pDevice->SetTextureStageState(1, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+#else
+        pDevice->SetTextureStageState(1, D3DTSS_COLORARG1, D3DTA_TEXTURE | D3DTA_COMPLEMENT);
+#endif
         pDevice->SetTextureStageState(1, D3DTSS_COLORARG2, D3DTA_CURRENT);
         pDevice->SetTextureStageState(1, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
         pDevice->SetTextureStageState(1, D3DTSS_ALPHAARG1, D3DTA_CURRENT);
