@@ -1,0 +1,5 @@
+#define IDR_DROPMASK 100
+#define IDR_SNOWDROPMASK 101
+
+IDR_DROPMASK RCDATA "dropmask.png"
+IDR_SNOWDROPMASK RCDATA "snowdropmask.png"
