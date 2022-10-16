@@ -8,9 +8,7 @@ uint32_t* TheGameFlowManagerStatus = (uint32_t*)0x008654A4;
 bool Rain_AmIinATunnel(void* Rain)
 {
     int check = *(int*)(((int)Rain) + 0x4D04);
-    if (check)
-        return false;
-    return true;
+    return check == 0;
 }
 
 struct bVector2
