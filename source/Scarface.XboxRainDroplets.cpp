@@ -103,6 +103,15 @@ void RegisterFountains()
     WaterDrops::RegisterGlobalEmitter({ -709.60955f, 1073.850464f, 3.213392f });
     WaterDrops::RegisterGlobalEmitter({ -703.86084f, 1070.046387f, 3.213392f });
     WaterDrops::RegisterGlobalEmitter({ -704.28790f, 1075.350830f, 3.213392f });
+    WaterDrops::RegisterGlobalEmitter({ 18.097f, -11997.636f, 35.251f });
+    WaterDrops::RegisterGlobalEmitter({ 13.897f, -11997.556f, 34.302f });
+    WaterDrops::RegisterGlobalEmitter({ 9.574f, -11997.233f, 33.858f  });
+    WaterDrops::RegisterGlobalEmitter({ 5.831f, -11997.465f, 33.234f  });
+    WaterDrops::RegisterGlobalEmitter({ 2.057f, -11997.495f, 32.484f  });
+    WaterDrops::RegisterGlobalEmitter({ 1.284f, -12002.519f, 32.642f  });
+    WaterDrops::RegisterGlobalEmitter({ 9.236f, -12002.665f, 33.688f  });
+    WaterDrops::RegisterGlobalEmitter({ 13.370f, -12002.439f, 34.186f });
+    WaterDrops::RegisterGlobalEmitter({ 17.981f, -12002.531f, 34.875f  });
 }
 
 void Init()
