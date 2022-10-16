@@ -72,11 +72,46 @@ void sub_654B20()
     return hb_sub_654B20.fun();
 }
 
+void RegisterFountains()
+{
+    WaterDrops::RegisterGlobalEmitter({ -743.908f, -1796.660f, 7.921f });
+    WaterDrops::RegisterGlobalEmitter({ -455.362f, -1509.833f, 6.988f });
+    WaterDrops::RegisterGlobalEmitter({ -38.574f, -1837.737f, 6.561f });
+    WaterDrops::RegisterGlobalEmitter({ 357.853f, -1417.937f, 8.292f });
+    WaterDrops::RegisterGlobalEmitter({ 238.592f, -1381.341f, 3.553f });
+    WaterDrops::RegisterGlobalEmitter({ -776.338f, 1167.000f, 8.662f });
+    WaterDrops::RegisterGlobalEmitter({ -83.510f, 1269.453f, 11.266f });
+    WaterDrops::RegisterGlobalEmitter({ -74.844f, 1269.331f, 10.962f });
+    WaterDrops::RegisterGlobalEmitter({ -66.922f, 1269.524f, 11.738f });
+    WaterDrops::RegisterGlobalEmitter({ -66.753f, 1281.050f, 11.120f });
+    WaterDrops::RegisterGlobalEmitter({ -74.705f, 1281.091f, 11.040f });
+    WaterDrops::RegisterGlobalEmitter({ -83.039f, 1281.037f, 11.057f });
+    WaterDrops::RegisterGlobalEmitter({ -1729.224f, -2176.411f, 13.328f });
+    WaterDrops::RegisterGlobalEmitter({ -1740.977f, -2110.513f, 9.240f });
+    WaterDrops::RegisterGlobalEmitter({ -1065.503f, -1740.417f, 5.278f });
+    WaterDrops::RegisterGlobalEmitter({ -1062.239f, -1746.649f, 5.278f });
+    WaterDrops::RegisterGlobalEmitter({ -1073.977f, -1752.641f, 5.278f });
+    WaterDrops::RegisterGlobalEmitter({ -1077.071f, -1746.327f, 5.278f });
+    WaterDrops::RegisterGlobalEmitter({ -1815.826f, 429.235f, 2.976f });
+    WaterDrops::RegisterGlobalEmitter({ -1818.582f, 415.908f, 2.976f });
+    WaterDrops::RegisterGlobalEmitter({ -1821.392f, 423.498f, 2.976f });
+    WaterDrops::RegisterGlobalEmitter({ -703.54278f, 1088.885376f, 3.213393f });
+    WaterDrops::RegisterGlobalEmitter({ -697.76715f, 1084.932617f, 3.213393f });
+    WaterDrops::RegisterGlobalEmitter({ -697.29345f, 1079.573975f, 3.213393f });
+    WaterDrops::RegisterGlobalEmitter({ -703.06695f, 1083.592651f, 3.213393f });
+    WaterDrops::RegisterGlobalEmitter({ -710.14062f, 1079.313721f, 3.213392f });
+    WaterDrops::RegisterGlobalEmitter({ -709.60955f, 1073.850464f, 3.213392f });
+    WaterDrops::RegisterGlobalEmitter({ -703.86084f, 1070.046387f, 3.213392f });
+    WaterDrops::RegisterGlobalEmitter({ -704.28790f, 1075.350830f, 3.213392f });
+}
+
 void Init()
 {
     CIniReader iniReader("");
     WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) != 0;
     WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
+
+    RegisterFountains();
     
     dw825A78 = *hook::get_pattern<uintptr_t>("A1 ? ? ? ? 85 C0 74 50", 1);
     dw573200 = (uintptr_t)hook::get_pattern("8B 81 ? ? ? ? 85 C0 74 14 8B 80 ? ? ? ? 85 C0 74 0A 50 E8 ? ? ? ? 83 C4 04 C3 32 C0", 0);
@@ -105,6 +140,7 @@ void Init()
                     WaterDrops::ms_rainIntensity = (float)*(uint8_t*)((*(uintptr_t*)(**(uintptr_t**)dword_8111D0 + 0x1C)) + 0x44);
                 else
                     WaterDrops::ms_rainIntensity = 0.0f;
+                
                 WaterDrops::Process(*pDev);
                 WaterDrops::Render(*pDev);
             }
