@@ -4,6 +4,7 @@
 
 static LPDIRECT3DDEVICE9* pDev;
 uint32_t* TheGameFlowManagerStatus = (uint32_t*)0x008654A4;
+bool bSpecialZones = true;
 
 bool Rain_AmIinATunnel(void* Rain)
 {
@@ -138,12 +139,45 @@ public:
     }
 };
 
+// near the fountain in City Core / South Market next to casinos, 4 points covering a square around it
+bMatrix4 CasinoSplashZone = 
+{
+    -352.73, -572.26, 0.0, 0.0, // top left
+    -345.18, -520.17, 0.0, 0.0, // top right
+    -304.03, -523.80, 0.0, 0.0, // bot right
+    -304.75, -574.04, 0.0, 0.0  // bot left
+};
+
+bVector3* gCameraPos;
+
+bool bCameraInSplashZone(bVector3* pos, bMatrix4* zone)
+{
+    if (!bSpecialZones)
+        return false;
+
+    if (((*pos).x > (*zone).v0.x) &&  // top left
+        ((*pos).x > (*zone).v1.x) &&  // top right
+        ((*pos).x < (*zone).v2.x) &&  // bot right
+        ((*pos).x < (*zone).v3.x) &&  // bot left
+
+        ((*pos).y > (*zone).v0.y) &&  // top left
+        ((*pos).y > (*zone).v3.y) &&  // bot left
+        ((*pos).y < (*zone).v1.y) &&  // top right
+        ((*pos).y < (*zone).v2.y)     // bot right
+        )
+        return true;
+
+    return false;
+}
+
 void __stdcall OnScreenRain_Update_Hook(void* View)
 {
     Camera* cam = *(Camera**)(((int)View) + 0x40);
     
     if (WaterDrops::fTimeStep && !*WaterDrops::fTimeStep && (WaterDrops::ms_numDrops || WaterDrops::ms_numDropsMoving))
         WaterDrops::Clear();
+
+    gCameraPos = &(*cam).CurrentKey.Position;
     
     cam->GetUpVec();
     
@@ -186,6 +220,7 @@ void Init()
     CIniReader iniReader("");
     WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) == 0;
     WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
+    bSpecialZones = iniReader.ReadInteger("MAIN", "SpecialZones", 1) != 0;
     
     auto pattern = hook::pattern("A1 ? ? ? ? 8B 10 68 ? ? ? ? 50 FF 52 40");
     pDev = *pattern.get_first<LPDIRECT3DDEVICE9*>(1);
@@ -211,6 +246,10 @@ void Init()
                 WaterDrops::ms_rainIntensity = 0.0f;
             else
                 WaterDrops::ms_rainIntensity = *(float*)(regs.esi + 0x1F0);
+
+            if (bCameraInSplashZone(gCameraPos, &CasinoSplashZone))
+                WaterDrops::ms_rainIntensity += 0.5f; 
+
         }
     }; injector::MakeInline<RainIntensityHook>(pattern.get_first(0), pattern.get_first(6)); //0x00613A23
 
