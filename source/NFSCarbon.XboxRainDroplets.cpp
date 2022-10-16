@@ -180,7 +180,7 @@ bool __cdecl FEngHud_ShouldRearViewMirrorBeVisible(int EVIEW_ID)
 void Init()
 {
     CIniReader iniReader("");
-    WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) == 0;
+    WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 1) == 0;
     WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
 
 #ifdef USE_D3D_HOOK

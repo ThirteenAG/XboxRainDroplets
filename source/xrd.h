@@ -188,6 +188,8 @@ public:
     static inline RwV3d at;
     static inline RwV3d pos;
 
+    static inline std::vector<std::pair<RwV3d, float>> ms_sprayLocations;
+    
     static inline uint32_t* pEndScene = nullptr;
     static inline uint32_t* pReset = nullptr;
     static inline CreateDevice_t RealD3D9CreateDevice = NULL;
@@ -248,12 +250,27 @@ public:
         }
         if (!ms_initialised)
             InitialiseRender(pDevice);
+        ProcessGlobalEmitters();
         CalculateMovement();
         SprayDrops();
         ProcessMoving();
         Fade();
     }
 
+    static inline void RegisterGlobalEmitter(RwV3d pos, float radius = 1.0f)
+    {
+        ms_sprayLocations.emplace_back(pos, radius);
+    }
+    static inline void ProcessGlobalEmitters()
+    {
+        for (auto& it: ms_sprayLocations)
+        {
+            RwV3d dist;
+            RwV3dSub(&dist, &it.first, &WaterDrops::pos);
+            if (RwV3dDotProduct(&dist, &dist) <= 40.0f)
+                WaterDrops::FillScreenMoving(it.second);
+        }
+    }
     static inline void CalculateMovement()
     {
         RwV3dSub(&ms_posDelta, &pos, &ms_lastPos);

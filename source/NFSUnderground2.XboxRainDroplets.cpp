@@ -206,7 +206,6 @@ void __stdcall OnScreenRain_Update_Hook(void* View)
 injector::hook_back<void(__cdecl*)(int unk1)> hb_PreRVM;
 void __cdecl PreRVMHook(int unk1)
 {
-
     if ((*TheGameFlowManagerStatus == 6))
     {
         WaterDrops::Render(*pDev);
@@ -218,7 +217,7 @@ void __cdecl PreRVMHook(int unk1)
 void Init()
 {
     CIniReader iniReader("");
-    WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) == 0;
+    WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 1) == 0;
     WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
     bSpecialZones = iniReader.ReadInteger("MAIN", "SpecialZones", 1) != 0;
     
