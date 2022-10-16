@@ -112,7 +112,7 @@ void RegisterFountains()
     WaterDrops::RegisterGlobalEmitter({ 9.236f, -12002.665f, 33.688f  });
     WaterDrops::RegisterGlobalEmitter({ 13.370f, -12002.439f, 34.186f });
     WaterDrops::RegisterGlobalEmitter({ 17.981f, -12002.531f 34.875f  });
-
+}
 
 void Init()
 {
