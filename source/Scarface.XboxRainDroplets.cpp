@@ -72,6 +72,19 @@ void sub_654B20()
     return hb_sub_654B20.fun();
 }
 
+injector::hook_back<void(__cdecl*)(int mSoundPlayerHandle, int sndName, void* vehicleTransform, int Vector, int vehicleVelocity, int a6)> hb_CarSoundPlayerRequestImpactLayer;
+void __cdecl CarSoundPlayerRequestImpactLayer(int mSoundPlayerHandle, int sndName, void* vehicleTransform, int Vector, int vehicleVelocity, int a6)
+{
+    //RwV3d vec = *(RwV3d*)vehicleTransform;
+    //RwV3d prt_pos = { vec.z, vec.x, vec.y };
+    //RwV3d dist;
+    //RwV3dSub(&dist, &prt_pos, &WaterDrops::pos);
+    //auto x = RwV3dDotProduct(&dist, &dist);
+    //if (RwV3dDotProduct(&dist, &dist) <= 60.0f)
+    WaterDrops::FillScreenMoving(50.0f);
+    return hb_CarSoundPlayerRequestImpactLayer.fun(mSoundPlayerHandle, sndName, vehicleTransform, Vector, vehicleVelocity, a6);
+}
+
 void RegisterFountains()
 {
     WaterDrops::RegisterGlobalEmitter({ -743.908f, -1796.660f, 7.921f });
@@ -203,6 +216,11 @@ void Init()
 
     pattern = hook::pattern("E8 ? ? ? ? 83 C4 04 50 E8 ? ? ? ? 83 C4 10 E8 ? ? ? ? C6 46 08 00 89 7E 04");
     hb_PlaySharkNIS.fun = injector::MakeCALL(pattern.get_first(0), PlaySharkNIS, true).get();
+    
+    {
+        pattern = hook::pattern("E8 ? ? ? ? 83 C4 18 5F 5E 83 C4 7C C3");
+        hb_CarSoundPlayerRequestImpactLayer.fun = injector::MakeCALL(pattern.get_first(0), CarSoundPlayerRequestImpactLayer, true).get();
+    }
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()
