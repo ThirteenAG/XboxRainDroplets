@@ -5,6 +5,8 @@ copy ".\source\resources\default.ini" ".\bin\NFSMostWanted.XboxRainDroplets.ini"
 copy ".\source\resources\default.ini" ".\bin\NFSUnderground2.XboxRainDroplets.ini"
 copy ".\source\resources\default.ini" ".\bin\Scarface.XboxRainDroplets.ini"
 copy ".\source\resources\default.ini" ".\bin\Manhunt.XboxRainDroplets.ini"
+copy ".\source\resources\default.ini" ".\bin\MaxPayne.XboxRainDroplets.ini"
+copy ".\source\resources\default.ini" ".\bin\MaxPayne2.XboxRainDroplets.ini"
 
 7za a -tzip ".\bin\GTAIV.XboxRainDroplets.zip" ".\bin\GTAIV.XboxRainDroplets.asi" ".\bin\GTAIV.XboxRainDroplets.ini"
 7za a -tzip ".\bin\Mafia.XboxRainDroplets.zip" ".\bin\Mafia.XboxRainDroplets.asi" ".\bin\Mafia.XboxRainDroplets.ini"
@@ -13,6 +15,8 @@ copy ".\source\resources\default.ini" ".\bin\Manhunt.XboxRainDroplets.ini"
 7za a -tzip ".\bin\NFSUnderground2.XboxRainDroplets.zip" ".\bin\NFSUnderground2.XboxRainDroplets.asi" ".\bin\NFSUnderground2.XboxRainDroplets.ini"
 7za a -tzip ".\bin\Scarface.XboxRainDroplets.zip" ".\bin\Scarface.XboxRainDroplets.asi" ".\bin\Scarface.XboxRainDroplets.ini"
 7za a -tzip ".\bin\Manhunt.XboxRainDroplets.zip" ".\bin\Manhunt.XboxRainDroplets.asi" ".\bin\Manhunt.XboxRainDroplets.ini"
+7za a -tzip ".\bin\MaxPayne.XboxRainDroplets.zip" ".\bin\MaxPayne.XboxRainDroplets.asi" ".\bin\MaxPayne.XboxRainDroplets.ini"
+7za a -tzip ".\bin\MaxPayne2.XboxRainDroplets.zip" ".\bin\MaxPayne2.XboxRainDroplets.asi" ".\bin\MaxPayne2.XboxRainDroplets.ini"
 EXIT
 
 7-Zip Extra
