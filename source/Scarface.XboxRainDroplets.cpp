@@ -1,4 +1,152 @@
 #include "xrd.h"
+#define ID_BLURPS                            103
+#define IDR_POSTFXVS                         104
+
+class MenuBlur: WaterDrops
+{
+private:
+    static inline int32_t ms_initialised;
+    static inline IDirect3DVertexDeclaration9* ms_quadVertexDecl = nullptr;
+    static inline IDirect3DPixelShader9* ms_blurps = nullptr;
+    static inline IDirect3DVertexShader9* ms_blurvs = nullptr;
+public:
+    static inline void InitialiseRender(LPDIRECT3DDEVICE9 pDevice)
+    {
+        HMODULE hm = NULL;
+        GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)&Render, &hm);
+        auto resource = FindResource(hm, MAKEINTRESOURCE(ID_BLURPS), RT_RCDATA);
+        auto shader = (DWORD*)LoadResource(hm, resource);
+        pDevice->CreatePixelShader(shader, &ms_blurps);
+        FreeResource(shader);
+
+        resource = FindResource(hm, MAKEINTRESOURCE(IDR_POSTFXVS), RT_RCDATA);
+        shader = (DWORD*)LoadResource(hm, resource);
+        pDevice->CreateVertexShader(shader, &ms_blurvs);
+        FreeResource(shader);
+
+        static const D3DVERTEXELEMENT9 vertexElements[] =
+        {
+            { 0, 0, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
+            { 0, 16, D3DDECLTYPE_D3DCOLOR, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 0 },
+            { 0, 20, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
+            { 0, 28, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 1 },
+            D3DDECL_END()
+        };
+        pDevice->CreateVertexDeclaration(vertexElements, &ms_quadVertexDecl);
+        ms_initialised = 1;
+    }
+
+    static inline void Process(LPDIRECT3DDEVICE9 pDevice)
+    {
+        if (!ms_initialised)
+            InitialiseRender(pDevice);
+    }
+
+    static inline void Render(LPDIRECT3DDEVICE9 pDevice)
+    {
+        LPDIRECT3DSTATEBLOCK9 pStateBlock = NULL;
+        pDevice->CreateStateBlock(D3DSBT_ALL, &pStateBlock);
+        pStateBlock->Capture();
+
+        pDevice->StretchRect(ms_bbuf, NULL, ms_surf, NULL, D3DTEXF_LINEAR);
+
+        float rasterWidth = ms_fbWidth;
+        float rasterHeight = ms_fbHeight;
+        float halfU = 0.5f / rasterWidth;
+        float halfV = 0.5f / rasterHeight;
+        float uMax = 1.0f;
+        float vMax = 1.0f;
+        int i = 0;
+
+        float leftOff, rightOff, topOff, bottomOff;
+        float scale = rasterWidth / 640.0f;
+        leftOff = 8.0f * scale / 16.0f / rasterWidth;
+        rightOff = 8.0f * scale / 16.0f / rasterWidth;
+        topOff = 8.0f * scale / 16.0f / rasterHeight;
+        bottomOff = 8.0f * scale / 16.0f / rasterHeight;
+
+        struct QuadVertex
+        {
+            float      x, y, z;
+            float      rhw;
+            uint32_t   emissiveColor;
+            float      u, v;
+            float      u1, v1;
+        };
+
+        static constexpr int16_t quadIndices[12] = { 0, 1, 2, 0, 2, 3, 0, 1, 2, 0, 2, 3 };
+        static QuadVertex quadVertices[4];
+        quadVertices[i].x = 1.0f;
+        quadVertices[i].y = -1.0f;
+        quadVertices[i].z = 0.0f;
+        quadVertices[i].rhw = 1.0f;
+        quadVertices[i].u = uMax + halfU;
+        quadVertices[i].v = vMax + halfV;
+        quadVertices[i].u1 = quadVertices[i].u + rightOff;
+        quadVertices[i].v1 = quadVertices[i].v + bottomOff;
+        i++;
+
+        quadVertices[i].x = -1.0f;
+        quadVertices[i].y = -1.0f;
+        quadVertices[i].z = 0.0f;
+        quadVertices[i].rhw = 1.0f;
+        quadVertices[i].u = 0.0f + halfU;
+        quadVertices[i].v = vMax + halfV;
+        quadVertices[i].u1 = quadVertices[i].u + leftOff;
+        quadVertices[i].v1 = quadVertices[i].v + bottomOff;
+        i++;
+
+        quadVertices[i].x = -1.0f;
+        quadVertices[i].y = 1.0f;
+        quadVertices[i].z = 0.0f;
+        quadVertices[i].rhw = 1.0f;
+        quadVertices[i].u = 0.0f + halfU;
+        quadVertices[i].v = 0.0f + halfV;
+        quadVertices[i].u1 = quadVertices[i].u + leftOff;
+        quadVertices[i].v1 = quadVertices[i].v + topOff;
+        i++;
+
+        quadVertices[i].x = 1.0f;
+        quadVertices[i].y = 1.0f;
+        quadVertices[i].z = 0.0f;
+        quadVertices[i].rhw = 1.0f;
+        quadVertices[i].u = uMax + halfU;
+        quadVertices[i].v = 0.0f + halfV;
+        quadVertices[i].u1 = quadVertices[i].u + rightOff;
+        quadVertices[i].v1 = quadVertices[i].v + topOff;
+
+        pDevice->SetTexture(0, ms_tex);
+        pDevice->SetVertexDeclaration(ms_quadVertexDecl);
+        pDevice->SetVertexShader(ms_blurvs);
+        pDevice->SetPixelShader(ms_blurps);
+
+        pDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, 0);
+        pDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+        pDevice->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 6, 2, quadIndices, D3DFMT_INDEX16, quadVertices, sizeof(QuadVertex));
+        pDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, 1);
+
+        pDevice->SetVertexShader(NULL);
+        pDevice->SetPixelShader(NULL);
+
+        pStateBlock->Apply();
+        pStateBlock->Release();
+    }
+
+    static inline void Reset()
+    {
+        auto SafeRelease = [](auto ppT) {
+            if (*ppT)
+            {
+                (*ppT)->Release();
+                *ppT = NULL;
+            }
+        };
+        SafeRelease(&ms_blurps);
+        SafeRelease(&ms_blurvs);
+        SafeRelease(&ms_quadVertexDecl);
+        ms_initialised = 0;
+    }
+};
 
 class Vector
 {
@@ -69,6 +217,7 @@ injector::hook_back<void(*)()> hb_sub_654B20;
 void sub_654B20()
 {
     WaterDrops::Reset();
+    MenuBlur::Reset();
     return hb_sub_654B20.fun();
 }
 
@@ -174,6 +323,7 @@ void Init()
         }
     }; injector::MakeInline<PresentHook>(pattern.get_first(0), pattern.get_first(7));
 
+    static auto nMenuCheck = (bool(*)())injector::GetBranchDestination(hook::get_pattern("E8 ? ? ? ? 84 C0 75 A4")).as_int();
     pattern = hook::pattern("A1 ? ? ? ? 53 55 56 57 8B E9 8B 48 1C 6A 01");
     static auto dword_8111D0 = pattern.get_first(1);
     pattern = hook::pattern("E8 ? ? ? ? 8B 87 ? ? ? ? 83 C4 04");
@@ -188,8 +338,15 @@ void Init()
                 else
                     WaterDrops::ms_rainIntensity = 0.0f;
                 
-                WaterDrops::Process(*pDev);
+                if (!WaterDrops::ms_initialised || !nMenuCheck())
+                    WaterDrops::Process(*pDev);
                 WaterDrops::Render(*pDev);
+
+                if (nMenuCheck())
+                {
+                    MenuBlur::Process(*pDev);
+                    MenuBlur::Render(*pDev);
+                }
             }
         }
     }; injector::MakeInline<DrawHook>(pattern.get_first(0)); //0x651383
@@ -202,6 +359,7 @@ void Init()
             regs.eax = *(uint32_t*)(regs.esi + 0x10);
             regs.ecx = *(uint32_t*)(regs.eax);
             WaterDrops::Reset();
+            MenuBlur::Reset();
         }
     }; injector::MakeInline<ResetHook>(pattern.get_first(0));
 
@@ -291,7 +449,6 @@ void Init()
     }; injector::MakeInline<ActiveBoatObjectUpdatePreSimHook>(pattern.get_first(0), pattern.get_first(7));
     injector::WriteMemory<uint8_t>(pattern.get_first(5), 0x56, true); //push esi
     injector::WriteMemory<uint8_t>(pattern.get_first(6), 0x57, true); //push edi
-    
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()
