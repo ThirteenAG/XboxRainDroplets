@@ -35,6 +35,8 @@
 
 #define IDR_DROPMASK 100
 #define IDR_SNOWDROPMASK 101
+#define ID_BLURPS 103
+#define IDR_BLURVS 104
 
 #ifndef MACRO_START
 #define MACRO_START do
