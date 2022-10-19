@@ -176,6 +176,7 @@ public:
     static inline int32_t ms_splashDuration;
     static inline RwV3d   ms_splashPoint;
     static inline float   ms_splashDistance;
+    static inline float   ms_splashRemovalDistance;
 
     static inline bool sprayWater = false;
     static inline bool sprayBlood = false;
@@ -324,6 +325,8 @@ public:
                 f = sqrt(f);
                 if (f <= ms_splashDistance)
                     FillScreenMoving(1.0f);
+                else if (ms_splashRemovalDistance > 0.0f && f >= ms_splashRemovalDistance)
+                    ms_splashDuration = -1;
             }
             ms_splashDuration--;
         }
@@ -513,10 +516,11 @@ public:
         ms_initialised = 0;
     }
 
-    static inline void RegisterSplash(RwV3d* point, float distance = 20.0f, int32_t duration = 14)
+    static inline void RegisterSplash(RwV3d* point, float distance = 20.0f, int32_t duration = 14, float removaldistance = 0.0f)
     {
         ms_splashPoint = *point;
         ms_splashDistance = distance;
+        ms_splashRemovalDistance = removaldistance;
         ms_splashDuration = duration;
     }
 
