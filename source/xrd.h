@@ -143,11 +143,8 @@ public:
 class WaterDrops
 {
 public:
-    enum {
-        MAXDROPS = 2000,
-        MAXDROPSMOVING = 500
-    };
-
+    static inline auto MAXDROPS = 2000;
+    static inline auto MAXDROPSMOVING = 500;
     static inline constexpr float gravity = 9.807f;
     static inline constexpr float gdivmin = 100.0f;
     static inline constexpr float gdivmax = 30.0f;
@@ -158,9 +155,9 @@ public:
 #define SC(x) ((int32_t)((x)*ms_scaling))
     static inline float ms_xOff;
     static inline float ms_yOff;
-    static inline WaterDrop ms_drops[MAXDROPS];
+    static inline std::vector<WaterDrop> ms_drops;
+    static inline std::vector<WaterDropMoving> ms_dropsMoving;
     static inline int32_t ms_numDrops;
-    static inline WaterDropMoving ms_dropsMoving[MAXDROPSMOVING];
     static inline int32_t ms_numDropsMoving;
 
     static inline bool ms_enabled;
@@ -320,7 +317,7 @@ public:
         if (sprayBlood)
             FillScreenMoving(0.5f, true);
         if (ms_splashDuration >= 0) {
-            if (ms_numDrops < MAXDROPS) {
+            if (ms_numDrops < ms_drops.size()) {
                 RwV3d dist;
                 RwV3dSub(&dist, &ms_splashPoint, &ms_lastPos);
                 float f = RwV3dDotProduct(&dist, &dist);
@@ -383,7 +380,7 @@ public:
         WaterDropMoving *moving;
         if (!ms_movingEnabled)
             return;
-        for (moving = ms_dropsMoving; moving < &ms_dropsMoving[MAXDROPSMOVING]; moving++)
+        for (moving = &ms_dropsMoving.front(); moving < &ms_dropsMoving.back(); moving++)
             if (moving->drop)
                 MoveDrop(moving);
     }
@@ -391,7 +388,7 @@ public:
     static inline void Fade()
     {
         WaterDrop *drop;
-        for (drop = &ms_drops[0]; drop < &ms_drops[MAXDROPS]; drop++)
+        for (drop = &ms_drops.front(); drop < &ms_drops.back(); drop++)
             if (drop->active)
                 drop->Fade();
     }
@@ -404,7 +401,7 @@ public:
         if (NoDrops())
             return NULL;
 
-        for (i = 0, drop = ms_drops; i < MAXDROPS; i++, drop++)
+        for (i = 0, drop = &ms_drops.front(); i < ms_drops.size(); i++, drop++)
             if (ms_drops[i].active == 0)
                 goto found;
         return NULL;
@@ -428,7 +425,7 @@ public:
 
     static inline void NewTrace(WaterDropMoving* moving, float ttl)
     {
-        if (ms_numDrops < MAXDROPS) {
+        if (ms_numDrops < ms_drops.size()) {
             moving->dist = 0.0f;
             PlaceNew(moving->drop->x, moving->drop->y, (float)(SC(MINSIZE)), ttl, 1, moving->drop->r, moving->drop->g, moving->drop->b);
         }
@@ -437,7 +434,7 @@ public:
     static inline void NewDropMoving(WaterDrop *drop)
     {
         WaterDropMoving *moving;
-        for (moving = ms_dropsMoving; moving < &ms_dropsMoving[MAXDROPSMOVING]; moving++)
+        for (moving = &ms_dropsMoving.front(); moving < &ms_dropsMoving.back(); moving++)
             if (moving->drop == NULL)
                 goto found;
         return;
@@ -456,7 +453,7 @@ public:
         WaterDrop* drop;
 
         while (n--)
-            if (ms_numDrops < MAXDROPS && ms_numDropsMoving < MAXDROPSMOVING) {
+            if (ms_numDrops < ms_drops.size() && ms_numDropsMoving < ms_dropsMoving.size()) {
                 float x = GetRandomFloat((float)ms_fbWidth);
                 float y = GetRandomFloat((float)ms_fbHeight);
                 float size = GetRandomFloat((float)(SC(MAXSIZE) - SC(MINSIZE)) + SC(MINSIZE));
@@ -478,7 +475,7 @@ public:
             return;
 
         ms_numDrops = 0;
-        for (auto drop = &ms_drops[0]; drop < &ms_drops[MAXDROPS]; drop++) {
+        for (auto drop = &ms_drops.front(); drop < &ms_drops.back(); drop++) {
             drop->active = 0;
             if (drop < &ms_drops[n]) {
                 float x = (float)(rand() % ms_fbWidth);
@@ -491,7 +488,7 @@ public:
 
     static inline void Clear()
     {
-        for (auto drop = &ms_drops[0]; drop < &ms_drops[MAXDROPS]; drop++)
+        for (auto drop = &ms_drops.front(); drop < &ms_drops.back(); drop++)
             drop->active = 0;
         ms_numDrops = 0;
     }
@@ -565,16 +562,19 @@ public:
     static inline void InitialiseRender(LPDIRECT3DDEVICE9 pDevice)
 #endif
     {
+        ms_drops.resize(MAXDROPS);
+        ms_dropsMoving.resize(MAXDROPSMOVING);
+        
 #ifdef DX8
         IDirect3DVertexBuffer8* vbuf;
         IDirect3DIndexBuffer8* ibuf;
-        pDevice->CreateVertexBuffer(MAXDROPS * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf);
-        pDevice->CreateIndexBuffer(MAXDROPS * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf);
+        pDevice->CreateVertexBuffer(ms_drops.size() * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf);
+        pDevice->CreateIndexBuffer(ms_drops.size() * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf);
 #else
         IDirect3DVertexBuffer9* vbuf;
         IDirect3DIndexBuffer9* ibuf;
-        pDevice->CreateVertexBuffer(MAXDROPS * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf, nullptr);
-        pDevice->CreateIndexBuffer(MAXDROPS * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf, nullptr);
+        pDevice->CreateVertexBuffer(ms_drops.size() * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf, nullptr);
+        pDevice->CreateIndexBuffer(ms_drops.size() * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf, nullptr);
 #endif
         ms_vertexBuf = vbuf;
         ms_indexBuf = ibuf;
@@ -584,7 +584,7 @@ public:
 #else
         ibuf->Lock(0, 0, (void**)&idx, 0);
 #endif
-        for (int i = 0; i < MAXDROPS; i++) {
+        for (int i = 0; i < ms_drops.size(); i++) {
             idx[i * 6 + 0] = i * 4 + 0;
             idx[i * 6 + 1] = i * 4 + 1;
             idx[i * 6 + 2] = i * 4 + 2;
@@ -722,7 +722,7 @@ public:
         vbuf->Lock(0, 0, (void**)&ms_vertPtr, 0);
 #endif
         ms_numBatchedDrops = 0;
-        for (WaterDrop *drop = &ms_drops[0]; drop < &ms_drops[MAXDROPS]; drop++)
+        for (WaterDrop *drop = &ms_drops.front(); drop < &ms_drops.back(); drop++)
             if (drop->active)
                 AddToRenderList(drop);
         vbuf->Unlock();
