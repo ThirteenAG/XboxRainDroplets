@@ -316,7 +316,7 @@ void __fastcall PlayShotEffect(void* _this, void* edx, int a2, float* hitPositio
     RwV3dSub(&dist, &prt_pos, &WaterDrops::pos);
     auto len = RwV3dDotProduct(&dist, &dist);
     if (len <= 50.0f)
-        WaterDrops::FillScreenMoving((1.0f / (len / 2.0f)) * 100.0f, true);
+        WaterDrops::FillScreenMoving((1.0f / (len / 2.0f)) * 500.0f, true);
     
     return hb_PlayShotEffect.fun(_this, edx, a2, hitPosition, rayDir, isMainCharacter);
 }
@@ -326,6 +326,8 @@ void Init()
     CIniReader iniReader("");
     WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) != 0;
     WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
+    WaterDrops::MAXDROPS = iniReader.ReadInteger("MAIN", "MaxDrops", 4000);
+    WaterDrops::MAXDROPSMOVING = iniReader.ReadInteger("MAIN", "MaxMovingDrops", 1000);
 
     RegisterFountains();
     
