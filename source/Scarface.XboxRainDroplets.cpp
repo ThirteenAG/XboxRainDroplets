@@ -234,6 +234,7 @@ void __cdecl CarSoundPlayerRequestImpactLayer(int mSoundPlayerHandle, int sndNam
     return hb_CarSoundPlayerRequestImpactLayer.fun(mSoundPlayerHandle, sndName, vehicleTransform, Vector, vehicleVelocity, a6);
 }
 
+bool bPossiblyHydrant = false;
 std::string sLastUsedSound;
 injector::hook_back<void(__cdecl*)(int mSoundPlayerHandle, int sndName, void* vehicleTransform, int Vector, int vehicleVelocity, int a6)> hb_CarSoundPlayerRequestImpactLayer2;
 void __cdecl CarSoundPlayerRequestImpactLayer2(int mSoundPlayerHandle, int sndName, void* vehicleTransform, int Vector, int vehicleVelocity, int a6)
@@ -248,56 +249,64 @@ void __cdecl CarSoundPlayerRequestImpactLayer2(int mSoundPlayerHandle, int sndNa
         if (RwV3dDotProduct(&dist, &dist) <= 100.0f)
             WaterDrops::RegisterSplash(&prt_pos, 10.0f, 3000, 100.0f);
     }
+    bPossiblyHydrant = false;
     sLastUsedSound.clear();
     return hb_CarSoundPlayerRequestImpactLayer2.fun(mSoundPlayerHandle, sndName, vehicleTransform, Vector, vehicleVelocity, a6);
 }
 
 void RegisterFountains()
 {
-    WaterDrops::RegisterGlobalEmitter({ -743.908f, -1796.660f, 7.921f });
-    WaterDrops::RegisterGlobalEmitter({ -455.362f, -1509.833f, 6.988f });
-    WaterDrops::RegisterGlobalEmitter({ -38.574f, -1837.737f, 6.561f });
-    WaterDrops::RegisterGlobalEmitter({ 357.853f, -1417.937f, 8.292f });
-    WaterDrops::RegisterGlobalEmitter({ 238.592f, -1381.341f, 3.553f });
-    WaterDrops::RegisterGlobalEmitter({ -776.338f, 1167.000f, 8.662f });
-    WaterDrops::RegisterGlobalEmitter({ -83.510f, 1269.453f, 11.266f });
-    WaterDrops::RegisterGlobalEmitter({ -74.844f, 1269.331f, 10.962f });
-    WaterDrops::RegisterGlobalEmitter({ -66.922f, 1269.524f, 11.738f });
-    WaterDrops::RegisterGlobalEmitter({ -66.753f, 1281.050f, 11.120f });
-    WaterDrops::RegisterGlobalEmitter({ -74.705f, 1281.091f, 11.040f });
-    WaterDrops::RegisterGlobalEmitter({ -83.039f, 1281.037f, 11.057f });
-    WaterDrops::RegisterGlobalEmitter({ -1729.224f, -2176.411f, 13.328f });
-    WaterDrops::RegisterGlobalEmitter({ -1740.977f, -2110.513f, 9.240f });
-    WaterDrops::RegisterGlobalEmitter({ -1065.503f, -1740.417f, 5.278f });
-    WaterDrops::RegisterGlobalEmitter({ -1062.239f, -1746.649f, 5.278f });
-    WaterDrops::RegisterGlobalEmitter({ -1073.977f, -1752.641f, 5.278f });
-    WaterDrops::RegisterGlobalEmitter({ -1077.071f, -1746.327f, 5.278f });
-    WaterDrops::RegisterGlobalEmitter({ -1815.826f, 429.235f, 2.976f });
-    WaterDrops::RegisterGlobalEmitter({ -1818.582f, 415.908f, 2.976f });
-    WaterDrops::RegisterGlobalEmitter({ -1821.392f, 423.498f, 2.976f });
-    WaterDrops::RegisterGlobalEmitter({ -703.54278f, 1088.885376f, 3.213393f });
-    WaterDrops::RegisterGlobalEmitter({ -697.76715f, 1084.932617f, 3.213393f });
-    WaterDrops::RegisterGlobalEmitter({ -697.29345f, 1079.573975f, 3.213393f });
-    WaterDrops::RegisterGlobalEmitter({ -703.06695f, 1083.592651f, 3.213393f });
-    WaterDrops::RegisterGlobalEmitter({ -710.14062f, 1079.313721f, 3.213392f });
-    WaterDrops::RegisterGlobalEmitter({ -709.60955f, 1073.850464f, 3.213392f });
-    WaterDrops::RegisterGlobalEmitter({ -703.86084f, 1070.046387f, 3.213392f });
-    WaterDrops::RegisterGlobalEmitter({ -704.28790f, 1075.350830f, 3.213392f });
-    WaterDrops::RegisterGlobalEmitter({ 18.097f, -11997.636f, 35.251f });
-    WaterDrops::RegisterGlobalEmitter({ 13.897f, -11997.556f, 34.302f });
-    WaterDrops::RegisterGlobalEmitter({ 9.574f, -11997.233f, 33.858f  });
-    WaterDrops::RegisterGlobalEmitter({ 5.831f, -11997.465f, 33.234f  });
-    WaterDrops::RegisterGlobalEmitter({ 2.057f, -11997.495f, 32.484f  });
-    WaterDrops::RegisterGlobalEmitter({ 1.284f, -12002.519f, 32.642f  });
-    WaterDrops::RegisterGlobalEmitter({ 9.236f, -12002.665f, 33.688f  });
-    WaterDrops::RegisterGlobalEmitter({ 13.370f, -12002.439f, 34.186f });
-    WaterDrops::RegisterGlobalEmitter({ 17.981f, -12002.531f, 34.875f  });
+    WaterDrops::RegisterGlobalEmitter({ -743.90800f, -1796.660000f, 7.921000f });
+    WaterDrops::RegisterGlobalEmitter({ -455.36200f, -1509.833000f, 6.988000f });
+    WaterDrops::RegisterGlobalEmitter({ -38.574000f, -1837.737000f, 6.561000f });
+    WaterDrops::RegisterGlobalEmitter({ 357.853000f, -1417.937000f, 8.292000f });
+    WaterDrops::RegisterGlobalEmitter({ 238.592000f, -1381.341000f, 3.553000f });
+    WaterDrops::RegisterGlobalEmitter({ -776.33800f, 1167.0000000f, 8.662000f });
+    WaterDrops::RegisterGlobalEmitter({ -83.510000f, 1269.4530000f, 11.26600f });
+    WaterDrops::RegisterGlobalEmitter({ -74.844000f, 1269.3310000f, 10.96200f });
+    WaterDrops::RegisterGlobalEmitter({ -66.922000f, 1269.5240000f, 11.73800f });
+    WaterDrops::RegisterGlobalEmitter({ -66.753000f, 1281.0500000f, 11.12000f });
+    WaterDrops::RegisterGlobalEmitter({ -74.705000f, 1281.0910000f, 11.04000f });
+    WaterDrops::RegisterGlobalEmitter({ -83.039000f, 1281.0370000f, 11.05700f });
+    WaterDrops::RegisterGlobalEmitter({ -1729.2240f, -2176.411000f, 13.32800f });
+    WaterDrops::RegisterGlobalEmitter({ -1740.9770f, -2110.513000f, 9.240000f });
+    WaterDrops::RegisterGlobalEmitter({ -1065.5030f, -1740.417000f, 5.278000f });
+    WaterDrops::RegisterGlobalEmitter({ -1062.2390f, -1746.649000f, 5.278000f });
+    WaterDrops::RegisterGlobalEmitter({ -1073.9770f, -1752.641000f, 5.278000f });
+    WaterDrops::RegisterGlobalEmitter({ -1077.0710f, -1746.327000f, 5.278000f });
+    WaterDrops::RegisterGlobalEmitter({ -1815.8260f, 429.23500000f, 2.976000f });
+    WaterDrops::RegisterGlobalEmitter({ -1818.5820f, 415.90800000f, 2.976000f });
+    WaterDrops::RegisterGlobalEmitter({ -1821.3920f, 423.49800000f, 2.976000f });
+    WaterDrops::RegisterGlobalEmitter({ -703.54278f, 1088.8853760f, 3.213393f });
+    WaterDrops::RegisterGlobalEmitter({ -697.76715f, 1084.9326170f, 3.213393f });
+    WaterDrops::RegisterGlobalEmitter({ -697.29345f, 1079.5739750f, 3.213393f });
+    WaterDrops::RegisterGlobalEmitter({ -703.06695f, 1083.5926510f, 3.213393f });
+    WaterDrops::RegisterGlobalEmitter({ -710.14062f, 1079.3137210f, 3.213392f });
+    WaterDrops::RegisterGlobalEmitter({ -709.60955f, 1073.8504640f, 3.213392f });
+    WaterDrops::RegisterGlobalEmitter({ -703.86084f, 1070.0463870f, 3.213392f });
+    WaterDrops::RegisterGlobalEmitter({ -704.28790f, 1075.3508300f, 3.213392f });
+    WaterDrops::RegisterGlobalEmitter({ 18.0970000f, -11997.63600f, 35.25100f });
+    WaterDrops::RegisterGlobalEmitter({ 13.8970000f, -11997.55600f, 34.30200f });
+    WaterDrops::RegisterGlobalEmitter({ 9.57400000f, -11997.23300f, 33.85800f });
+    WaterDrops::RegisterGlobalEmitter({ 5.83100000f, -11997.46500f, 33.23400f });
+    WaterDrops::RegisterGlobalEmitter({ 2.05700000f, -11997.49500f, 32.48400f });
+    WaterDrops::RegisterGlobalEmitter({ 1.28400000f, -12002.51900f, 32.64200f });
+    WaterDrops::RegisterGlobalEmitter({ 9.23600000f, -12002.66500f, 33.68800f });
+    WaterDrops::RegisterGlobalEmitter({ 13.3700000f, -12002.43900f, 34.18600f });
+    WaterDrops::RegisterGlobalEmitter({ 17.9810000f, -12002.53100f, 34.87500f });
+    WaterDrops::RegisterGlobalEmitter({ 232.202890f, -1384.151611f, 1.839023f });
+    WaterDrops::RegisterGlobalEmitter({ 241.041650f, -1375.452515f, 1.839023f });
+    WaterDrops::RegisterGlobalEmitter({ -1724.0520f, -2210.389404f, 15.02113f });
 }
 
 injector::hook_back<int(__cdecl*)(char* a1)> hb_sub_49C480;
 int __cdecl sub_49C480(char* a1)
 {
-    sLastUsedSound = a1;
+    if (bPossiblyHydrant)
+        sLastUsedSound = a1;
+    else
+        sLastUsedSound.clear();
+    bPossiblyHydrant = false;
     return hb_sub_49C480.fun(a1);
 }
 
@@ -324,6 +333,7 @@ void Init()
     }; injector::MakeInline<PresentHook>(pattern.get_first(0), pattern.get_first(7));
 
     static auto nMenuCheck = (bool(*)())injector::GetBranchDestination(hook::get_pattern("E8 ? ? ? ? 84 C0 75 A4")).as_int();
+    static auto nMenuCheck2 = *(uint8_t**)(injector::GetBranchDestination(hook::get_pattern("E8 ? ? ? ? 6A 00 E8 ? ? ? ? 83 C4 04 84 C0")).as_int() + 2);
     pattern = hook::pattern("A1 ? ? ? ? 53 55 56 57 8B E9 8B 48 1C 6A 01");
     static auto dword_8111D0 = pattern.get_first(1);
     pattern = hook::pattern("E8 ? ? ? ? 8B 87 ? ? ? ? 83 C4 04");
@@ -337,12 +347,22 @@ void Init()
                     WaterDrops::ms_rainIntensity = (float)*(uint8_t*)((*(uintptr_t*)(**(uintptr_t**)dword_8111D0 + 0x1C)) + 0x44);
                 else
                     WaterDrops::ms_rainIntensity = 0.0f;
+
+                static auto InMenu = []() -> bool
+                {
+                    if (nMenuCheck() && *nMenuCheck2)
+                        return true;
+                    else if (nMenuCheck() && !*nMenuCheck2)
+                        return false;
+                    else
+                        return nMenuCheck();
+                };
                 
-                if (!WaterDrops::ms_initialised || !nMenuCheck())
+                if (!WaterDrops::ms_initialised || !InMenu())
                     WaterDrops::Process(*pDev);
                 WaterDrops::Render(*pDev);
 
-                if (nMenuCheck())
+                if (InMenu())
                 {
                     MenuBlur::Process(*pDev);
                     MenuBlur::Render(*pDev);
@@ -426,6 +446,26 @@ void Init()
 
     pattern = hook::pattern("50 E8 ? ? ? ? 8B 6C 24 30");
     hb_sub_49C480.fun = injector::MakeCALL(pattern.get_first(1), sub_49C480, true).get();
+
+    pattern = hook::pattern("8B 96 ? ? ? ? 8B 3E");
+    struct HydrantXrefHook1
+    {
+        void operator()(injector::reg_pack& regs)
+        {
+            regs.edx = *(uint32_t*)(regs.esi + 0xC0);
+            bPossiblyHydrant = true;
+        }
+    }; injector::MakeInline<HydrantXrefHook1>(pattern.get_first(0), pattern.get_first(6));
+
+    pattern = hook::pattern("BF ? ? ? ? 8D 49 00 8B 0E 85 C9 74 07 8B 01 6A 00 FF 50 44");
+    struct HydrantXrefHook2
+    {
+        void operator()(injector::reg_pack& regs)
+        {
+            regs.edi = 8;
+            bPossiblyHydrant = false;
+        }
+    }; injector::MakeInline<HydrantXrefHook2>(pattern.get_first(0));
 
     pattern = hook::pattern("83 C0 24 56 57");
     struct ActiveBoatObjectUpdatePreSimHook
