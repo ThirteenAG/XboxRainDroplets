@@ -1,6 +1,4 @@
 #include "xrd.h"
-#define ID_BLURPS                            103
-#define IDR_POSTFXVS                         104
 
 class MenuBlur: WaterDrops
 {
@@ -14,12 +12,12 @@ public:
     {
         HMODULE hm = NULL;
         GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)&Render, &hm);
-        auto resource = FindResource(hm, MAKEINTRESOURCE(ID_BLURPS), RT_RCDATA);
+        auto resource = FindResource(hm, MAKEINTRESOURCE(IDR_BLURPS), RT_RCDATA);
         auto shader = (DWORD*)LoadResource(hm, resource);
         pDevice->CreatePixelShader(shader, &ms_blurps);
         FreeResource(shader);
 
-        resource = FindResource(hm, MAKEINTRESOURCE(IDR_POSTFXVS), RT_RCDATA);
+        resource = FindResource(hm, MAKEINTRESOURCE(IDR_BLURVS), RT_RCDATA);
         shader = (DWORD*)LoadResource(hm, resource);
         pDevice->CreateVertexShader(shader, &ms_blurvs);
         FreeResource(shader);
@@ -310,6 +308,19 @@ int __cdecl sub_49C480(char* a1)
     return hb_sub_49C480.fun(a1);
 }
 
+injector::hook_back<void(__fastcall*)(void* _this, void* edx, int a2, float* hitPosition, float* rayDir, char isMainCharacter)> hb_PlayShotEffect;
+void __fastcall PlayShotEffect(void* _this, void* edx, int a2, float* hitPosition, float* rayDir, char isMainCharacter)
+{
+    RwV3d prt_pos = { hitPosition[2], hitPosition[0], hitPosition[1] };
+    RwV3d dist;
+    RwV3dSub(&dist, &prt_pos, &WaterDrops::pos);
+    auto len = RwV3dDotProduct(&dist, &dist);
+    if (len <= 50.0f)
+        WaterDrops::FillScreenMoving((1.0f / (len / 2.0f)) * 100.0f, true);
+    
+    return hb_PlayShotEffect.fun(_this, edx, a2, hitPosition, rayDir, isMainCharacter);
+}
+
 void Init()
 {
     CIniReader iniReader("");
@@ -489,6 +500,9 @@ void Init()
     }; injector::MakeInline<ActiveBoatObjectUpdatePreSimHook>(pattern.get_first(0), pattern.get_first(7));
     injector::WriteMemory<uint8_t>(pattern.get_first(5), 0x56, true); //push esi
     injector::WriteMemory<uint8_t>(pattern.get_first(6), 0x57, true); //push edi
+
+    //
+    hb_PlayShotEffect.fun = injector::MakeCALL(0x57B56F, PlayShotEffect, true).get();
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()

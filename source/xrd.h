@@ -35,7 +35,7 @@
 
 #define IDR_DROPMASK 100
 #define IDR_SNOWDROPMASK 101
-#define ID_BLURPS 103
+#define IDR_BLURPS 103
 #define IDR_BLURVS 104
 
 #ifndef MACRO_START
@@ -270,7 +270,7 @@ public:
         {
             RwV3d dist;
             RwV3dSub(&dist, &it.first, &WaterDrops::pos);
-            if (RwV3dDotProduct(&dist, &dist) <= 40.0f)
+            if (RwV3dDotProduct(&dist, &dist) <= 50.0f)
                 WaterDrops::FillScreenMoving(it.second);
         }
     }
