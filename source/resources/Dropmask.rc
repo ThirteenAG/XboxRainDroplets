@@ -1,9 +1,9 @@
 #define IDR_DROPMASK 100
 #define IDR_SNOWDROPMASK 101
-#define ID_BLURPS 103
+#define IDR_BLURPS 103
 #define IDR_BLURVS 104
 
 IDR_DROPMASK RCDATA "dropmask.png"
 IDR_SNOWDROPMASK RCDATA "snowdropmask.png"
-ID_BLURPS RCDATA "blurPS.cso"
+IDR_BLURPS RCDATA "blurPS.cso"
 IDR_BLURVS RCDATA "blurVS.cso"
