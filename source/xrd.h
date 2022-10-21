@@ -340,7 +340,7 @@ public:
         if (sprayBlood)
             FillScreenMoving(0.5f, true);
         if (ms_splashDuration >= 0) {
-            if (ms_numDrops < ms_drops.size()) {
+            if (ms_numDrops < int32_t(ms_drops.capacity() - 1)) {
                 RwV3d dist;
                 RwV3dSub(&dist, &ms_splashPoint, &ms_lastPos);
                 float f = RwV3dDotProduct(&dist, &dist);
@@ -400,55 +400,52 @@ public:
 
     static inline void ProcessMoving()
     {
-        WaterDropMoving *moving;
         if (!ms_movingEnabled)
             return;
-        for (moving = &ms_dropsMoving.front(); moving < &ms_dropsMoving.back(); moving++)
-            if (moving->drop)
-                MoveDrop(moving);
+        for (auto& moving : ms_dropsMoving)
+            if (moving.drop)
+                MoveDrop(&moving);
     }
 
     static inline void Fade()
     {
-        WaterDrop *drop;
-        for (drop = &ms_drops.front(); drop < &ms_drops.back(); drop++)
-            if (drop->active)
-                drop->Fade();
+        for (auto& drop : ms_drops)
+            if (drop.active)
+                drop.Fade();
     }
 
     static inline WaterDrop* PlaceNew(float x, float y, float size, float ttl, bool fades, int R = 0xFF, int G = 0xFF, int B = 0xFF)
     {
-        WaterDrop *drop;
-        int i;
-
         if (NoDrops())
             return NULL;
-
-        for (i = 0, drop = &ms_drops.front(); i < ms_drops.size(); i++, drop++)
-            if (ms_drops[i].active == 0)
-                goto found;
+        
+        for (auto& drop : ms_drops)
+        {
+            if (drop.active == 0)
+            {
+                ms_numDrops++;
+                drop.x = x;
+                drop.y = y;
+                drop.size = size;
+                drop.uv_index = ms_atlasUsed ? GetRandomInt(3) : 4; //sizeof(uv) - 2 || uv[last]
+                drop.uvsize = (SC(MAXSIZE) - size + 1.0f) / (SC(MAXSIZE) - SC(MINSIZE) + 1.0f);
+                drop.fades = fades;
+                drop.active = 1;
+                drop.r = R;
+                drop.g = G;
+                drop.b = B;
+                drop.alpha = 0xFF;
+                drop.time = 0.0f;
+                drop.ttl = ttl;
+                return &drop;
+            }
+        }
         return NULL;
-    found:
-        ms_numDrops++;
-        drop->x = x;
-        drop->y = y;
-        drop->size = size;
-        drop->uv_index = ms_atlasUsed ? GetRandomInt(3) : 4; //sizeof(uv) - 2 || uv[last]
-        drop->uvsize = (SC(MAXSIZE) - size + 1.0f) / (SC(MAXSIZE) - SC(MINSIZE) + 1.0f);
-        drop->fades = fades;
-        drop->active = 1;
-        drop->r = R;
-        drop->g = G;
-        drop->b = B;
-        drop->alpha = 0xFF;
-        drop->time = 0.0f;
-        drop->ttl = ttl;
-        return drop;
     }
 
     static inline void NewTrace(WaterDropMoving* moving, float ttl)
     {
-        if (ms_numDrops < ms_drops.size()) {
+        if (ms_numDrops < int32_t(ms_drops.capacity() - 1)) {
             moving->dist = 0.0f;
             PlaceNew(moving->drop->x, moving->drop->y, (float)(SC(MINSIZE)), ttl, 1, moving->drop->r, moving->drop->g, moving->drop->b);
         }
@@ -456,15 +453,16 @@ public:
 
     static inline void NewDropMoving(WaterDrop *drop)
     {
-        WaterDropMoving *moving;
-        for (moving = &ms_dropsMoving.front(); moving < &ms_dropsMoving.back(); moving++)
-            if (moving->drop == NULL)
-                goto found;
-        return;
-    found:
-        ms_numDropsMoving++;
-        moving->drop = drop;
-        moving->dist = 0.0f;
+        for (auto& moving : ms_dropsMoving)
+        {
+            if (moving.drop == NULL)
+            {
+                ms_numDropsMoving++;
+                moving.drop = drop;
+                moving.dist = 0.0f;
+                return;
+            }
+        }
     }
 
     static inline void FillScreenMoving(float amount, bool isBlood = false)
@@ -476,7 +474,9 @@ public:
         WaterDrop* drop;
 
         while (n--)
-            if (ms_numDrops < ms_drops.size() && ms_numDropsMoving < ms_dropsMoving.size()) {
+        {
+            if (ms_numDrops < int32_t(ms_drops.capacity() - 1) && ms_numDropsMoving < int32_t(ms_dropsMoving.capacity() - 1))
+            {
                 float x = GetRandomFloat((float)ms_fbWidth);
                 float y = GetRandomFloat((float)ms_fbHeight);
                 float size = GetRandomFloat((float)(SC(MAXSIZE) - SC(MINSIZE)) + SC(MINSIZE));
@@ -490,6 +490,7 @@ public:
                 if (drop)
                     NewDropMoving(drop);
             }
+        }
     }
 
     static inline void FillScreen(int n)
@@ -498,9 +499,9 @@ public:
             return;
 
         ms_numDrops = 0;
-        for (auto drop = &ms_drops.front(); drop < &ms_drops.back(); drop++) {
-            drop->active = 0;
-            if (drop < &ms_drops[n]) {
+        for (auto& drop : ms_drops) {
+            drop.active = 0;
+            if (&drop < &ms_drops[n]) {
                 float x = (float)(rand() % ms_fbWidth);
                 float y = (float)(rand() % ms_fbHeight);
                 float time = (float)(rand() % (SC(MAXSIZE) - SC(MINSIZE)) + SC(MINSIZE));
@@ -511,8 +512,8 @@ public:
 
     static inline void Clear()
     {
-        for (auto drop = &ms_drops.front(); drop < &ms_drops.back(); drop++)
-            drop->active = 0;
+        for (auto& drop : ms_drops)
+            drop.active = false;
         ms_numDrops = 0;
     }
 
@@ -591,13 +592,13 @@ public:
 #ifdef DX8
         IDirect3DVertexBuffer8* vbuf;
         IDirect3DIndexBuffer8* ibuf;
-        pDevice->CreateVertexBuffer(ms_drops.size() * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf);
-        pDevice->CreateIndexBuffer(ms_drops.size() * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf);
+        pDevice->CreateVertexBuffer(ms_drops.capacity() * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf);
+        pDevice->CreateIndexBuffer(ms_drops.capacity() * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf);
 #else
         IDirect3DVertexBuffer9* vbuf;
         IDirect3DIndexBuffer9* ibuf;
-        pDevice->CreateVertexBuffer(ms_drops.size() * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf, nullptr);
-        pDevice->CreateIndexBuffer(ms_drops.size() * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf, nullptr);
+        pDevice->CreateVertexBuffer(ms_drops.capacity() * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf, nullptr);
+        pDevice->CreateIndexBuffer(ms_drops.capacity() * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf, nullptr);
 #endif
         ms_vertexBuf = vbuf;
         ms_indexBuf = ibuf;
@@ -607,7 +608,7 @@ public:
 #else
         ibuf->Lock(0, 0, (void**)&idx, 0);
 #endif
-        for (int i = 0; i < ms_drops.size(); i++) {
+        for (auto i = 0; i < int32_t(ms_drops.capacity()); i++) {
             idx[i * 6 + 0] = i * 4 + 0;
             idx[i * 6 + 1] = i * 4 + 1;
             idx[i * 6 + 2] = i * 4 + 2;
@@ -745,9 +746,9 @@ public:
         vbuf->Lock(0, 0, (void**)&ms_vertPtr, 0);
 #endif
         ms_numBatchedDrops = 0;
-        for (WaterDrop *drop = &ms_drops.front(); drop < &ms_drops.back(); drop++)
-            if (drop->active)
-                AddToRenderList(drop);
+        for (auto& drop : ms_drops)
+            if (drop.active)
+                AddToRenderList(&drop);
         vbuf->Unlock();
 
 #ifdef DX8

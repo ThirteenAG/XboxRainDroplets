@@ -48,8 +48,8 @@ public:
 
         pDevice->StretchRect(ms_bbuf, NULL, ms_surf, NULL, D3DTEXF_LINEAR);
 
-        float rasterWidth = ms_fbWidth;
-        float rasterHeight = ms_fbHeight;
+        float rasterWidth = (float)ms_fbWidth;
+        float rasterHeight = (float)ms_fbHeight;
         float halfU = 0.5f / rasterWidth;
         float halfV = 0.5f / rasterHeight;
         float uMax = 1.0f;
@@ -339,8 +339,8 @@ void Init()
     CIniReader iniReader("");
     WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) != 0;
     WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
-    WaterDrops::MAXDROPS = iniReader.ReadInteger("MAIN", "MaxDrops", 2000);
-    WaterDrops::MAXDROPSMOVING = iniReader.ReadInteger("MAIN", "MaxMovingDrops", 500);
+    WaterDrops::MAXDROPS = iniReader.ReadInteger("MAIN", "MaxDrops", 4000);
+    WaterDrops::MAXDROPSMOVING = iniReader.ReadInteger("MAIN", "MaxMovingDrops", 1000);
 
     RegisterFountains();
     
