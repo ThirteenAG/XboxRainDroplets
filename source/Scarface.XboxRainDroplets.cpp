@@ -207,7 +207,7 @@ class Camera : public BaseObject {
 injector::hook_back<int(__cdecl*)(int a1)> hb_PlaySharkNIS;
 int __cdecl PlaySharkNIS(int a1)
 {
-    WaterDrops::FillScreenMoving(100.0f, true);
+    WaterDrops::FillScreen(200);
     return hb_PlaySharkNIS.fun(a1);
 }
 
@@ -222,12 +222,6 @@ void sub_654B20()
 injector::hook_back<void(__cdecl*)(int mSoundPlayerHandle, int sndName, void* vehicleTransform, int Vector, int vehicleVelocity, int a6)> hb_CarSoundPlayerRequestImpactLayer;
 void __cdecl CarSoundPlayerRequestImpactLayer(int mSoundPlayerHandle, int sndName, void* vehicleTransform, int Vector, int vehicleVelocity, int a6)
 {
-    //RwV3d vec = *(RwV3d*)vehicleTransform;
-    //RwV3d prt_pos = { vec.z, vec.x, vec.y };
-    //RwV3d dist;
-    //RwV3dSub(&dist, &prt_pos, &WaterDrops::pos);
-    //auto x = RwV3dDotProduct(&dist, &dist);
-    //if (RwV3dDotProduct(&dist, &dist) <= 60.0f)
     WaterDrops::FillScreenMoving(50.0f);
     return hb_CarSoundPlayerRequestImpactLayer.fun(mSoundPlayerHandle, sndName, vehicleTransform, Vector, vehicleVelocity, a6);
 }
@@ -241,10 +235,8 @@ void __cdecl CarSoundPlayerRequestImpactLayer2(int mSoundPlayerHandle, int sndNa
     {
         RwV3d vec = *(RwV3d*)vehicleTransform;
         RwV3d prt_pos = { vec.z, vec.x, vec.y };
-        RwV3d dist;
-        RwV3dSub(&dist, &prt_pos, &WaterDrops::pos);
-        auto x = RwV3dDotProduct(&dist, &dist);
-        if (RwV3dDotProduct(&dist, &dist) <= 100.0f)
+        auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(prt_pos);
+        if (len <= 100.0f)
             WaterDrops::RegisterSplash(&prt_pos, 10.0f, 3000, 100.0f);
     }
     bPossiblyHydrant = false;
@@ -308,17 +300,38 @@ int __cdecl sub_49C480(char* a1)
     return hb_sub_49C480.fun(a1);
 }
 
-injector::hook_back<void(__fastcall*)(void* _this, void* edx, int a2, float* hitPosition, float* rayDir, char isMainCharacter)> hb_PlayShotEffect;
-void __fastcall PlayShotEffect(void* _this, void* edx, int a2, float* hitPosition, float* rayDir, char isMainCharacter)
+injector::hook_back<void(__fastcall*)(void* _this, void* edx, int a2, float* hitPosition, float* rayDir, char isNotMainCharacter)> hb_PlayShotEffect;
+void __fastcall PlayShotEffect(void* _this, void* edx, int a2, float* hitPosition, float* rayDir, char isNotMainCharacter)
 {
     RwV3d prt_pos = { hitPosition[2], hitPosition[0], hitPosition[1] };
-    RwV3d dist;
-    RwV3dSub(&dist, &prt_pos, &WaterDrops::pos);
-    auto len = RwV3dDotProduct(&dist, &dist);
-    if (len <= 50.0f)
-        WaterDrops::FillScreenMoving((1.0f / (len / 2.0f)) * 500.0f, true);
+    auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(prt_pos);
+    if (isNotMainCharacter)
+        WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 100.0f), true);
+    else
+        WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 1.0f), true);
     
-    return hb_PlayShotEffect.fun(_this, edx, a2, hitPosition, rayDir, isMainCharacter);
+    return hb_PlayShotEffect.fun(_this, edx, a2, hitPosition, rayDir, isNotMainCharacter);
+}
+
+injector::hook_back<void(__fastcall*)(void* _this, void* edx, float* position)> hb_PlayGoreBloodExplosionEffect;
+void __fastcall PlayGoreBloodExplosionEffect(void* _this, void* edx, float* position)
+{
+    RwV3d prt_pos = { position[2], position[0], position[1] };
+    auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(prt_pos);
+    WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 250.0f), true);
+
+    return hb_PlayGoreBloodExplosionEffect.fun(_this, edx, position);
+}
+
+//EffectsObject::CreateSwimmingEffects
+injector::hook_back<void(__cdecl*)(void* waterEffectRenderable, Matrix* transform)> hb_ParticleEffectRenderable_Play;
+void __cdecl ParticleEffectRenderable_Play(void* waterEffectRenderable, Matrix* transform)
+{
+    RwV3d prt_pos = { transform->GetPos().Z, transform->GetPos().X, transform->GetPos().Y };
+    auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(prt_pos);
+    WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 250.0f));
+
+    return hb_ParticleEffectRenderable_Play.fun(waterEffectRenderable, transform);
 }
 
 void Init()
@@ -326,8 +339,8 @@ void Init()
     CIniReader iniReader("");
     WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) != 0;
     WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
-    WaterDrops::MAXDROPS = iniReader.ReadInteger("MAIN", "MaxDrops", 4000);
-    WaterDrops::MAXDROPSMOVING = iniReader.ReadInteger("MAIN", "MaxMovingDrops", 1000);
+    WaterDrops::MAXDROPS = iniReader.ReadInteger("MAIN", "MaxDrops", 2000);
+    WaterDrops::MAXDROPSMOVING = iniReader.ReadInteger("MAIN", "MaxMovingDrops", 500);
 
     RegisterFountains();
     
@@ -438,25 +451,10 @@ void Init()
     pattern = hook::pattern("52 E8 ? ? ? ? 83 C4 18 5F 5B");
     hb_CarSoundPlayerRequestImpactLayer2.fun = injector::MakeCALL(pattern.get_first(1), CarSoundPlayerRequestImpactLayer2, true).get();
 
-    pattern = hook::pattern("8B 91 ? ? ? ? 88 42 64");
-    struct SwimUpdateHook
-    {
-        void operator()(injector::reg_pack& regs)
-        {
-            regs.edx = *(uint32_t*)(regs.ecx + 0xF8);
-            auto run_state = *(uint8_t*)((uint8_t*)GetMainCharacter() + 0x260);
-            static float amount = 0.0f;
-            if (run_state != 0)
-            {
-                if (amount < 1.0f)
-                    amount += 0.001f;
-                WaterDrops::FillScreenMoving(amount);
-            }
-            else
-                amount = 0.0f;
-        }
-    }; injector::MakeInline<SwimUpdateHook>(pattern.get_first(0), pattern.get_first(6));
+    pattern = hook::pattern("E8 ? ? ? ? 83 C4 08 5E 5F 83 C4 4C");
+    hb_ParticleEffectRenderable_Play.fun = injector::MakeCALL(pattern.get_first(0), ParticleEffectRenderable_Play, true).get();
 
+    //hydrants
     pattern = hook::pattern("50 E8 ? ? ? ? 8B 6C 24 30");
     hb_sub_49C480.fun = injector::MakeCALL(pattern.get_first(1), sub_49C480, true).get();
 
@@ -488,7 +486,7 @@ void Init()
             regs.eax += 0x24;
             regs.ecx = regs.eax;
             
-            auto movement = *(uint64_t*)(regs.esi - 0x48 + 0x67A);
+            auto movement = *(uint32_t*)(regs.esi - 0x48 + 0x67A + 4);
             static float amount = 0.0f;
             if (movement)
             {
@@ -504,7 +502,16 @@ void Init()
     injector::WriteMemory<uint8_t>(pattern.get_first(6), 0x57, true); //push edi
 
     //
-    hb_PlayShotEffect.fun = injector::MakeCALL(0x57B56F, PlayShotEffect, true).get();
+    pattern = hook::pattern("55 E8 ? ? ? ? 8B 7C 24 18");
+    hb_PlayShotEffect.fun = injector::MakeCALL(pattern.get_first(1), PlayShotEffect, true).get();
+    pattern = hook::pattern("E8 ? ? ? ? 8B CE E8 ? ? ? ? 84 C0 5D");
+    hb_PlayShotEffect.fun = injector::MakeCALL(pattern.get_first(0), PlayShotEffect, true).get();
+    pattern = hook::pattern("E8 ? ? ? ? 8B 54 24 54 8B 44 24 58");
+    hb_PlayGoreBloodExplosionEffect.fun = injector::MakeCALL(pattern.get_first(0), PlayGoreBloodExplosionEffect, true).get();
+    pattern = hook::pattern("E8 ? ? ? ? EB 27 6A 00");
+    hb_PlayGoreBloodExplosionEffect.fun = injector::MakeCALL(pattern.get_first(0), PlayGoreBloodExplosionEffect, true).get();
+    pattern = hook::pattern("E8 ? ? ? ? E9 ? ? ? ? 57 8B CE E8 ? ? ? ? 8B 10 89 54 24 14 8B 48 04 89 4C 24 18 8B 50 08 57 8B CE");
+    hb_PlayGoreBloodExplosionEffect.fun = injector::MakeCALL(pattern.count(2).get(1).get<void*>(0), PlayGoreBloodExplosionEffect, true).get();
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()
