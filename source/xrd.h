@@ -152,11 +152,11 @@ public:
     static inline float* fTimeStep;
     static inline bool isPaused = false;
     static inline float ms_scaling;
-#define SC(x) ((int32_t)((x)*ms_scaling))
+    #define SC(x) ((int32_t)((x)*ms_scaling))
     static inline float ms_xOff;
     static inline float ms_yOff;
-    static inline std::vector<WaterDrop> ms_drops;
-    static inline std::vector<WaterDropMoving> ms_dropsMoving;
+    static inline auto ms_drops = std::vector<WaterDrop>(MAXDROPS);
+    static inline auto ms_dropsMoving = std::vector<WaterDropMoving>(MAXDROPSMOVING);
     static inline int32_t ms_numDrops;
     static inline int32_t ms_numDropsMoving;
 
@@ -257,6 +257,29 @@ public:
         Fade();
     }
 
+    static inline float GetDistanceBetweenEmitterAndCamera(RwV3d* emitterPos)
+    {
+        RwV3d dist;
+        RwV3dSub(&dist, emitterPos, &WaterDrops::ms_lastPos);
+        return RwV3dDotProduct(&dist, &dist);
+    }
+    static inline float GetDistanceBetweenEmitterAndCamera(RwV3d emitterPos)
+    {
+        return GetDistanceBetweenEmitterAndCamera(&emitterPos);
+    }
+    static inline float GetDropsAmountBasedOnEmitterDistance(float emitterDistance, float maxDistance, float maxAmount = 100.0f)
+    {
+        static auto SolveEqSys = [](float a, float b, float c, float d, float value) -> float
+        {
+            float determinant = a - c;
+            float x = (b - d) / determinant;
+            float y = (a * d - b * c) / determinant;
+            return min((x)*value + y, d);
+        };
+        constexpr float minDistance = 0.0f;
+        constexpr float minAmount = 0.0f;
+        return maxAmount - SolveEqSys(minDistance, minAmount, maxDistance, maxAmount, emitterDistance);
+    }
     static inline void RegisterGlobalEmitter(RwV3d pos, float radius = 1.0f)
     {
         ms_sprayLocations.emplace_back(pos, radius);
