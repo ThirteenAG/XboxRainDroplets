@@ -360,6 +360,7 @@ void Init()
 
     static auto nMenuCheck = (bool(*)())injector::GetBranchDestination(hook::get_pattern("E8 ? ? ? ? 84 C0 75 A4")).as_int();
     static auto nMenuCheck2 = *(uint8_t**)(injector::GetBranchDestination(hook::get_pattern("E8 ? ? ? ? 6A 00 E8 ? ? ? ? 83 C4 04 84 C0")).as_int() + 2);
+    static auto bCutsceneCheck = *(uint8_t**)hook::get_pattern("38 1D ? ? ? ? 74 18", 2);
     pattern = hook::pattern("A1 ? ? ? ? 53 55 56 57 8B E9 8B 48 1C 6A 01");
     static auto dword_8111D0 = pattern.get_first(1);
     pattern = hook::pattern("E8 ? ? ? ? 8B 87 ? ? ? ? 83 C4 04");
@@ -369,7 +370,7 @@ void Init()
         {
             if (pDev)
             {
-                if (!GetMainCharacter()->IsCharacterInInterior())
+                if (!GetMainCharacter()->IsCharacterInInterior() && !*bCutsceneCheck)
                     WaterDrops::ms_rainIntensity = (float)*(uint8_t*)((*(uintptr_t*)(**(uintptr_t**)dword_8111D0 + 0x1C)) + 0x44);
                 else
                     WaterDrops::ms_rainIntensity = 0.0f;
