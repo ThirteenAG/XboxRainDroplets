@@ -1,0 +1,81 @@
+name: GitHub Actions Build
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    strategy:
+      matrix:
+        platform: [Win32]
+        buildtype: [Release]
+
+    steps:
+    - name: setup-msbuild
+      uses: microsoft/setup-msbuild@v1.1.3
+    - uses: actions/checkout@v2
+      with:
+        submodules: 'true'
+    - uses: ThirteenAG/update-tags@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Configure build
+      shell: cmd
+      run: ./premake5.bat
+    - name: Build
+      shell: cmd
+      run: msbuild -m build/${{github.event.repository.name}}.sln /property:Configuration=${{matrix.buildtype}} /property:Platform=${{matrix.platform}}
+    - name: Pack binaries
+      shell: cmd
+      run: release.bat
+    - name: Upload artifacts to actions
+      uses: actions/upload-artifact@v2
+      with:
+        path: ./bin/*.zip
+    - uses: ./.github/workflows/release_tag
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: gtaiv
+        artifacts: bin/GTAIV.XboxRainDroplets.zip
+    - uses: ./.github/workflows/release_tag
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: mafia
+        artifacts: bin/Mafia.XboxRainDroplets.zip
+    - uses: ./.github/workflows/release_tag
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: manhunt
+        artifacts: bin/Manhunt.XboxRainDroplets.zip
+    - uses: ./.github/workflows/release_tag
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: maxpayne
+        artifacts: bin/MaxPayne.XboxRainDroplets.zip
+    - uses: ./.github/workflows/release_tag
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: maxpayne2
+        artifacts: bin/MaxPayne.XboxRainDroplets.zip
+    - uses: ./.github/workflows/release_tag
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: nfsc
+        artifacts: bin/NFSCarbon.XboxRainDroplets.zip
+    - uses: ./.github/workflows/release_tag
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: nfsmw
+        artifacts: bin/NFSMostWanted.XboxRainDroplets.zip
+    - uses: ./.github/workflows/release_tag
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: nfsu2
+        artifacts: bin/NFSUnderground2.XboxRainDroplets.zip
+    - uses: ./.github/workflows/release_tag
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: scarface
+        artifacts: bin/Scarface.XboxRainDroplets.zip

@@ -1,0 +1,39 @@
+name: "Build By Tag"
+description: "Pushes built artifacts to specified release"
+
+inputs:
+  token:
+    description: "Github's token"
+    required: true
+  tag:
+    description: "Tag of release on github"
+    required: true
+  artifacts:
+    description: "List of artifacts for release"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get release info
+      id: release_info
+      uses: cardinalby/git-get-release-action@1.2.2
+      env:
+       GITHUB_TOKEN: ${{ inputs.token }}
+      with:
+        tag: ${{ inputs.tag }}
+    - name: Upload Release
+      uses: ncipollo/release-action@v1
+      with:
+        token: ${{ inputs.token }}
+        allowUpdates: true
+        name: ${{ steps.release_info.outputs.name }}
+        body: ${{ steps.release_info.outputs.body }}
+        tag: ${{ steps.release_info.outputs.tag_name }}
+        artifacts: ${{ inputs.artifacts }}
+    - name: Update Tag
+      uses: richardsimko/update-tag@v1
+      with:
+        tag_name: ${{ steps.release_info.outputs.tag_name }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}

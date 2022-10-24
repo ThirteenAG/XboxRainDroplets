@@ -66,8 +66,8 @@ workspace "XboxRainDroplets"
    end
 
 	prebuildcommands {
-		"for /R \"../source/resources/shaders/ps/\" %%f in (*.hlsl) do \"../source/dxsdk/lib/x86/fxc.exe\" /T ps_3_0 /nologo /E main /Fo ../source/resources/%%~nf.cso %%f",
-		"for /R \"../source/resources/shaders/vs/\" %%f in (*.hlsl) do \"../source/dxsdk/lib/x86/fxc.exe\" /T vs_3_0 /nologo /E main /Fo ../source/resources/%%~nf.cso %%f",
+		"for /R \"../source/resources/shaders/ps/\" %%f in (*.hlsl) do (\"../source/dxsdk/lib/x86/fxc.exe\" /T ps_3_0 /nologo /E main /Fo \"../source/resources/%%~nf.cso\" %%f)",
+		"for /R \"../source/resources/shaders/vs/\" %%f in (*.hlsl) do (\"../source/dxsdk/lib/x86/fxc.exe\" /T vs_3_0 /nologo /E main /Fo \"../source/resources/%%~nf.cso\" %%f)",
 	}
    
    filter "configurations:Debug"
