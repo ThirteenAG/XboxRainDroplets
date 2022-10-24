@@ -638,11 +638,23 @@ public:
         HRESULT res = NULL;
         HMODULE hm = NULL;
         GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)&InitialiseRender, &hm);
+#ifndef DX8
+        res = D3DXCreateTextureFromResource(pDevice, hm, 
 #ifndef SNOWDROPS
-        res = D3DXCreateTextureFromResource(pDevice, hm, MAKEINTRESOURCE(IDR_DROPMASK), &ms_maskTex);
+            MAKEINTRESOURCE(IDR_DROPMASK)
+#else
+            MAKEINTRESOURCE(IDR_SNOWDROPMASK)
+#endif
+            , &ms_maskTex);
 #else
         //res = D3DXCreateTextureFromResource(pDevice, hm, MAKEINTRESOURCE(IDR_SNOWDROPMASK), &ms_maskTex);
-        HRSRC hResource = FindResource(hm, MAKEINTRESOURCE(IDR_SNOWDROPMASK), RT_RCDATA);
+        HRSRC hResource = FindResource(hm, 
+#ifndef SNOWDROPS
+            MAKEINTRESOURCE(IDR_DROPMASK)
+#else
+            MAKEINTRESOURCE(IDR_SNOWDROPMASK)
+#endif
+            , RT_RCDATA);
         if (hResource) {
             HGLOBAL hLoadedResource = LoadResource(hm, hResource);
             if (hLoadedResource) {
