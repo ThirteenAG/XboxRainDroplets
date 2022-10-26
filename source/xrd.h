@@ -182,6 +182,7 @@ public:
     static inline bool ms_StaticRain = false;
     static inline bool bRadial = false;
     static inline bool bGravity = true;
+    static inline bool fSpeedAdjuster = 1.0f;
 
     static inline RwV3d right;
     static inline RwV3d up;
@@ -297,10 +298,15 @@ public:
     static inline void CalculateMovement()
     {
         RwV3dSub(&ms_posDelta, &pos, &ms_lastPos);
-
         ms_distMoved = RwV3dDotProduct(&ms_posDelta, &ms_posDelta);
         ms_distMoved = sqrt(ms_distMoved) * GetTimeStepInMilliseconds();
-        //ms_distMoved = RwV3dLength(&ms_posDelta);
+
+        if (fSpeedAdjuster)
+        {
+            at.x *= fSpeedAdjuster;
+            at.y *= fSpeedAdjuster;
+            at.z *= fSpeedAdjuster;
+        }
 
         ms_lastAt = at;
         ms_lastPos = pos;
@@ -390,6 +396,8 @@ public:
         }
         drop->x += (dx * d) - ms_vec.x;
         drop->y += (dy * d) + (ms_vec.y + randgravity);
+
+        drop->size -= (drop->size / 100.0f) * GetTimeStepInMilliseconds();
 
         if (drop->x < -(float)(SC(MAXSIZE)) || drop->y < -(float)(SC(MAXSIZE)) ||
             drop->x >(ms_fbWidth + SC(MAXSIZE)) || drop->y >(ms_fbHeight + SC(MAXSIZE))) {

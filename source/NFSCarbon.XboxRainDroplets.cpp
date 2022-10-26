@@ -180,8 +180,11 @@ bool __cdecl FEngHud_ShouldRearViewMirrorBeVisible(int EVIEW_ID)
 void Init()
 {
     CIniReader iniReader("");
+    WaterDrops::MAXDROPS = iniReader.ReadInteger("MAIN", "MaxDrops", 2000);
+    WaterDrops::MAXDROPSMOVING = iniReader.ReadInteger("MAIN", "MaxMovingDrops", 500);
     WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 1) == 0;
     WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
+    WaterDrops::fSpeedAdjuster = iniReader.ReadFloat("MAIN", "SpeedAdjuster", 1.0f);
 
 #ifdef USE_D3D_HOOK
     //vtable gets overwritten at startup, so no point in patching it right away

@@ -87,10 +87,6 @@ project "NFSCarbon.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Need For Speed/Need for Speed Carbon/", "NFSC.exe")
 project "GTAIV.XboxRainDroplets"
    setpaths("Z:/WGTA/IV/Episodes from Liberty City/", "EFLC.exe", "plugins/")
-project "GTASA.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Grand Theft Auto/GTA San Andreas/", "gta_sa.exe", "scripts/")
-project "GTA3.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Grand Theft Auto/GTAIII/", "gta3.exe", "scripts/")
 project "Mafia.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Mafia/", "GameV12.exe")
 project "Scarface.XboxRainDroplets"
@@ -101,3 +97,8 @@ project "MaxPayne.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Max Payne/Max Payne/", "MaxPayne.exe", "scripts/")
 project "MaxPayne2.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Max Payne/Max Payne 2 The Fall of Max Payne/", "MaxPayne2.exe", "scripts/")
+--tests
+--project "GTA3.XboxRainDroplets"
+--   setpaths("Z:/WFP/Games/Grand Theft Auto/GTAIII/", "gta3.exe", "scripts/")
+--project "GTASA.XboxRainDroplets"
+--   setpaths("Z:/WFP/Games/Grand Theft Auto/GTA San Andreas/", "gta_sa.exe", "scripts/")

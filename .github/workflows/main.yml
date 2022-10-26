@@ -58,7 +58,7 @@ jobs:
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: maxpayne2
-        artifacts: bin/MaxPayne.XboxRainDroplets.zip
+        artifacts: bin/MaxPayne2.XboxRainDroplets.zip
     - uses: ./.github/workflows/release_tag
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
