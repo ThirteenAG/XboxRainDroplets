@@ -17,13 +17,13 @@ runs:
   steps:
     - name: Get release info
       id: release_info
-      uses: cardinalby/git-get-release-action@1.2.2
+      uses: cardinalby/git-get-release-action@1.2.4
       env:
        GITHUB_TOKEN: ${{ inputs.token }}
       with:
         tag: ${{ inputs.tag }}
     - name: Upload Release
-      uses: ncipollo/release-action@v1
+      uses: ncipollo/release-action@v1.11.2
       with:
         token: ${{ inputs.token }}
         allowUpdates: true
@@ -32,7 +32,7 @@ runs:
         tag: ${{ steps.release_info.outputs.tag_name }}
         artifacts: ${{ inputs.artifacts }}
     - name: Update Tag
-      uses: richardsimko/update-tag@v1
+      uses: richardsimko/update-tag@v1.0.6
       with:
         tag_name: ${{ steps.release_info.outputs.tag_name }}
       env:
