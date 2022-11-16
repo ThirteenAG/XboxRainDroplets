@@ -62,6 +62,11 @@ jobs:
     - uses: ./.github/workflows/release_tag
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
+        tag: maxpayne3
+        artifacts: bin/MaxPayne3.XboxRainDroplets.zip
+    - uses: ./.github/workflows/release_tag
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
         tag: nfsc
         artifacts: bin/NFSCarbon.XboxRainDroplets.zip
     - uses: ./.github/workflows/release_tag
@@ -79,3 +84,13 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: scarface
         artifacts: bin/Scarface.XboxRainDroplets.zip
+    - uses: ./.github/workflows/release_tag
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: driv3r
+        artifacts: bin/Driv3r.XboxRainDroplets.zip
+    - uses: ./.github/workflows/release_tag
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: driverpl
+        artifacts: bin/DriverParallelLines.XboxRainDroplets.zip

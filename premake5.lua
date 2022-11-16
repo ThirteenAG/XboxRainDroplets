@@ -78,7 +78,11 @@ workspace "XboxRainDroplets"
       defines { "NDEBUG" }
       optimize "On"
       staticruntime "On"
-	  
+
+project "Driv3r.XboxRainDroplets"
+   setpaths("Z:/WFP/Games/Driv3r/", "driv3r.exe")
+project "DriverParallelLines.XboxRainDroplets"
+   setpaths("Z:/WFP/Games/Driver Parallel Lines/", "DriverParallelLines.exe")
 project "NFSUnderground2.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Need For Speed/Need for Speed Underground 2/", "speed2.exe")
 project "NFSMostWanted.XboxRainDroplets"
@@ -97,6 +101,8 @@ project "MaxPayne.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Max Payne/Max Payne/", "MaxPayne.exe", "scripts/")
 project "MaxPayne2.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Max Payne/Max Payne 2 The Fall of Max Payne/", "MaxPayne2.exe", "scripts/")
+project "MaxPayne3.XboxRainDroplets"
+   setpaths("E:/Games/Steam/steamapps/common/Max Payne 3/Max Payne 3/", "MaxPayne3.exe", "plugins/")
 --tests
 --project "GTA3.XboxRainDroplets"
 --   setpaths("Z:/WFP/Games/Grand Theft Auto/GTAIII/", "gta3.exe", "scripts/")
