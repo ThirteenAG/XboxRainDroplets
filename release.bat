@@ -1,4 +1,4 @@
-copy ".\source\resources\*.ini" ".\bin\" /Y
+copy ".\source\resources\inis\*.ini" ".\bin\" /Y
 
 for %%x in (
 GTAIV.XboxRainDroplets
