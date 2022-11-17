@@ -23,9 +23,9 @@ void __fastcall sub_10004820(float* _this, void* edx, float* a2)
     auto at = RwV3d{ a2[6], a2[7], a2[8] };
     auto pos = RwV3d{ a2[9], a2[10], a2[11] };
 
-    WaterDrops::right = { -at.x, -at.y, -at.z };
-    WaterDrops::up = { right.x, right.y, right.z };
-    WaterDrops::at = { -up.x, -up.y, -up.z };
+    WaterDrops::right = { at.x, at.y, at.z };
+    WaterDrops::up = { up.x, up.y, up.z };
+    WaterDrops::at = { right.x, right.y, right.z };
     WaterDrops::pos = { pos.x, pos.y, pos.z };
 }
 
