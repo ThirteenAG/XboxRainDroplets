@@ -224,6 +224,7 @@ void Init()
     WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 1) == 0;
     WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
     WaterDrops::fSpeedAdjuster = iniReader.ReadFloat("MAIN", "SpeedAdjuster", 1.0f);
+    WaterDrops::fMoveStep = iniReader.ReadFloat("MAIN", "MoveStep", 20.0f);
     bSpecialZones = iniReader.ReadInteger("MAIN", "SpecialZones", 1) != 0;
     
     auto pattern = hook::pattern("A1 ? ? ? ? 8B 10 68 ? ? ? ? 50 FF 52 40");

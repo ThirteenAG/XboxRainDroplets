@@ -136,6 +136,7 @@ public:
     static inline constexpr float gravity = 9.807f;
     static inline constexpr float gdivmin = 100.0f;
     static inline constexpr float gdivmax = 30.0f;
+    static inline auto fMoveStep = 0.0f;
     static inline uint32_t fps = 0;
     static inline float* fTimeStep;
     static inline bool isPaused = false;
@@ -170,7 +171,7 @@ public:
     static inline bool ms_StaticRain = false;
     static inline bool bRadial = false;
     static inline bool bGravity = true;
-    static inline bool fSpeedAdjuster = 1.0f;
+    static inline float fSpeedAdjuster = 1.0f;
 
     static inline RwV3d right;
     static inline RwV3d up;
@@ -377,15 +378,15 @@ public:
             dy *= (1.0f / sum);
         }
         moving->dist += ((d + ms_vecLen));
-        if (moving->dist > 20.0f)
+        if (moving->dist > fMoveStep)
         {
-            float movttl = moving->drop->ttl / (float)(SC(MinSize));
+            float movttl = moving->drop->ttl / (float)(SC(4));
             NewTrace(moving, movttl);
         }
         drop->x += (dx * d) - ms_vec.x;
         drop->y += (dy * d) + (ms_vec.y + randgravity);
 
-        //drop->size -= (drop->size / 100.0f) * GetTimeStepInMilliseconds();
+        drop->size -= (drop->size / 100.0f) * GetTimeStepInMilliseconds();
 
         if (drop->x < -(float)(SC(MaxSize)) || drop->y < -(float)(SC(MaxSize)) ||
             drop->x >(ms_fbWidth + SC(MaxSize)) || drop->y >(ms_fbHeight + SC(MaxSize))) {
@@ -476,7 +477,7 @@ public:
                 float x = GetRandomFloat((float)ms_fbWidth);
                 float y = GetRandomFloat((float)ms_fbHeight);
                 float size = GetRandomFloat((float)(SC(MaxSize) - SC(MinSize)) + SC(MinSize));
-                float ttl = GetRandomFloat((float)(2000.0f));
+                float ttl = GetRandomFloat((float)(8000.0f));
                 if (ttl < 2000.0f)
                     ttl = 2000.0f;
                 if (!isBlood)
@@ -924,11 +925,7 @@ public:
 
 void WaterDrop::Fade()
 {
-    float delta = 0.0f;
-    auto dt = (WaterDrops::GetTimeStep() / 2.0f) * 100.0f;
-    delta = (float)(((dt > 3.0f) ? 3.0f : ((dt < 0.0000099999997f) ? 0.0000099999997f : dt)) * 1000.0f / 50.0f);
-    if (WaterDrops::isPaused)
-        delta = 0.0f;
+    auto delta = WaterDrops::GetTimeStepInMilliseconds() * 100.0f;
     this->time += delta;
     if (this->time >= this->ttl) {
         WaterDrops::ms_numDrops--;

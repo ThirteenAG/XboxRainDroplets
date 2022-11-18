@@ -39,6 +39,7 @@ void Init()
     WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) != 0;
     WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
     WaterDrops::fSpeedAdjuster = iniReader.ReadFloat("MAIN", "SpeedAdjuster", 1.0f);
+    WaterDrops::fMoveStep = iniReader.ReadFloat("MAIN", "MoveStep", 20.0f);
 
     auto pattern = hook::pattern("C7 44 24 ? ? ? ? ? 75 07 8A 46 41 84 C0 74 09");
     struct RenderHook
