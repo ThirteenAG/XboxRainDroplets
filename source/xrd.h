@@ -807,6 +807,7 @@ public:
         pDevice->SetTextureStageState(1, D3DTSS_COLORARG2, D3DTA_CURRENT);
         pDevice->SetTextureStageState(1, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
         pDevice->SetTextureStageState(1, D3DTSS_ALPHAARG1, D3DTA_CURRENT);
+#ifndef DISABLERENDERSTATES
         pDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
         pDevice->SetRenderState(D3DRS_LIGHTING, 0);
         pDevice->SetRenderState(D3DRS_ZENABLE, 0);
@@ -819,6 +820,7 @@ public:
         pDevice->SetRenderState(D3DRS_SCISSORTESTENABLE, 1);
 #endif
         pDevice->SetRenderState(D3DRS_COLORWRITEENABLE, 0xFFFFFFFF);
+#endif
 
         pDevice->SetPixelShader(NULL);
         pDevice->SetVertexShader(NULL);

@@ -1,4 +1,19 @@
+#define DISABLERENDERSTATES
 #include "xrd.h"
+
+static auto ppDevice = *hook::get_pattern<uint32_t>("68 ? ? ? ? 68 ? ? ? ? 8B D7 83 CA 10", 1);
+uint32_t jmpaddr;
+void __declspec(naked) sub_12D4470()
+{
+    static auto pDevice = *(LPDIRECT3DDEVICE9*)ppDevice;
+
+    //WaterDrops::ms_rainIntensity = 1.0f;
+    WaterDrops::Process(pDevice);
+    WaterDrops::Render(pDevice);
+    WaterDrops::ms_rainIntensity = 0.0f;
+
+    _asm jmp jmpaddr
+}
 
 void Init()
 {
@@ -8,41 +23,33 @@ void Init()
     WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) != 0;
     WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
     WaterDrops::fSpeedAdjuster = iniReader.ReadFloat("MAIN", "SpeedAdjuster", 1.0f);
-    
+
     WaterDrops::ms_rainIntensity = 0.0f;
 
-    static auto ppDevice = *hook::get_pattern<uint32_t>("68 ? ? ? ? 68 ? ? ? ? 8B D7 83 CA 10", 1);
+    auto pattern = hook::pattern("83 EC 08 F3 0F 10 05 ? ? ? ? 8D 04 24 50");
+    jmpaddr = (uint32_t)pattern.get_first();
 
-    //auto pattern = hook::pattern("E8 ? ? ? ? F6 00 10 0F 84 ? ? ? ? E8 ? ? ? ? D9 E8");
-    //struct RenderPhaseCallbackHook
-    //{
-    //    void operator()(injector::reg_pack& regs)
-    //    {
-    //        auto pDevice = *(LPDIRECT3DDEVICE9*)ppDevice;
-    //        WaterDrops::ms_rainIntensity = 1.0f;
-    //
-    //        WaterDrops::Process(pDevice);
-    //        WaterDrops::Render(pDevice);
-    //        WaterDrops::ms_rainIntensity = 1.0f;
-    //    }
-    //}; injector::MakeInline<RenderPhaseCallbackHook>(pattern.get_first(0));
+    //this enables something for next hook to work
+    pattern = hook::pattern("38 1D ? ? ? ? 75 21 E8");
+    injector::WriteMemory<uint8_t>(pattern.get_first(6), 0xEB, true);
 
-    auto pattern = hook::pattern("8B 91 ? ? ? ? 50 FF D2 A1 ? ? ? ? 50");
-    struct EndSceneHook
+    static bool bAmbientCheck = false;
+
+    pattern = hook::pattern("8D 9B ? ? ? ? 8A 08 3A 0A");
+    struct test
     {
         void operator()(injector::reg_pack& regs)
         {
-            regs.edx = *(uint32_t*)(regs.ecx + 0xA8);
-            
-            auto pDevice = *(LPDIRECT3DDEVICE9*)ppDevice;
-            WaterDrops::ms_rainIntensity = 1.0f;
+            std::string_view str((char*)regs.eax);
 
-            WaterDrops::Process(pDevice);
-            WaterDrops::Render(pDevice);
-            WaterDrops::ms_rainIntensity = 1.0f;
+            if (str == "Ambient_RoofCorner_Drip_S" || str == "Ambient_RoofLine_Drip_Long_S" || str == "Ambient_RoofLine_Splash_Long_S")
+                bAmbientCheck = true;
         }
-    }; injector::MakeInline<EndSceneHook>(pattern.get_first(0), pattern.get_first(6));
-    
+    }; injector::MakeInline<test>(pattern.get_first(0), pattern.get_first(6));
+
+    pattern = hook::pattern("68 ? ? ? ? E8 ? ? ? ? 8B 15 ? ? ? ? 8B 0D ? ? ? ? 8B 04 95 ? ? ? ? 83 C4 08 03 C1");
+    injector::WriteMemory(pattern.get_first(1), sub_12D4470, true);
+
     pattern = hook::pattern("F3 0F 11 6E ? F3 0F 11 46 ? 5E 5B");
     struct CameraHook
     {
@@ -57,10 +64,9 @@ void Init()
             WaterDrops::up = up;
             WaterDrops::at = at;
             WaterDrops::pos = pos;
-
         }
     }; injector::MakeInline<CameraHook>(pattern.get_first(5));
-    
+
     pattern = hook::pattern("8B 08 8B 51 40 68 ? ? ? ? 50 FF D2 85 C0");
     struct ResetHook
     {
@@ -71,6 +77,33 @@ void Init()
             WaterDrops::Reset();
         }
     }; injector::MakeInline<ResetHook>(pattern.get_first(0));
+
+    pattern = hook::pattern("C6 86 ? ? ? ? ? EB 1C 8B 0D ? ? ? ? 57 E8");
+    struct InteriornessHook1
+    {
+        void operator()(injector::reg_pack& regs)
+        {
+            *(uint8_t*)(regs.esi + 0x21BD8) = 1;
+            if (bAmbientCheck)
+            {
+                WaterDrops::ms_rainIntensity = 1.0f;
+                bAmbientCheck = false;
+            }
+        }
+    }; injector::MakeInline<InteriornessHook1>(pattern.get_first(0), pattern.get_first(7));
+
+    pattern = hook::pattern("C6 86 ? ? ? ? ? 85 FF 74 2E 80 BF ? ? ? ? ? 74 1B");
+    struct InteriornessHook2
+    {
+        void operator()(injector::reg_pack& regs)
+        {
+            *(uint8_t*)(regs.esi + 0x21BD8) = 0;
+            WaterDrops::ms_rainIntensity = 0.0f;
+        }
+    }; injector::MakeInline<InteriornessHook2>(pattern.get_first(0), pattern.get_first(7));
+
+    pattern = hook::pattern("D9 05 ? ? ? ? 8B 10 51");
+    WaterDrops::fTimeStep = *pattern.get_first<float*>(2);
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()
