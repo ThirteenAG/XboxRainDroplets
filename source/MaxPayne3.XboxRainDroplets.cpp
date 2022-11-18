@@ -18,8 +18,10 @@ void __declspec(naked) sub_12D4470()
 void Init()
 {
     CIniReader iniReader("");
-    WaterDrops::MAXDROPS = iniReader.ReadInteger("MAIN", "MaxDrops", 2000);
-    WaterDrops::MAXDROPSMOVING = iniReader.ReadInteger("MAIN", "MaxMovingDrops", 500);
+    WaterDrops::MinSize = iniReader.ReadInteger("MAIN", "MinSize", 4);
+    WaterDrops::MaxSize = iniReader.ReadInteger("MAIN", "MaxSize", 15);
+    WaterDrops::MaxDrops = iniReader.ReadInteger("MAIN", "MaxDrops", 2000);
+    WaterDrops::MaxDropsMoving = iniReader.ReadInteger("MAIN", "MaxMovingDrops", 500);
     WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) != 0;
     WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
     WaterDrops::fSpeedAdjuster = iniReader.ReadFloat("MAIN", "SpeedAdjuster", 1.0f);

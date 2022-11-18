@@ -15,7 +15,7 @@
 #include <d3dx9tex.h>
 #pragma comment(lib, "D3dx9.lib")
 #endif
-#include "d3dvtbl.h"
+#include "includes/d3dvtbl.h"
 #include <time.h>
 #include <injector\injector.hpp>
 #include <injector\hooking.hpp>
@@ -31,43 +31,12 @@
 #include <subauth.h>
 #include "inireader/IniReader.h"
 #include "Hooking.Patterns.h"
-#include "ModuleList.hpp"
+#include "includes/ModuleList.hpp"
 
 #define IDR_DROPMASK 100
 #define IDR_SNOWDROPMASK 101
 #define IDR_BLURPS 103
-#define IDR_BLURVS 104
-
-#ifndef MACRO_START
-#define MACRO_START do
-#endif /* MACRO_START */
-
-#ifndef MACRO_STOP
-#define MACRO_STOP while(0)
-#endif /* MACRO_STOP */
-
-#define RwV3dSub(o, a, b)                                       \
-MACRO_START                                                     \
-{                                                               \
-    (o)->x = (((a)->x) - ( (b)->x));                            \
-    (o)->y = (((a)->y) - ( (b)->y));                            \
-    (o)->z = (((a)->z) - ( (b)->z));                            \
-}                                                               \
-MACRO_STOP
-
-#define RwV3dScale(o, a, s)                                     \
-MACRO_START                                                     \
-{                                                               \
-    (o)->x = (((a)->x) * ( (s)));                               \
-    (o)->y = (((a)->y) * ( (s)));                               \
-    (o)->z = (((a)->z) * ( (s)));                               \
-}                                                               \
-MACRO_STOP
-
-#define RwV3dDotProduct(a, b)                                   \
-    ((((( (((a)->x) * ((b)->x))) +                              \
-        ( (((a)->y) * ((b)->y))))) +                            \
-        ( (((a)->z) * ((b)->z)))))
+#define IDR_BLURVS 104                              
 
 struct RwV3d
 {
@@ -75,6 +44,25 @@ struct RwV3d
     float y;
     float z;
 };
+
+inline void RwV3dSub(RwV3d* o, RwV3d* a, RwV3d* b)
+{
+    (o)->x = (((a)->x) - ((b)->x));
+    (o)->y = (((a)->y) - ((b)->y));
+    (o)->z = (((a)->z) - ((b)->z));
+}
+
+inline void RwV3dScale(RwV3d* o, RwV3d* a, float s)
+{
+    o->x = a->x * s;
+    o->y = a->y * s;
+    o->z = a->z * s;
+}
+
+inline float RwV3dDotProduct(RwV3d* a, RwV3d* b)
+{
+    return (((a->x * b->x) + (a->y * b->y))) + (a->z * b->z);
+}
 
 struct RwMatrix
 {
@@ -101,8 +89,6 @@ struct VertexTex2
     float      v1;
 };
 
-#define MAXSIZE 15
-#define MINSIZE 4
 #define DROPFVF (D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX2)
 #define RAD2DEG(x) (180.0f*(x)/M_PI)
 
@@ -143,8 +129,10 @@ public:
 class WaterDrops
 {
 public:
-    static inline auto MAXDROPS = 2000;
-    static inline auto MAXDROPSMOVING = 500;
+    static inline auto MinSize = 4;
+    static inline auto MaxSize = 15;
+    static inline auto MaxDrops = 2000;
+    static inline auto MaxDropsMoving = 500;
     static inline constexpr float gravity = 9.807f;
     static inline constexpr float gdivmin = 100.0f;
     static inline constexpr float gdivmax = 30.0f;
@@ -155,8 +143,8 @@ public:
     #define SC(x) ((int32_t)((x)*ms_scaling))
     static inline float ms_xOff;
     static inline float ms_yOff;
-    static inline auto ms_drops = std::vector<WaterDrop>(MAXDROPS);
-    static inline auto ms_dropsMoving = std::vector<WaterDropMoving>(MAXDROPSMOVING);
+    static inline auto ms_drops = std::vector<WaterDrop>(MaxDrops);
+    static inline auto ms_dropsMoving = std::vector<WaterDropMoving>(MaxDropsMoving);
     static inline int32_t ms_numDrops;
     static inline int32_t ms_numDropsMoving;
 
@@ -391,16 +379,16 @@ public:
         moving->dist += ((d + ms_vecLen));
         if (moving->dist > 20.0f)
         {
-            float movttl = moving->drop->ttl / (float)(SC(MINSIZE));
+            float movttl = moving->drop->ttl / (float)(SC(MinSize));
             NewTrace(moving, movttl);
         }
         drop->x += (dx * d) - ms_vec.x;
         drop->y += (dy * d) + (ms_vec.y + randgravity);
 
-        drop->size -= (drop->size / 100.0f) * GetTimeStepInMilliseconds();
+        //drop->size -= (drop->size / 100.0f) * GetTimeStepInMilliseconds();
 
-        if (drop->x < -(float)(SC(MAXSIZE)) || drop->y < -(float)(SC(MAXSIZE)) ||
-            drop->x >(ms_fbWidth + SC(MAXSIZE)) || drop->y >(ms_fbHeight + SC(MAXSIZE))) {
+        if (drop->x < -(float)(SC(MaxSize)) || drop->y < -(float)(SC(MaxSize)) ||
+            drop->x >(ms_fbWidth + SC(MaxSize)) || drop->y >(ms_fbHeight + SC(MaxSize))) {
             moving->drop = NULL;
             ms_numDropsMoving--;
         }
@@ -436,7 +424,7 @@ public:
                 drop.y = y;
                 drop.size = size;
                 drop.uv_index = ms_atlasUsed ? GetRandomInt(3) : 4; //sizeof(uv) - 2 || uv[last]
-                drop.uvsize = (SC(MAXSIZE) - size + 1.0f) / (SC(MAXSIZE) - SC(MINSIZE) + 1.0f);
+                drop.uvsize = (SC(MaxSize) - size + 1.0f) / (SC(MaxSize) - SC(MinSize) + 1.0f);
                 drop.fades = fades;
                 drop.active = 1;
                 drop.r = R;
@@ -455,7 +443,7 @@ public:
     {
         if (ms_numDrops < int32_t(ms_drops.capacity() - 1)) {
             moving->dist = 0.0f;
-            PlaceNew(moving->drop->x, moving->drop->y, (float)(SC(MINSIZE)), ttl, 1, moving->drop->r, moving->drop->g, moving->drop->b);
+            PlaceNew(moving->drop->x, moving->drop->y, (float)(SC(MinSize)), ttl, 1, moving->drop->r, moving->drop->g, moving->drop->b);
         }
     }
 
@@ -487,8 +475,8 @@ public:
             {
                 float x = GetRandomFloat((float)ms_fbWidth);
                 float y = GetRandomFloat((float)ms_fbHeight);
-                float size = GetRandomFloat((float)(SC(MAXSIZE) - SC(MINSIZE)) + SC(MINSIZE));
-                float ttl = GetRandomFloat((float)(8000.0f));
+                float size = GetRandomFloat((float)(SC(MaxSize) - SC(MinSize)) + SC(MinSize));
+                float ttl = GetRandomFloat((float)(2000.0f));
                 if (ttl < 2000.0f)
                     ttl = 2000.0f;
                 if (!isBlood)
@@ -512,7 +500,7 @@ public:
             if (&drop < &ms_drops[n]) {
                 float x = (float)(rand() % ms_fbWidth);
                 float y = (float)(rand() % ms_fbHeight);
-                float time = (float)(rand() % (SC(MAXSIZE) - SC(MINSIZE)) + SC(MINSIZE));
+                float time = (float)(rand() % (SC(MaxSize) - SC(MinSize)) + SC(MinSize));
                 PlaceNew(x, y, time, 2000.0f, 1);
             }
         }
@@ -594,8 +582,8 @@ public:
     static inline void InitialiseRender(LPDIRECT3DDEVICE9 pDevice)
 #endif
     {
-        ms_drops.resize(MAXDROPS);
-        ms_dropsMoving.resize(MAXDROPSMOVING);
+        ms_drops.resize(MaxDrops);
+        ms_dropsMoving.resize(MaxDropsMoving);
         
 #ifdef DX8
         IDirect3DVertexBuffer8* vbuf;
