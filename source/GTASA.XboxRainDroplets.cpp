@@ -10,6 +10,7 @@ void Init()
     WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) != 0;
     WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
     WaterDrops::fSpeedAdjuster = iniReader.ReadFloat("MAIN", "SpeedAdjuster", 1.0f);
+    WaterDrops::fMoveStep = iniReader.ReadFloat("MAIN", "MoveStep", 20.0f);
     
     static LPDIRECT3DDEVICE9* pDev = (LPDIRECT3DDEVICE9*)0xC97C28;
     static auto matrix = (RwMatrix*)((0xB6F97C + 0x20));
