@@ -378,7 +378,7 @@ public:
             dy *= (1.0f / sum);
         }
         moving->dist += ((d + ms_vecLen));
-        if (moving->dist > fMoveStep)
+        if (moving->drop->ttl > 6000.0f && moving->dist > fMoveStep)
         {
             float movttl = moving->drop->ttl / (float)(SC(4));
             NewTrace(moving, movttl);
