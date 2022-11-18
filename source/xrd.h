@@ -770,7 +770,8 @@ public:
             if (drop.active)
                 AddToRenderList(&drop);
         vbuf->Unlock();
-
+        
+#ifndef DISABLESTATEBLOCK
 #ifdef DX8
         DWORD pStateBlock = NULL;
         pDevice->CreateStateBlock(D3DSBT_ALL, &pStateBlock);
@@ -783,6 +784,7 @@ public:
         pStateBlock->Capture();
 
         pDevice->StretchRect(ms_bbuf, NULL, ms_surf, NULL, D3DTEXF_LINEAR);
+#endif
 #endif
 
         pDevice->SetTexture(0, ms_maskTex);
@@ -836,12 +838,14 @@ public:
         pDevice->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
         pDevice->SetTextureStageState(1, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
 
+#ifndef DISABLESTATEBLOCK
 #ifdef DX8
         pDevice->ApplyStateBlock(pStateBlock);
         pDevice->DeleteStateBlock(pStateBlock);
 #else
         pStateBlock->Apply();
         pStateBlock->Release();
+#endif
 #endif
     }
 
