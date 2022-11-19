@@ -10,15 +10,7 @@ float** flt_1007A828 = nullptr;
 
 void Init()
 {
-    CIniReader iniReader("");
-    WaterDrops::MinSize = iniReader.ReadInteger("MAIN", "MinSize", 4);
-    WaterDrops::MaxSize = iniReader.ReadInteger("MAIN", "MaxSize", 15);
-    WaterDrops::MaxDrops = iniReader.ReadInteger("MAIN", "MaxDrops", 2000);
-    WaterDrops::MaxDropsMoving = iniReader.ReadInteger("MAIN", "MaxMovingDrops", 500);
-    WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) != 0;
-    WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
-    WaterDrops::fSpeedAdjuster = iniReader.ReadFloat("MAIN", "SpeedAdjuster", 1.0f);
-    WaterDrops::fMoveStep = iniReader.ReadFloat("MAIN", "MoveStep", 20.0f);
+    WaterDrops::ReadIniSettings();
     
     auto pattern = hook::pattern("8B F1 8B 4E 0C FF 15");
     struct RenderHook

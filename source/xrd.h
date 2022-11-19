@@ -32,6 +32,7 @@
 #include "inireader/IniReader.h"
 #include "Hooking.Patterns.h"
 #include "includes/ModuleList.hpp"
+#include "includes/FileWatch.hpp"
 
 #define IDR_DROPMASK 100
 #define IDR_SNOWDROPMASK 101
@@ -247,16 +248,47 @@ public:
         Fade();
     }
 
+    static inline void ReadIniSettings(bool invertedRadial = false)
+    {
+        CIniReader iniReader("");
+        MinSize = iniReader.ReadInteger("MAIN", "MinSize", 4);
+        MaxSize = iniReader.ReadInteger("MAIN", "MaxSize", 15);
+        MaxDrops = iniReader.ReadInteger("MAIN", "MaxDrops", 3000);
+        MaxDropsMoving = iniReader.ReadInteger("MAIN", "MaxMovingDrops", 6000);
+        bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) != 0;
+        bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
+        fSpeedAdjuster = iniReader.ReadFloat("MAIN", "SpeedAdjuster", 1.0f);
+        fMoveStep = iniReader.ReadFloat("MAIN", "MoveStep", 0.1f);
+
+        static std::once_flag flag;
+        std::call_once(flag, [&]() 
+        { 
+            if (invertedRadial)
+                bRadial = !bRadial;
+
+            static filewatch::FileWatch<std::string> watch(iniReader.GetIniPath(), [&](const std::string& path, const filewatch::Event change_type)
+            {
+                if (change_type == filewatch::Event::modified)
+                {
+                    ReadIniSettings(invertedRadial);
+                    ms_initialised = 0;
+                }
+            });
+        });
+    }
+
     static inline float GetDistanceBetweenEmitterAndCamera(RwV3d* emitterPos)
     {
         RwV3d dist;
         RwV3dSub(&dist, emitterPos, &WaterDrops::ms_lastPos);
         return RwV3dDotProduct(&dist, &dist);
     }
+    
     static inline float GetDistanceBetweenEmitterAndCamera(RwV3d emitterPos)
     {
         return GetDistanceBetweenEmitterAndCamera(&emitterPos);
     }
+    
     static inline float GetDropsAmountBasedOnEmitterDistance(float emitterDistance, float maxDistance, float maxAmount = 100.0f)
     {
         static auto SolveEqSys = [](float a, float b, float c, float d, float value) -> float
@@ -270,10 +302,12 @@ public:
         constexpr float minAmount = 0.0f;
         return maxAmount - SolveEqSys(minDistance, minAmount, maxDistance, maxAmount, emitterDistance);
     }
+    
     static inline void RegisterGlobalEmitter(RwV3d pos, float radius = 1.0f)
     {
         ms_sprayLocations.emplace_back(pos, radius);
     }
+    
     static inline void ProcessGlobalEmitters()
     {
         for (auto& it: ms_sprayLocations)
@@ -284,6 +318,7 @@ public:
                 WaterDrops::FillScreenMoving(it.second);
         }
     }
+
     static inline void CalculateMovement()
     {
         RwV3dSub(&ms_posDelta, &pos, &ms_lastPos);
@@ -360,13 +395,15 @@ public:
             return;
         }
 
-        static float randgravity = 0;
+        static float randgravity = 0.0f;
         if (bGravity)
         {
             randgravity = GetRandomFloat((gravity / gdivmax));
             if (randgravity < (gravity / gdivmin))
                 randgravity = (gravity / gdivmin);
         }
+        else
+            randgravity = 0.0f;
 
         float d = abs(ms_vec.z * 0.2f);
         float dx, dy, sum;
@@ -378,7 +415,7 @@ public:
             dy *= (1.0f / sum);
         }
         moving->dist += ((d + ms_vecLen));
-        if (moving->drop->ttl > 6000.0f && moving->dist > fMoveStep)
+        if (moving->drop->ttl > 7000.0f && moving->dist > fMoveStep)
         {
             float movttl = moving->drop->ttl / (float)(SC(4));
             NewTrace(moving, movttl);

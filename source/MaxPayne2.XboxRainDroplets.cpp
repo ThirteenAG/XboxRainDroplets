@@ -31,15 +31,7 @@ void __fastcall sub_10004820(float* _this, void* edx, float* a2)
 
 void Init()
 {
-    CIniReader iniReader("");
-    WaterDrops::MinSize = iniReader.ReadInteger("MAIN", "MinSize", 4);
-    WaterDrops::MaxSize = iniReader.ReadInteger("MAIN", "MaxSize", 15);
-    WaterDrops::MaxDrops = iniReader.ReadInteger("MAIN", "MaxDrops", 2000);
-    WaterDrops::MaxDropsMoving = iniReader.ReadInteger("MAIN", "MaxMovingDrops", 500);
-    WaterDrops::bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) != 0;
-    WaterDrops::bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
-    WaterDrops::fSpeedAdjuster = iniReader.ReadFloat("MAIN", "SpeedAdjuster", 1.0f);
-    WaterDrops::fMoveStep = iniReader.ReadFloat("MAIN", "MoveStep", 20.0f);
+    WaterDrops::ReadIniSettings();
 
     auto pattern = hook::pattern("C7 44 24 ? ? ? ? ? 75 07 8A 46 41 84 C0 74 09");
     struct RenderHook
