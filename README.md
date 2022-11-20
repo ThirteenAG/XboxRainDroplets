@@ -7,6 +7,18 @@ Enhanced implementation of xbox rain droplets from [SkyGFX](https://github.com/a
 
 # List of releases
 
+## Grand Theft Auto IV: The Complete Edition - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/gtaiv)
+
+#### Video (click on the image to go to YouTube):
+
+[![[Grand Theft Auto IV] Xbox Rain Droplets Mod](https://i.imgur.com/MyQAw7f.png)](https://www.youtube.com/watch?v=IiEXixRWUMU)
+
+## Max Payne 3 - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/maxpayne3)
+
+#### Video (click on the image to go to YouTube):
+
+[![[Max Payne 3] Xbox Rain Droplets Mod](https://i.imgur.com/Ctz0mtM.png)](https://www.youtube.com/watch?v=V775PEoMBqs)
+
 ## Scarface: The World Is Yours - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/scarface)
 
 #### Video (click on the image to go to YouTube):
@@ -16,8 +28,6 @@ Enhanced implementation of xbox rain droplets from [SkyGFX](https://github.com/a
 ## Mafia: The City of Lost Heaven - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/mafia)
 
 #### Videos (click on the image to go to YouTube):
-
-[![[Mafia] Xbox Rain Droplets Mod (Fire Hydrant Preview)](https://img.youtube.com/vi/i70qi6nlYwA/maxresdefault.jpg)](https://www.youtube.com/watch?v=i70qi6nlYwA)
 
 [![[Mafia] Xbox Rain Droplets Mod (Rain Preview)](https://img.youtube.com/vi/gi6irfmdPeo/maxresdefault.jpg)](https://www.youtube.com/watch?v=gi6irfmdPeo)
 
