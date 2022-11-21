@@ -173,6 +173,7 @@ public:
     static inline bool bRadial = false;
     static inline bool bGravity = true;
     static inline bool bBloodDrops = true;
+    static inline bool bEnableSnow = false;
     static inline float fSpeedAdjuster = 1.0f;
 
     static inline RwV3d right;
@@ -210,7 +211,10 @@ public:
     static inline float GetTimeStep()
     {
         if (!fTimeStep)
-            return (1.0f / fps);
+            if (fps > 0)
+                return (1.0f / fps);
+            else
+                return 0.0f;
         else
             return *fTimeStep;
     }
@@ -261,6 +265,7 @@ public:
         fSpeedAdjuster = iniReader.ReadFloat("MAIN", "SpeedAdjuster", 1.0f);
         fMoveStep = iniReader.ReadFloat("MAIN", "MoveStep", 0.1f);
         bBloodDrops = iniReader.ReadInteger("MAIN", "BloodDrops", 1) != 0;
+        bEnableSnow = iniReader.ReadInteger("BONUS", "EnableSnow", 0) != 0;
 
         static std::once_flag flag;
         std::call_once(flag, [&]() 
