@@ -4,12 +4,15 @@
 injector::hook_back<void*(__fastcall*)(void* _this, void* edx, char* name, RwMatrix* pos, int a3, int a4)> hb_CreateFxSystem;
 void* __fastcall CreateFxSystem(void* _this, void* edx, char* name, RwMatrix* pos, int a3, int a4)
 {
-    std::string_view name_view(name);
-    if (name_view == "FXP001" || name_view == "FXP002" || name_view == "FXP003" || name == "FXBTMET" || name_view == "FXBTMET2" || name_view == "FXRAT1")
+    if (WaterDrops::bBloodDrops)
     {
-        RwV3d prt_pos = { pos->pos.x, pos->pos.y, pos->pos.z };
-        auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(prt_pos);
-        WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 100.0f), true);
+        std::string_view name_view(name);
+        if (name_view == "FXP001" || name_view == "FXP002" || name_view == "FXP003" || name == "FXBTMET" || name_view == "FXBTMET2" || name_view == "FXRAT1")
+        {
+            RwV3d prt_pos = { pos->pos.x, pos->pos.y, pos->pos.z };
+            auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(prt_pos);
+            WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 100.0f), true);
+        }
     }
     return hb_CreateFxSystem.fun(_this, edx, name, pos, a3, a4);
 }

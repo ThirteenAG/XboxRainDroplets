@@ -303,23 +303,27 @@ int __cdecl sub_49C480(char* a1)
 injector::hook_back<void(__fastcall*)(void* _this, void* edx, int a2, float* hitPosition, float* rayDir, char isNotMainCharacter)> hb_PlayShotEffect;
 void __fastcall PlayShotEffect(void* _this, void* edx, int a2, float* hitPosition, float* rayDir, char isNotMainCharacter)
 {
-    RwV3d prt_pos = { hitPosition[2], hitPosition[0], hitPosition[1] };
-    auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(prt_pos);
-    if (isNotMainCharacter)
-        WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 100.0f), true);
-    else
-        WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 1.0f), true);
-    
+    if (WaterDrops::bBloodDrops)
+    {
+        RwV3d prt_pos = { hitPosition[2], hitPosition[0], hitPosition[1] };
+        auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(prt_pos);
+        if (isNotMainCharacter)
+            WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 100.0f), true);
+        else
+            WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 1.0f), true);
+    }
     return hb_PlayShotEffect.fun(_this, edx, a2, hitPosition, rayDir, isNotMainCharacter);
 }
 
 injector::hook_back<void(__fastcall*)(void* _this, void* edx, float* position)> hb_PlayGoreBloodExplosionEffect;
 void __fastcall PlayGoreBloodExplosionEffect(void* _this, void* edx, float* position)
 {
-    RwV3d prt_pos = { position[2], position[0], position[1] };
-    auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(prt_pos);
-    WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 250.0f), true);
-
+    if (WaterDrops::bBloodDrops)
+    {
+        RwV3d prt_pos = { position[2], position[0], position[1] };
+        auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(prt_pos);
+        WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 250.0f), true);
+    }
     return hb_PlayGoreBloodExplosionEffect.fun(_this, edx, position);
 }
 

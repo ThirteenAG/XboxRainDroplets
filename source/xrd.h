@@ -172,6 +172,7 @@ public:
     static inline bool ms_StaticRain = false;
     static inline bool bRadial = false;
     static inline bool bGravity = true;
+    static inline bool bBloodDrops = true;
     static inline float fSpeedAdjuster = 1.0f;
 
     static inline RwV3d right;
@@ -259,6 +260,7 @@ public:
         bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
         fSpeedAdjuster = iniReader.ReadFloat("MAIN", "SpeedAdjuster", 1.0f);
         fMoveStep = iniReader.ReadFloat("MAIN", "MoveStep", 0.1f);
+        bBloodDrops = iniReader.ReadInteger("MAIN", "BloodDrops", 1) != 0;
 
         static std::once_flag flag;
         std::call_once(flag, [&]() 
