@@ -4,6 +4,7 @@
 [![AppVeyor](https://img.shields.io/appveyor/build/ThirteenAG/XboxRainDroplets?label=AppVeyor%20Build&logo=Appveyor&logoColor=white)](https://ci.appveyor.com/project/ThirteenAG/xboxraindroplets)
 
 Enhanced implementation of xbox rain droplets from [SkyGFX](https://github.com/aap/skygfx) for other games.
+Various ini settings allow to customize the appearance and can be edited while in game.
 
 # List of releases
 

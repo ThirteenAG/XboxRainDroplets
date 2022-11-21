@@ -10,7 +10,8 @@ void __fastcall sub_B870A0(uint8_t* self, void* edx)
 {
     if (self[0])
     {
-        WaterDrops::FillScreenMoving(50.0f, true); //blood_cam
+        if (WaterDrops::bBloodDrops)
+            WaterDrops::FillScreenMoving(50.0f, true); //blood_cam
         self[0] = 0;
     }
     if (self[12])
