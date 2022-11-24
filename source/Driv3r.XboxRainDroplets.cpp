@@ -74,16 +74,22 @@ void Init()
     }; injector::MakeInline<CamNoRainHook>(pattern.get_first(0), pattern.get_first(8));
 
     static RwMatrix GviewMatrix;
-    static auto bRenderNow = false;
-    pattern = hook::pattern("A1 ? ? ? ? 83 78 24 00");
-    static auto dw8AFAB0 = *pattern.get_first<uint32_t*>(1);
+    static auto loc_5D1CAF = (uintptr_t)hook::get_pattern<uintptr_t>("83 EF 04 83 ED 01", 0);
+    static auto dw8AFA60 = *hook::get_pattern<uintptr_t*>("A1 ? ? ? ? 8B 08 6A 00 6A 00 50 FF 91", 1);
+    pattern = hook::pattern("C6 83 ? ? ? ? ? 83 EF 04 83 ED 01");
     struct Render
     {
         void operator()(injector::reg_pack& regs)
         {
-            regs.eax = *dw8AFAB0;
-            if (bRenderNow)
+            *(uint8_t*)(regs.ebx + 0x1D8) = 0;
+
+            if (regs.ebp == 5)
             {
+                (*(void(__stdcall**)(int, int, int))(*(int*)*(int*)dw8AFA60 + 260))(*(int*)dw8AFA60, 0, 0);
+                (*(void(__stdcall**)(int, int, int))(*(int*)*(int*)dw8AFA60 + 260))(*(int*)dw8AFA60, 1, 0);
+                (*(void(__stdcall**)(int, int, int))(*(int*)*(int*)dw8AFA60 + 260))(*(int*)dw8AFA60, 2, 0);
+                (*(void(__stdcall**)(int, int, int))(*(int*)*(int*)dw8AFA60 + 260))(*(int*)dw8AFA60, 3, 0);
+
                 auto pDevice = *(LPDIRECT3DDEVICE9*)(ppDevice + 0x158);
                 
                 auto right = *(RwV3d*)(pCamMatrix + 0x00);
@@ -112,23 +118,9 @@ void Init()
                     ts = WaterDrops::GetTimeStepInMilliseconds();
                     CSnow::AddSnow(pDevice, WaterDrops::ms_fbWidth, WaterDrops::ms_fbHeight, &camMatrix, &GviewMatrix, &ts, false);
                 }
-                bRenderNow = false;
             }
-
         }
-    }; injector::MakeInline<Render>(pattern.get_first(0));
-
-    pattern = hook::pattern("C6 83 ? ? ? ? ? 83 EF 04 83 ED 01 75 BF A1 ? ? ? ? 8B 08 6A 00");
-    struct RenderCheck
-    {
-        void operator()(injector::reg_pack& regs)
-        {
-            *(uint8_t*)(regs.ebx + 0x1D8) = 0;
-
-            if (regs.ebp == 5 && regs.edx != 0)
-                bRenderNow = true;
-        }
-    }; injector::MakeInline<RenderCheck>(pattern.get_first(0), pattern.get_first(7));
+    }; injector::MakeInline<Render>(pattern.get_first(0), pattern.get_first(7));
 
     pattern = hook::pattern("0F B7 53 50 8B 43 40");
     struct MatrixCheck
