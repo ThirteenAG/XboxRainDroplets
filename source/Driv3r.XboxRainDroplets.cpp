@@ -1,9 +1,20 @@
 #include "xrd.h"
 #include "snow.h"
 
+void RegisterFountains()
+{
+    WaterDrops::RegisterGlobalEmitter({ 1448.16699f, 1737.32788f, 14.3802023f });
+    WaterDrops::RegisterGlobalEmitter({ 1458.16797f, 1724.57727f, 14.0609770f });
+    WaterDrops::RegisterGlobalEmitter({ 1459.05823f, 1741.43860f, 14.3181515f });
+    WaterDrops::RegisterGlobalEmitter({ 1444.47217f, 1743.65039f, 14.3181515f });
+    WaterDrops::RegisterGlobalEmitter({ 1442.56702f, 1730.56396f, 14.3181429f });
+}
+
 void Init()
 {
     WaterDrops::ReadIniSettings();
+
+    RegisterFountains();
     
     WaterDrops::ms_rainIntensity = 0.0f;
 
