@@ -195,12 +195,14 @@ void Init()
         }
     }; injector::MakeInline<EndSceneHook>(pattern.get_first(0), pattern.get_first(6));
 
-    pattern = hook::pattern("E8 ? ? ? ? FF 37 8B 4D F0");
+    pattern = hook::pattern("8B 90 ? ? ? ? 8B 45 F4");
     struct RenderHook
     {
         void operator()(injector::reg_pack& regs)
         {
-            if (!pDevice || *(uint32_t*)(regs.ebp - 4) != 0)
+            regs.edx = *(uint32_t*)(regs.eax + 0x49C);
+
+            if (!pDevice || *(uint32_t*)(regs.ebp - 4) != 3)
                 return;
 
             auto pGameTime = *dw70C5B0;
@@ -283,7 +285,7 @@ void Init()
                 CSnow::AddSnow(pDevice, WaterDrops::ms_fbWidth, WaterDrops::ms_fbHeight, &camMatrix, &viewMatrix, &ts, WaterDrops::bEnableSnow ? false : true);
             }
         }
-    }; injector::MakeInline<RenderHook>(pattern.get_first(0));
+    }; injector::MakeInline<RenderHook>(pattern.get_first(0), pattern.get_first(6));
     
     pattern = hook::pattern("8B 83 ? ? ? ? 6A 0E 59");
     struct ResetHook
