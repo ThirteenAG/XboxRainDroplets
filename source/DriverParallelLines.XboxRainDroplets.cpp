@@ -175,8 +175,11 @@ void __fastcall CActiveNodeCollectionManager__Apply(void* _this, void* edx)
 void Init()
 {
     WaterDrops::ReadIniSettings();
-    
-    WaterDrops::ms_rainIntensity = 0.0f;
+    CIniReader iniReader("");
+    uint32_t RainAppearancePerDay = iniReader.ReadInteger("MAIN", "RainAppearancePerDay", 2);
+    static std::vector<uint32_t> chanceofRain(24);
+    for (auto i = 0; i < min(RainAppearancePerDay, chanceofRain.size()); i++)
+        chanceofRain[i] = 1;
 
     static LPDIRECT3DDEVICE9 pDevice = nullptr;
     static auto pCamMatrix = *hook::get_pattern<uint32_t>("BF ? ? ? ? F3 A5 BE", 1);
@@ -214,7 +217,6 @@ void Init()
                 auto hrs = (timer / 10000) % 24;
 
                 static auto randomRainIntensity = 0.0f;
-                static std::vector<int> chanceofRain = { 1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }; // twice a day
                 static bool once = false;
                 if (timer > 1000 && hrs == 0 && !once)
                 {
