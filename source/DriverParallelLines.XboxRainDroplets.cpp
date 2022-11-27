@@ -137,8 +137,8 @@ public:
 };
 
 bool bMenu = false;
-bool bCamNoRain = true;
-bool bCamNoRain2 = true;
+bool bCamNoRain = false;
+bool bCamNoRain2 = false;
 void __fastcall CActiveNodeCollectionManager__Apply(void* _this, void* edx)
 {
     unsigned int v2; // ebx
@@ -170,6 +170,16 @@ void __fastcall CActiveNodeCollectionManager__Apply(void* _this, void* edx)
         } while (v2 < *((DWORD*)_this + 136));
     }
     *((DWORD*)_this + 136) = 0;
+}
+
+void __fastcall CGameMusicManager__SetVolume(int* _this, void* edx, int a2)
+{
+    _this[24] = a2;
+
+    if (a2 == 0x3e99999a)
+        bCamNoRain2 = true;
+    else
+        bCamNoRain2 = false;
 }
 
 void Init()
@@ -208,6 +218,16 @@ void Init()
             if (!pDevice || *(uint32_t*)(regs.ebp - 4) != 3)
                 return;
 
+            auto right = *(RwV3d*)(pCamMatrix + 0x00);
+            auto up = *(RwV3d*)(pCamMatrix + 0x10);
+            auto at = *(RwV3d*)(pCamMatrix + 0x20);
+            auto pos = *(RwV3d*)(pCamMatrix + 0x30);
+
+            WaterDrops::right = { -right.x, -right.z, -right.y };
+            WaterDrops::up = { up.x, up.z, up.y };
+            WaterDrops::at = { -at.x, -at.z, -at.y };
+            WaterDrops::pos = { pos.x, pos.z, pos.y };
+
             auto pGameTime = *dw70C5B0;
             if (pGameTime)
             {
@@ -230,7 +250,7 @@ void Init()
                 else if (hrs == 1)
                     once = false;
 
-                if (chanceofRain.at(hrs) && (!bCamNoRain && !bCamNoRain2))
+                if (chanceofRain.at(hrs) && WaterDrops::pos.z >= -2.38793182f && (!bCamNoRain && !bCamNoRain2))
                 {
                     WaterDrops::ms_rainIntensity = randomRainIntensity;
                     CSnow::targetSnow = randomRainIntensity;
@@ -244,16 +264,6 @@ void Init()
                 if (WaterDrops::bEnableSnow)
                     CSnow::targetSnow = 1.0f;
             }
-
-            auto right = *(RwV3d*)(pCamMatrix + 0x00);
-            auto up = *(RwV3d*)(pCamMatrix + 0x10);
-            auto at = *(RwV3d*)(pCamMatrix + 0x20);
-            auto pos = *(RwV3d*)(pCamMatrix + 0x30);
-
-            WaterDrops::right = { -right.x, -right.z, -right.y };
-            WaterDrops::up = { up.x, up.z, up.y };
-            WaterDrops::at = { -at.x, -at.z, -at.y };
-            WaterDrops::pos = { pos.x, pos.z, pos.y };
 
             WaterDrops::Process(pDevice);
             if (!bMenu && *dw6E8E18 != 256)
@@ -302,20 +312,20 @@ void Init()
     pattern = hook::pattern("55 8B EC 56 57 FF 75 0C 8B F9 E8 ? ? ? ? 8B F0 85 F6 74 0B 8B CE E8 ? ? ? ? 84 C0 74 0C 8B 45 08");
     injector::MakeJMP(pattern.get_first(0), &CParticleEffectManager::AddOneShotParticleEffect, true);
     
-    pattern = hook::pattern("89 30 8B 52 04 89 50 04 5E FF 81 ? ? ? ? C2 04 00");
-    struct CamNoRainHook
-    {
-        void operator()(injector::reg_pack& regs)
-        {
-            *(uint32_t*)(regs.eax) = regs.esi;
-            regs.edx = *(uint32_t*)(regs.edx + 4);
-    
-            if (!regs.esi && !regs.ebx)
-                bCamNoRain2 = true;
-            else if (!(regs.edi == 1 && regs.esi == 1))
-                bCamNoRain2 = false;
-        }
-    }; injector::MakeInline<CamNoRainHook>(pattern.count_hint(10).get(4).get<void>(0));
+    //pattern = hook::pattern("89 30 8B 52 04 89 50 04 5E FF 81 ? ? ? ? C2 04 00");
+    //struct CamNoRainHook
+    //{
+    //    void operator()(injector::reg_pack& regs)
+    //    {
+    //        *(uint32_t*)(regs.eax) = regs.esi;
+    //        regs.edx = *(uint32_t*)(regs.edx + 4);
+    //
+    //        if (!regs.esi && !regs.ebx)
+    //            bCamNoRain2 = true;
+    //        else if (!(regs.edi == 1 && regs.esi == 1))
+    //            bCamNoRain2 = false;
+    //    }
+    //}; injector::MakeInline<CamNoRainHook>(pattern.count_hint(10).get(4).get<void>(0));
 
     pattern = hook::pattern("E8 ? ? ? ? 8B 0D ? ? ? ? E8 ? ? ? ? 8B CF E8 ? ? ? ? 8B CF E8");
     injector::MakeCALL(pattern.get_first(0), CActiveNodeCollectionManager__Apply, true);
@@ -345,6 +355,13 @@ void Init()
             bMenu = 1;
         }
     }; injector::MakeInline<ActivateMenuHook>(pattern.get_first(0), pattern.get_first(6));
+
+    pattern = hook::pattern("E8 ? ? ? ? 6A 00 6A 01 8B CE E8 ? ? ? ? EB 04");
+    injector::MakeCALL(pattern.get_first(0), CGameMusicManager__SetVolume, true);
+    pattern = hook::pattern("E8 ? ? ? ? 6A 01 6A 03 EB 3B");
+    injector::MakeCALL(pattern.get_first(0), CGameMusicManager__SetVolume, true);
+    pattern = hook::pattern("E8 ? ? ? ? EB 0E D9 E8");
+    injector::MakeCALL(pattern.get_first(0), CGameMusicManager__SetVolume, true);
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()
