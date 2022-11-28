@@ -50,6 +50,30 @@ Various ini settings allow to customize the appearance and can be edited while i
 
 [![[Need for Speed Underground 2] Xbox Rain Droplets Mod](https://user-images.githubusercontent.com/4904157/198046562-62075652-b28c-4557-bf4f-fae1001d0254.png)](https://www.youtube.com/watch?v=wq_fnN0CLws)
 
+## Driver: Parallel Lines - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/driverpl)
+
+#### Video (click on the image to go to YouTube):
+
+[![[Driver: Parallel Lines] Xbox Rain Droplets Mod](https://img.youtube.com/vi/--9j9SPCfKQ/maxresdefault.jpg)](https://www.youtube.com/watch?v=--9j9SPCfKQ)
+
+## Driv3r - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/driv3r)
+
+#### Video (click on the image to go to YouTube):
+
+[![[Driv3r] Xbox Rain Droplets Mod](https://img.youtube.com/vi/QR8ejG2Fjak/maxresdefault.jpg)](https://www.youtube.com/watch?v=QR8ejG2Fjak)
+
+## Manhunt - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/manhunt)
+
+#### Video (click on the image to go to YouTube):
+
+[![[Manhunt] Xbox Rain Droplets Mod](https://img.youtube.com/vi/1ll6uchi8fQ/maxresdefault.jpg)](https://www.youtube.com/watch?v=1ll6uchi8fQ)
+
+## Max Payne 2 - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/maxpayne2)
+
+#### Video (click on the image to go to YouTube):
+
+[![[MaxPayne2] Xbox Rain Droplets Mod](https://img.youtube.com/vi/wodoq5-YPYc/maxresdefault.jpg)](https://www.youtube.com/watch?v=wodoq5-YPYc)
+
 ## Other
 
 More plugins available on [appveyor artifacts page](https://ci.appveyor.com/project/ThirteenAG/xboxraindroplets/build/artifacts), but they are incomplete. It is not recommended to use them.
