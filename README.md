@@ -1,6 +1,6 @@
 # XboxRainDroplets
 
-[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/ThirteenAG/XboxRainDroplets/GitHub%20Actions%20Build?label=GitHub%20Actions%20Build&logo=GitHub)](https://github.com/ThirteenAG/XboxRainDroplets/actions/workflows/main.yml)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/ThirteenAG/XboxRainDroplets/main.yml?branch=master&label=GitHub%20Actions%20Build&logo=GitHub)](https://github.com/ThirteenAG/XboxRainDroplets/actions/workflows/main.yml)
 [![AppVeyor](https://img.shields.io/appveyor/build/ThirteenAG/XboxRainDroplets?label=AppVeyor%20Build&logo=Appveyor&logoColor=white)](https://ci.appveyor.com/project/ThirteenAG/xboxraindroplets)
 
 Enhanced implementation of xbox rain droplets from [SkyGFX](https://github.com/aap/skygfx) for other games.
