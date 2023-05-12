@@ -640,8 +640,10 @@ public:
 #else
         IDirect3DVertexBuffer9* vbuf;
         IDirect3DIndexBuffer9* ibuf;
-        pDevice->CreateVertexBuffer(ms_drops.capacity() * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf, nullptr);
-        pDevice->CreateIndexBuffer(ms_drops.capacity() * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf, nullptr);
+        if (FAILED(pDevice->CreateVertexBuffer(ms_drops.capacity() * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf, nullptr)))
+            pDevice->CreateVertexBuffer(ms_drops.capacity() * 4 * sizeof(VertexTex2), D3DUSAGE_DYNAMIC, DROPFVF, D3DPOOL_DEFAULT, &vbuf, nullptr);
+        if (FAILED(pDevice->CreateIndexBuffer(ms_drops.capacity() * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf, nullptr)))
+            pDevice->CreateIndexBuffer(ms_drops.capacity() * 6 * sizeof(short), D3DUSAGE_DYNAMIC, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &ibuf, nullptr);
 #endif
         ms_vertexBuf = vbuf;
         ms_indexBuf = ibuf;
@@ -715,7 +717,8 @@ public:
         if (FAILED(res) || ms_maskTex == nullptr)
         {
             static constexpr auto MaskSize = 128;
-            D3DXCreateTexture(pDevice, MaskSize, MaskSize, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &ms_maskTex);
+            if (FAILED(D3DXCreateTexture(pDevice, MaskSize, MaskSize, 1, D3DUSAGE_WRITEONLY, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &ms_maskTex)))
+                D3DXCreateTexture(pDevice, MaskSize, MaskSize, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &ms_maskTex);
             D3DLOCKED_RECT LockedRect;
             ms_maskTex->LockRect(0, &LockedRect, NULL, 0);
             uint8_t* pixels = (uint8_t*)LockedRect.pBits;
