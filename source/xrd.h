@@ -20,7 +20,6 @@
 #include <injector\injector.hpp>
 #include <injector\hooking.hpp>
 #include <injector\calling.hpp>
-#include <injector\assembly.hpp>
 #include <injector\utility.hpp>
 #include <algorithm>
 #include <thread>
@@ -930,11 +929,11 @@ public:
 
         if (!RealD3D9EndScene)
             RealD3D9EndScene = (EndScene_t)pVTable[IDirect3DDevice9VTBL::EndScene];
-        pEndScene = &pVTable[IDirect3DDevice9VTBL::EndScene];
+        pEndScene = reinterpret_cast<uint32_t*>(&pVTable[IDirect3DDevice9VTBL::EndScene]);
 
         if (!RealD3D9Reset)
             RealD3D9Reset = (Reset_t)pVTable[IDirect3DDevice9VTBL::Reset];
-        pReset = &pVTable[IDirect3DDevice9VTBL::Reset];
+        pReset = reinterpret_cast<uint32_t*>(&pVTable[IDirect3DDevice9VTBL::Reset]);
 
         if (bPatchD3D)
         {
@@ -951,11 +950,11 @@ public:
 
         if (!RealD3D9EndScene)
             RealD3D9EndScene = (EndScene_t)pVTable[IDirect3DDevice8VTBL::EndScene];
-        pEndScene = &pVTable[IDirect3DDevice8VTBL::EndScene];
+        pEndScene = reinterpret_cast<uint32_t*>(&pVTable[IDirect3DDevice8VTBL::EndScene]);
 
         if (!RealD3D9Reset)
             RealD3D9Reset = (Reset_t)pVTable[IDirect3DDevice8VTBL::Reset];
-        pReset = &pVTable[IDirect3DDevice8VTBL::Reset];
+        pReset = reinterpret_cast<uint32_t*>(&pVTable[IDirect3DDevice8VTBL::Reset]);
 
         if (bPatchD3D)
         {
