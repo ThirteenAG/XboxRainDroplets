@@ -108,3 +108,77 @@ project "MaxPayne3.XboxRainDroplets"
 --   setpaths("Z:/WFP/Games/Grand Theft Auto/GTAIII/", "gta3.exe", "scripts/")
 --project "GTASA.XboxRainDroplets"
 --   setpaths("Z:/WFP/Games/Grand Theft Auto/GTA San Andreas/", "gta_sa.exe", "scripts/")
+
+workspace "XboxRainDropletsWrapper"
+   configurations { "Release", "Debug" }
+   platforms { "Win32", "Win64" }
+   location "build"
+   objdir ("build/obj")
+   buildlog ("build/log/%{prj.name}.log")
+   buildoptions {"-std:c++latest"}
+   
+   kind "SharedLib"
+   language "C++"
+   targetextension ".asi"
+   characterset ("MBCS")
+   staticruntime "On"
+   
+   defines { "rsc_CompanyName=\"ThirteenAG\"" }
+   defines { "rsc_LegalCopyright=\"MIT License\""} 
+   defines { "rsc_FileVersion=\"1.0.0.0\"", "rsc_ProductVersion=\"1.0.0.0\"" }
+   defines { "rsc_InternalName=\"%{prj.name}\"", "rsc_ProductName=\"%{prj.name}\"", "rsc_OriginalFilename=\"XboxRainDroplets.asi\"" }
+   defines { "rsc_FileDescription=\"https://thirteenag.github.io/wfp\"" }
+   defines { "rsc_UpdateUrl=\"https://github.com/ThirteenAG/%{prj.name}\"" }
+   
+   files { "source/%{prj.name}.cpp" }
+   files { "source/*.def" }
+   files { "source/resources/Versioninfo.rc" }
+   files { "source/resources/Dropmask.rc" }
+   includedirs { "source" }
+   includedirs { "external" }
+   includedirs { "external/hooking" }
+   includedirs { "external/injector/include" }
+   includedirs { "external/minhook" }
+   includedirs { "external/kiero" }
+   includedirs { "source/dxsdk/dx8" }
+   libdirs { "source/dxsdk/dx8" }
+   
+   characterset ("Unicode")
+   files { "external/minhook/**/*.*" }
+   files { "external/kiero/kiero.h" }
+   files { "external/kiero/kiero.cpp" }
+   
+   filter "configurations:Debug"
+      defines "DEBUG"
+      symbols "On"
+
+   filter "configurations:Release"
+      defines "NDEBUG"
+      optimize "On"
+      
+   filter "platforms:Win32"
+      architecture "x32"
+      targetdir "data"
+	  local dxsdk = os.getenv "DXSDK_DIR"
+	  if dxsdk then
+	     includedirs { dxsdk .. "/include" }
+	     libdirs { dxsdk .. "/lib/x86" }
+	  else
+	     includedirs { "source/dxsdk" }
+	     libdirs { "source/dxsdk/lib/x86" }
+	  end
+      
+   filter "platforms:Win64"
+      architecture "x64"
+      targetdir "data/x64"
+	  local dxsdk = os.getenv "DXSDK_DIR"
+	  if dxsdk then
+	     includedirs { dxsdk .. "/include" }
+	     libdirs { dxsdk .. "/lib/x64" }
+	  else
+	     includedirs { "source/dxsdk" }
+	     libdirs { "source/dxsdk/lib/x64" }
+	  end
+
+project "XboxRainDroplets"
+   setpaths("Z:/WFP/Games/PPSSPP/", "PPSSPPWindows.exe")

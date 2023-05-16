@@ -2,7 +2,7 @@
 //#define USE_D3D8TO9_HOOK
 
 #ifndef USE_D3D8TO9_HOOK
-#define DX8
+#define DIRECT3D_VERSION         0x0800
 #endif
 
 #include "xrd.h"
@@ -54,7 +54,7 @@ void Init()
         void operator()(injector::reg_pack& regs)
         {
             *byte_101C4D14 = 1;
-#ifdef DX8
+#if(DIRECT3D_VERSION < 0x0900)
             auto pDevice = **(LPDIRECT3DDEVICE8**)pDev;
             WaterDrops::Process(pDevice);
             WaterDrops::Render(pDevice);

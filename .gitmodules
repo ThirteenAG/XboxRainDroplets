@@ -7,3 +7,6 @@
 [submodule "external/inireader"]
 	path = external/inireader
 	url = https://github.com/ThirteenAG/IniReader
+[submodule "external/minhook"]
+	path = external/minhook
+	url = https://github.com/TsudaKageyu/minhook
