@@ -7,7 +7,7 @@
 #define KIERO_ARRAY_SIZE(arr) ((size_t)(sizeof(arr)/sizeof(arr[0])))
 
 static kiero::RenderType::Enum g_renderType = kiero::RenderType::None;
-static std::vector<std::array<uintptr_t*, 500>> g_methodsTable(kiero::RenderType::Enum::Size);
+static std::vector<std::array<uintptr_t*, 500>> g_methodsTable(kiero::RenderType::Size);
 
 kiero::Status::Enum kiero::init(RenderType::Enum _renderType)
 {
@@ -97,7 +97,7 @@ kiero::Status::Enum kiero::init(RenderType::Enum _renderType)
 					return Status::UnknownError;
 				}
 
-				::memcpy(g_methodsTable[kiero::RenderType::Enum::D3D8].data(), *(uintptr_t**)device, (IDirect3DDevice8VTBL::DeletePatch + 1) * sizeof(uintptr_t));
+				::memcpy(g_methodsTable[RenderType::D3D8].data(), *(uintptr_t**)device, (IDirect3DDevice8VTBL::DeletePatch + 1) * sizeof(uintptr_t));
 
 #if KIERO_USE_MINHOOK
 				MH_Initialize();
@@ -170,7 +170,7 @@ kiero::Status::Enum kiero::init(RenderType::Enum _renderType)
 				}
 
 				
-				::memcpy(g_methodsTable[kiero::RenderType::Enum::D3D9].data(), *(uintptr_t**)device, (IDirect3DDevice9VTBL::GetDisplayModeEx + 1) * sizeof(uintptr_t));
+				::memcpy(g_methodsTable[RenderType::D3D9].data(), *(uintptr_t**)device, (IDirect3DDevice9VTBL::GetDisplayModeEx + 1) * sizeof(uintptr_t));
 
 #if KIERO_USE_MINHOOK
 				MH_Initialize();
@@ -291,8 +291,8 @@ kiero::Status::Enum kiero::init(RenderType::Enum _renderType)
 					return Status::UnknownError;
 				}
 
-				::memcpy(g_methodsTable[kiero::RenderType::Enum::D3D10].data(), *(uintptr_t**)swapChain, 18 * sizeof(uintptr_t));
-				::memcpy(g_methodsTable[kiero::RenderType::Enum::D3D10].data() + 18, *(uintptr_t**)device, 98 * sizeof(uintptr_t));
+				::memcpy(g_methodsTable[RenderType::D3D10].data(), *(uintptr_t**)swapChain, 18 * sizeof(uintptr_t));
+				::memcpy(g_methodsTable[RenderType::D3D10].data() + 18, *(uintptr_t**)device, 98 * sizeof(uintptr_t));
 
 #if KIERO_USE_MINHOOK
 				MH_Initialize();
@@ -383,9 +383,9 @@ kiero::Status::Enum kiero::init(RenderType::Enum _renderType)
 					return Status::UnknownError;
 				}
 
-				::memcpy(g_methodsTable[kiero::RenderType::Enum::D3D11].data(), *(uintptr_t**)swapChain, 18 * sizeof(uintptr_t));
-				::memcpy(g_methodsTable[kiero::RenderType::Enum::D3D11].data() + 18, *(uintptr_t**)device, 43 * sizeof(uintptr_t));
-				::memcpy(g_methodsTable[kiero::RenderType::Enum::D3D11].data() + 18 + 43, *(uintptr_t**)context, 144 * sizeof(uintptr_t));
+				::memcpy(g_methodsTable[RenderType::D3D11].data(), *(uintptr_t**)swapChain, 18 * sizeof(uintptr_t));
+				::memcpy(g_methodsTable[RenderType::D3D11].data() + 18, *(uintptr_t**)device, 43 * sizeof(uintptr_t));
+				::memcpy(g_methodsTable[RenderType::D3D11].data() + 18 + 43, *(uintptr_t**)context, 144 * sizeof(uintptr_t));
 
 #if KIERO_USE_MINHOOK
 				MH_Initialize();
@@ -524,11 +524,11 @@ kiero::Status::Enum kiero::init(RenderType::Enum _renderType)
 					return Status::UnknownError;
 				}
 
-				::memcpy(g_methodsTable[kiero::RenderType::Enum::D3D12].data(), *(uintptr_t**)device, 44 * sizeof(uintptr_t));
-				::memcpy(g_methodsTable[kiero::RenderType::Enum::D3D12].data() + 44, *(uintptr_t**)commandQueue, 19 * sizeof(uintptr_t));
-				::memcpy(g_methodsTable[kiero::RenderType::Enum::D3D12].data() + 44 + 19, *(uintptr_t**)commandAllocator, 9 * sizeof(uintptr_t));
-				::memcpy(g_methodsTable[kiero::RenderType::Enum::D3D12].data() + 44 + 19 + 9, *(uintptr_t**)commandList, 60 * sizeof(uintptr_t));
-				::memcpy(g_methodsTable[kiero::RenderType::Enum::D3D12].data() + 44 + 19 + 9 + 60, *(uintptr_t**)swapChain, 18 * sizeof(uintptr_t));
+				::memcpy(g_methodsTable[RenderType::D3D12].data(), *(uintptr_t**)device, 44 * sizeof(uintptr_t));
+				::memcpy(g_methodsTable[RenderType::D3D12].data() + 44, *(uintptr_t**)commandQueue, 19 * sizeof(uintptr_t));
+				::memcpy(g_methodsTable[RenderType::D3D12].data() + 44 + 19, *(uintptr_t**)commandAllocator, 9 * sizeof(uintptr_t));
+				::memcpy(g_methodsTable[RenderType::D3D12].data() + 44 + 19 + 9, *(uintptr_t**)commandList, 60 * sizeof(uintptr_t));
+				::memcpy(g_methodsTable[RenderType::D3D12].data() + 44 + 19 + 9 + 60, *(uintptr_t**)swapChain, 18 * sizeof(uintptr_t));
 
 #if KIERO_USE_MINHOOK
 				MH_Initialize();
@@ -603,16 +603,14 @@ kiero::Status::Enum kiero::init(RenderType::Enum _renderType)
 					"glTexCoord4sv", "glTexCoordPointer", "glTexEnvf", "glTexEnvfv", "glTexEnvi", "glTexEnviv", "glTexGend", "glTexGendv", "glTexGenf", "glTexGenfv", "glTexGeni", "glTexGeniv", "glTexImage1D",
 					"glTexImage2D", "glTexParameterf", "glTexParameterfv", "glTexParameteri", "glTexParameteriv", "glTexSubImage1D", "glTexSubImage2D", "glTranslated", "glTranslatef", "glVertex2d",
 					"glVertex2dv", "glVertex2f", "glVertex2fv", "glVertex2i", "glVertex2iv", "glVertex2s", "glVertex2sv", "glVertex3d", "glVertex3dv", "glVertex3f", "glVertex3fv", "glVertex3i", "glVertex3iv",
-					"glVertex3s", "glVertex3sv", "glVertex4d", "glVertex4dv", "glVertex4f", "glVertex4fv", "glVertex4i", "glVertex4iv", "glVertex4s", "glVertex4sv", "glVertexPointer", "glViewport"
+					"glVertex3s", "glVertex3sv", "glVertex4d", "glVertex4dv", "glVertex4f", "glVertex4fv", "glVertex4i", "glVertex4iv", "glVertex4s", "glVertex4sv", "glVertexPointer", "glViewport", "wglSwapBuffers"
 				};
 
 				size_t size = KIERO_ARRAY_SIZE(methodsNames);
 
-				g_methodsTable = (uintptr_t*)::calloc(size, sizeof(uintptr_t));
-
 				for (int i = 0; i < size; i++)
 				{
-					g_methodsTable[i] = (uintptr_t)::GetProcAddress(libOpenGL32, methodsNames[i]);
+					g_methodsTable[RenderType::OpenGL][i] = (uintptr_t*)::GetProcAddress(libOpenGL32, methodsNames[i]);
 				}
 
 #if KIERO_USE_MINHOOK
@@ -656,11 +654,9 @@ kiero::Status::Enum kiero::init(RenderType::Enum _renderType)
 
 				size_t size = KIERO_ARRAY_SIZE(methodsNames);
 
-				g_methodsTable = (uintptr_t*)::calloc(size, sizeof(uintptr_t));
-
 				for (int i = 0; i < size; i++)
 				{
-					g_methodsTable[i] = (uintptr_t)::GetProcAddress(libVulkan, methodsNames[i]);
+					g_methodsTable[RenderType::Vulkan][i] = (uintptr_t)::GetProcAddress(libVulkan, methodsNames[i]);
 				}
 
 #if KIERO_USE_MINHOOK

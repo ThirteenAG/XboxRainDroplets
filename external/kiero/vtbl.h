@@ -1104,6 +1104,7 @@ struct OpenGLVTBL
     static constexpr uint16_t glVertex4sv = 333;
     static constexpr uint16_t glVertexPointer = 334;
     static constexpr uint16_t glViewport = 335;
+    static constexpr uint16_t wglSwapBuffers = 336;
 };
 
 struct VulkanVTBL

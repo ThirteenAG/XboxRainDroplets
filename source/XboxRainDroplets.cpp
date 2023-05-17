@@ -59,7 +59,7 @@ public:
 
     static inline bool Init() {
 #if KIERO_INCLUDE_D3D8
-        if (kiero::init(kiero::RenderType::D3D8) == kiero::Status::Success) {
+        if (!bInitialized && kiero::init(kiero::RenderType::D3D8) == kiero::Status::Success) {
             kiero::bind(IDirect3DDevice8VTBL::Present, (void**)&DX8Hook::presentOriginalPtr, DX8Hook::Present);
             kiero::bind(IDirect3DDevice8VTBL::Reset, (void**)&DX8Hook::resetOriginalPtr, DX8Hook::Reset);
             onInitEvent();
@@ -107,7 +107,7 @@ public:
 
     static inline bool Init() {
 #if KIERO_INCLUDE_D3D9
-        if (kiero::init(kiero::RenderType::D3D9) == kiero::Status::Success) {
+        if (!bInitialized && kiero::init(kiero::RenderType::D3D9) == kiero::Status::Success) {
             kiero::bind(IDirect3DDevice9VTBL::Present, (void**)&DX9Hook::presentOriginalPtr, DX9Hook::Present);
             kiero::bind(IDirect3DDevice9VTBL::PresentEx, (void**)&DX9Hook::presentExOriginalPtr, DX9Hook::PresentEx);
             kiero::bind(IDirect3DDevice9VTBL::Reset, (void**)&DX9Hook::resetOriginalPtr, DX9Hook::Reset);
@@ -145,6 +145,54 @@ public:
 #endif
 };
 
+class DX10Hook
+{
+public:
+    static inline bool bInitialized = false;
+    static inline uintptr_t presentOriginalPtr = 0;
+    static inline uintptr_t resizeBuffersOriginalPtr = 0;
+
+    static inline Event<> onInitEvent = {};
+    static inline Event<> onShutdownEvent = {};
+#if KIERO_INCLUDE_D3D10
+    static inline Event<IDXGISwapChain*> onPresentEvent = {};
+    static inline Event<IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT> onBeforeResizeEvent = {};
+    static inline Event<IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT> onAfterResizeEvent = {};
+#endif
+
+    ~DX10Hook() {
+        kiero::shutdown();
+        onShutdownEvent();
+    }
+
+    static inline bool Init() {
+#if KIERO_INCLUDE_D3D10
+        if (!bInitialized && kiero::init(kiero::RenderType::D3D10) == kiero::Status::Success) {
+            kiero::bind(IDirect3DDevice10VTBL::Present, (void**)&DX10Hook::presentOriginalPtr, DX10Hook::Present);
+            kiero::bind(IDirect3DDevice10VTBL::ResizeBuffers, (void**)&DX10Hook::resizeBuffersOriginalPtr, DX10Hook::ResizeBuffers);
+            onInitEvent();
+            bInitialized = true;
+            return true;
+        }
+#endif
+        return false;
+    }
+
+#if KIERO_INCLUDE_D3D10
+    static inline HRESULT WINAPI Present(IDXGISwapChain* pSwapChain, UINT SyncInterval, UINT Flags) {
+        onPresentEvent(pSwapChain);
+        return ((HRESULT(WINAPI*)(IDXGISwapChain*, UINT, UINT))presentOriginalPtr)(pSwapChain, SyncInterval, Flags);
+    }
+
+    static inline HRESULT WINAPI ResizeBuffers(IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags) {
+        onBeforeResizeEvent(pSwapChain, BufferCount, Width, Height, NewFormat, SwapChainFlags);
+        HRESULT result = ((HRESULT(WINAPI*)(IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT))resizeBuffersOriginalPtr)(pSwapChain, BufferCount, Width, Height, NewFormat, SwapChainFlags);
+        onAfterResizeEvent(pSwapChain, BufferCount, Width, Height, NewFormat, SwapChainFlags);
+        return result;
+    }
+#endif
+};
+
 class DX11Hook
 {
 public:
@@ -167,7 +215,7 @@ public:
 
     static inline bool Init() {
 #if KIERO_INCLUDE_D3D11
-        if (kiero::init(kiero::RenderType::D3D11) == kiero::Status::Success) {
+        if (!bInitialized && kiero::init(kiero::RenderType::D3D11) == kiero::Status::Success) {
             kiero::bind(IDirect3DDevice11VTBL::Present, (void**)&DX11Hook::presentOriginalPtr, DX11Hook::Present);
             kiero::bind(IDirect3DDevice11VTBL::ResizeBuffers, (void**)&DX11Hook::resizeBuffersOriginalPtr, DX11Hook::ResizeBuffers);
             onInitEvent();
@@ -193,6 +241,91 @@ public:
 #endif
 };
 
+class DX12Hook
+{
+public:
+    static inline bool bInitialized = false;
+    static inline uintptr_t presentOriginalPtr = 0;
+    static inline uintptr_t resizeBuffersOriginalPtr = 0;
+
+    static inline Event<> onInitEvent = {};
+    static inline Event<> onShutdownEvent = {};
+#if KIERO_INCLUDE_D3D12
+    static inline Event<IDXGISwapChain*> onPresentEvent = {};
+    static inline Event<IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT> onBeforeResizeEvent = {};
+    static inline Event<IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT> onAfterResizeEvent = {};
+#endif
+
+    ~DX12Hook() {
+        kiero::shutdown();
+        onShutdownEvent();
+    }
+
+    static inline bool Init() {
+#if KIERO_INCLUDE_D3D12
+        if (!bInitialized && kiero::init(kiero::RenderType::D3D12) == kiero::Status::Success) {
+            kiero::bind(IDirect3DDevice12VTBL::Present, (void**)&DX12Hook::presentOriginalPtr, DX12Hook::Present);
+            kiero::bind(IDirect3DDevice12VTBL::ResizeBuffers, (void**)&DX12Hook::resizeBuffersOriginalPtr, DX12Hook::ResizeBuffers);
+            onInitEvent();
+            bInitialized = true;
+            return true;
+        }
+#endif
+        return false;
+    }
+
+#if KIERO_INCLUDE_D3D12
+    static inline HRESULT WINAPI Present(IDXGISwapChain* pSwapChain, UINT SyncInterval, UINT Flags) {
+        onPresentEvent(pSwapChain);
+        return ((HRESULT(WINAPI*)(IDXGISwapChain*, UINT, UINT))presentOriginalPtr)(pSwapChain, SyncInterval, Flags);
+    }
+
+    static inline HRESULT WINAPI ResizeBuffers(IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags) {
+        onBeforeResizeEvent(pSwapChain, BufferCount, Width, Height, NewFormat, SwapChainFlags);
+        HRESULT result = ((HRESULT(WINAPI*)(IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT))resizeBuffersOriginalPtr)(pSwapChain, BufferCount, Width, Height, NewFormat, SwapChainFlags);
+        onAfterResizeEvent(pSwapChain, BufferCount, Width, Height, NewFormat, SwapChainFlags);
+        return result;
+    }
+#endif
+};
+
+class OpenGLHook
+{
+public:
+    static inline bool bInitialized = false;
+    static inline uintptr_t wglSwapBuffersOriginalPtr = 0;
+
+    static inline Event<> onInitEvent = {};
+    static inline Event<> onShutdownEvent = {};
+#if KIERO_INCLUDE_OPENGL
+    static inline Event<HDC> onSwapBuffersEvent = {};
+#endif
+
+    ~OpenGLHook() {
+        kiero::shutdown();
+        onShutdownEvent();
+    }
+
+    static inline bool Init() {
+#if KIERO_INCLUDE_OPENGL
+        if (!bInitialized && kiero::init(kiero::RenderType::OpenGL) == kiero::Status::Success) {
+            kiero::bind(OpenGLVTBL::wglSwapBuffers, (void**)&OpenGLHook::wglSwapBuffersOriginalPtr, OpenGLHook::wglSwapBuffers);
+            onInitEvent();
+            bInitialized = true;
+            return true;
+        }
+#endif
+        return false;
+    }
+
+#if KIERO_INCLUDE_OPENGL
+    static inline BOOL __stdcall wglSwapBuffers(HDC hDc) {
+        onSwapBuffersEvent(hDc);
+        return ((BOOL(__stdcall*)(HDC hDc))wglSwapBuffersOriginalPtr)(hDc);
+    }
+#endif
+};
+
 void Init()
 {
 //#ifdef DEBUG
@@ -212,9 +345,12 @@ void Init()
             SetWaitableTimer(hTimer, &liDueTime, 0, NULL, NULL, 0);
             while (true)
             {
-                if (!DX8Hook::bInitialized) DX8Hook::Init();
-                if (!DX9Hook::bInitialized) DX9Hook::Init();
-                if (!DX11Hook::bInitialized) DX11Hook::Init();
+                DX8Hook::Init();
+                DX9Hook::Init();
+                DX10Hook::Init();
+                DX11Hook::Init();
+                DX12Hook::Init();
+                OpenGLHook::Init();
 
                 Sleep(0);
                 if (WaitForSingleObject(hTimer, 0) == WAIT_OBJECT_0) {
@@ -380,6 +516,33 @@ void Init()
 
     };
 #endif
+
+#if KIERO_INCLUDE_D3D10
+    DX10Hook::onInitEvent += []()
+    {
+
+    };
+
+    DX10Hook::onPresentEvent += [](IDXGISwapChain* pSwapChain)
+    {
+        //MessageBox(0, 0, 0, 0);
+    };
+
+    DX10Hook::onShutdownEvent += []()
+    {
+
+    };
+
+    DX10Hook::onBeforeResizeEvent += [](IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT)
+    {
+
+    };
+
+    DX10Hook::onAfterResizeEvent += [](IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT)
+    {
+
+    };
+#endif
     
 #if KIERO_INCLUDE_D3D11
     DX11Hook::onInitEvent += []()
@@ -395,6 +558,60 @@ void Init()
     DX11Hook::onShutdownEvent += []()
     {
     
+    };
+
+    DX11Hook::onBeforeResizeEvent += [](IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT)
+    {
+
+    };
+
+    DX11Hook::onAfterResizeEvent += [](IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT)
+    {
+
+    };
+#endif
+
+#if KIERO_INCLUDE_D3D12
+    DX12Hook::onInitEvent += []()
+    {
+
+    };
+
+    DX12Hook::onPresentEvent += [](IDXGISwapChain* pSwapChain)
+    {
+        //MessageBox(0, 0, 0, 0);
+    };
+
+    DX12Hook::onShutdownEvent += []()
+    {
+
+    };
+
+    DX12Hook::onBeforeResizeEvent += [](IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT)
+    {
+
+    };
+
+    DX12Hook::onAfterResizeEvent += [](IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT)
+    {
+
+    };
+#endif
+
+#if KIERO_INCLUDE_OPENGL
+    OpenGLHook::onInitEvent += []()
+    {
+
+    };
+
+    OpenGLHook::onSwapBuffersEvent += [](HDC hDc)
+    {
+        //MessageBox(0, 0, 0, 0);
+    };
+
+    OpenGLHook::onShutdownEvent += []()
+    {
+
     };
 #endif
 }
