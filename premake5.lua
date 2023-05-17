@@ -159,26 +159,14 @@ workspace "XboxRainDropletsWrapper"
    filter "platforms:Win32"
       architecture "x32"
       targetdir "data"
-	  local dxsdk = os.getenv "DXSDK_DIR"
-	  if dxsdk then
-	     includedirs { dxsdk .. "/include" }
-	     libdirs { dxsdk .. "/lib/x86" }
-	  else
-	     includedirs { "source/dxsdk" }
-	     libdirs { "source/dxsdk/lib/x86" }
-	  end
+	  includedirs { "source/dxsdk" }
+	  libdirs { "source/dxsdk/lib/x86" }
       
    filter "platforms:Win64"
       architecture "x64"
       targetdir "data/x64"
-	  local dxsdk = os.getenv "DXSDK_DIR"
-	  if dxsdk then
-	     includedirs { dxsdk .. "/include" }
-	     libdirs { dxsdk .. "/lib/x64" }
-	  else
-	     includedirs { "source/dxsdk" }
-	     libdirs { "source/dxsdk/lib/x64" }
-	  end
+	  includedirs { "source/dxsdk" }
+	  libdirs { "source/dxsdk/lib/x64" }
 
 project "XboxRainDroplets"
    setpaths("Z:/WFP/Games/PPSSPP/", "PPSSPPWindows.exe")
