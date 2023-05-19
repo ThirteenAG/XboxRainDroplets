@@ -120,7 +120,7 @@ workspace "XboxRainDropletsWrapper"
    kind "SharedLib"
    language "C++"
    targetextension ".asi"
-   characterset ("MBCS")
+   characterset ("Unicode")
    staticruntime "On"
    
    defines { "rsc_CompanyName=\"ThirteenAG\"" }
@@ -140,13 +140,14 @@ workspace "XboxRainDropletsWrapper"
    includedirs { "external/injector/include" }
    includedirs { "external/minhook" }
    includedirs { "external/kiero" }
+   includedirs { "external/sire" }
    includedirs { "source/dxsdk/dx8" }
    libdirs { "source/dxsdk/dx8" }
-   
-   characterset ("Unicode")
+
    files { "external/minhook/**/*.*" }
    files { "external/kiero/kiero.h" }
    files { "external/kiero/kiero.cpp" }
+   files { "external/sire/sire.h" }
    
    filter "configurations:Debug"
       defines "DEBUG"
