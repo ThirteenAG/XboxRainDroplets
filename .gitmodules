@@ -10,3 +10,6 @@
 [submodule "external/minhook"]
 	path = external/minhook
 	url = https://github.com/TsudaKageyu/minhook
+[submodule "external/sire"]
+	path = external/sire
+	url = https://github.com/gennariarmando/sire
