@@ -35,73 +35,73 @@ jobs:
       with:
         path: ./bin/*.zip
     - uses: ./.github/workflows/release_tag
-      if: github.event.push.ref == format('refs/heads/{}', github.event.repository.default_branch)
+      if: github.event.push.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: gtaiv
         artifacts: bin/GTAIV.XboxRainDroplets.zip
     - uses: ./.github/workflows/release_tag
-      if: github.event.push.ref == format('refs/heads/{}', github.event.repository.default_branch)
+      if: github.event.push.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: mafia
         artifacts: bin/Mafia.XboxRainDroplets.zip
     - uses: ./.github/workflows/release_tag
-      if: github.event.push.ref == format('refs/heads/{}', github.event.repository.default_branch)
+      if: github.event.push.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: manhunt
         artifacts: bin/Manhunt.XboxRainDroplets.zip
     - uses: ./.github/workflows/release_tag
-      if: github.event.push.ref == format('refs/heads/{}', github.event.repository.default_branch)
+      if: github.event.push.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: maxpayne
         artifacts: bin/MaxPayne.XboxRainDroplets.zip
     - uses: ./.github/workflows/release_tag
-      if: github.event.push.ref == format('refs/heads/{}', github.event.repository.default_branch)
+      if: github.event.push.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: maxpayne2
         artifacts: bin/MaxPayne2.XboxRainDroplets.zip
     - uses: ./.github/workflows/release_tag
-      if: github.event.push.ref == format('refs/heads/{}', github.event.repository.default_branch)
+      if: github.event.push.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: maxpayne3
         artifacts: bin/MaxPayne3.XboxRainDroplets.zip
     - uses: ./.github/workflows/release_tag
-      if: github.event.push.ref == format('refs/heads/{}', github.event.repository.default_branch)
+      if: github.event.push.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: nfsc
         artifacts: bin/NFSCarbon.XboxRainDroplets.zip
     - uses: ./.github/workflows/release_tag
-      if: github.event.push.ref == format('refs/heads/{}', github.event.repository.default_branch)
+      if: github.event.push.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: nfsmw
         artifacts: bin/NFSMostWanted.XboxRainDroplets.zip
     - uses: ./.github/workflows/release_tag
-      if: github.event.push.ref == format('refs/heads/{}', github.event.repository.default_branch)
+      if: github.event.push.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: nfsu2
         artifacts: bin/NFSUnderground2.XboxRainDroplets.zip
     - uses: ./.github/workflows/release_tag
-      if: github.event.push.ref == format('refs/heads/{}', github.event.repository.default_branch)
+      if: github.event.push.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: scarface
         artifacts: bin/Scarface.XboxRainDroplets.zip
     - uses: ./.github/workflows/release_tag
-      if: github.event.push.ref == format('refs/heads/{}', github.event.repository.default_branch)
+      if: github.event.push.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: driv3r
         artifacts: bin/Driv3r.XboxRainDroplets.zip
     - uses: ./.github/workflows/release_tag
-      if: github.event.push.ref == format('refs/heads/{}', github.event.repository.default_branch)
+      if: github.event.push.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: driverpl
