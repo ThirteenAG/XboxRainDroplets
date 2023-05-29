@@ -5,7 +5,6 @@ workspace "XboxRainDroplets"
    buildoptions {"-std:c++latest"}
    kind "SharedLib"
    language "C++"
-   targetdir "bin/%{cfg.buildcfg}"
    targetextension ".asi"
    linkoptions "/SAFESEH:NO"
    defines { "_CRT_SECURE_NO_WARNINGS" }
@@ -138,15 +137,17 @@ workspace "XboxRainDropletsWrapper"
    includedirs { "external" }
    includedirs { "external/hooking" }
    includedirs { "external/injector/include" }
-   includedirs { "external/minhook" }
-   includedirs { "external/kiero" }
+   includedirs { "external/FusionDxHook/includes" }
+   includedirs { "external/FusionDxHook/minhook" }
+   includedirs { "external/FusionDxHook/minhook/include" }
+   includedirs { "external/FusionDxHook/minhook/src" }
    includedirs { "external/sire" }
    includedirs { "source/dxsdk/dx8" }
    libdirs { "source/dxsdk/dx8" }
 
-   files { "external/minhook/**/*.*" }
-   files { "external/kiero/kiero.h" }
-   files { "external/kiero/kiero.cpp" }
+   files { "external/FusionDxHook/includes/minhook/include/*.*" }
+   files { "external/FusionDxHook/includes/minhook/src/*.*" }
+   files { "external/FusionDxHook/includes/minhook/src/hde/*.*" }
    files { "external/sire/sire.h" }
    
    filter "configurations:Debug"
@@ -159,15 +160,19 @@ workspace "XboxRainDropletsWrapper"
       
    filter "platforms:Win32"
       architecture "x32"
-      targetdir "data"
 	  includedirs { "source/dxsdk" }
 	  libdirs { "source/dxsdk/lib/x86" }
       
    filter "platforms:Win64"
       architecture "x64"
-      targetdir "data/x64"
+      targetname "%{prj.name}64"
 	  includedirs { "source/dxsdk" }
 	  libdirs { "source/dxsdk/lib/x64" }
 
-project "XboxRainDroplets"
+project "XboxRainDropletsWrapper"
    setpaths("Z:/WFP/Games/PPSSPP/", "PPSSPPWindows.exe")
+project "PPSSPP.XboxRainDroplets"
+   setpaths("Z:/WFP/Games/PPSSPP/", "PPSSPPWindows.exe")
+project "PCSX2F.XboxRainDroplets"
+   architecture "x64"
+   setpaths("Z:/GitHub/PCSX2-Fork-With-Plugins/bin/", "pcsx2-qtx64-clang.exe")

@@ -13,3 +13,6 @@
 [submodule "external/sire"]
 	path = external/sire
 	url = https://github.com/gennariarmando/sire
+[submodule "external/FusionDxHook"]
+	path = external/FusionDxHook
+	url = https://github.com/ThirteenAG/FusionDxHook
