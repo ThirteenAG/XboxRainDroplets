@@ -35,7 +35,12 @@ extern "C" __declspec(dllexport) void InitializeASI()
         #endif // FUSIONDXHOOK_INCLUDE_D3D8
 
         #ifdef FUSIONDXHOOK_INCLUDE_D3D9
-        FusionDxHook::D3D9::onPresentEvent += [](LPDIRECT3DDEVICE9 pDevice)
+        FusionDxHook::D3D9::onInitEvent += []()
+        {
+
+        };
+
+        FusionDxHook::D3D9::onEndSceneEvent += [](LPDIRECT3DDEVICE9 pDevice)
         {
             Sire::Init(Sire::SIRE_RENDERER_DX9, pDevice);
             WaterDrops::Process();
@@ -46,6 +51,11 @@ extern "C" __declspec(dllexport) void InitializeASI()
         {
             WaterDrops::Reset();
             Sire::ReInit(pDevice);
+        };
+
+        FusionDxHook::D3D9::onShutdownEvent += []()
+        {
+            Sire::Shutdown(Sire::SIRE_RENDERER_DX9);
         };
         #endif // FUSIONDXHOOK_INCLUDE_D3D9
 
@@ -101,6 +111,11 @@ extern "C" __declspec(dllexport) void InitializeASI()
             WaterDrops::AfterResize(pSwapChain, Width, Height);
             Sire::ReInit(pSwapChain);
             Sire::SetViewport(0.0f, 0.0f, Width, Height);
+        };
+
+        FusionDxHook::D3D11::onShutdownEvent += []()
+        {
+            Sire::Shutdown(Sire::SIRE_RENDERER_DX11);
         };
         #endif // FUSIONDXHOOK_INCLUDE_D3D11
 
