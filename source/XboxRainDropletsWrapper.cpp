@@ -43,19 +43,20 @@ extern "C" __declspec(dllexport) void InitializeASI()
         FusionDxHook::D3D9::onEndSceneEvent += [](LPDIRECT3DDEVICE9 pDevice)
         {
             Sire::Init(Sire::SIRE_RENDERER_DX9, pDevice);
+
             WaterDrops::Process();
             WaterDrops::Render();
         };
 
         FusionDxHook::D3D9::onResetEvent += [](LPDIRECT3DDEVICE9 pDevice)
         {
-            WaterDrops::Reset();
-            Sire::ReInit(pDevice);
+
         };
 
         FusionDxHook::D3D9::onShutdownEvent += []()
         {
-            Sire::Shutdown(Sire::SIRE_RENDERER_DX9);
+            WaterDrops::Shutdown();
+            Sire::Shutdown();
         };
         #endif // FUSIONDXHOOK_INCLUDE_D3D9
 
@@ -97,6 +98,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
         FusionDxHook::D3D11::onPresentEvent += [](IDXGISwapChain* pSwapChain)
         {
             Sire::Init(Sire::SIRE_RENDERER_DX11, pSwapChain);
+
             WaterDrops::Process();
             WaterDrops::Render();
         };
@@ -108,14 +110,13 @@ extern "C" __declspec(dllexport) void InitializeASI()
 
         FusionDxHook::D3D11::onAfterResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
         {
-            WaterDrops::AfterResize(pSwapChain, Width, Height);
-            Sire::ReInit(pSwapChain);
-            Sire::SetViewport(0.0f, 0.0f, Width, Height);
+
         };
 
         FusionDxHook::D3D11::onShutdownEvent += []()
         {
-            Sire::Shutdown(Sire::SIRE_RENDERER_DX11);
+            WaterDrops::Shutdown();
+            Sire::Shutdown();
         };
         #endif // FUSIONDXHOOK_INCLUDE_D3D11
 
@@ -140,8 +141,14 @@ extern "C" __declspec(dllexport) void InitializeASI()
         FusionDxHook::OPENGL::onSwapBuffersEvent += [](HDC hDC)
         {
             Sire::Init(Sire::SIRE_RENDERER_OPENGL, hDC);
+
             WaterDrops::Process();
             WaterDrops::Render();
+        };
+
+        FusionDxHook::OPENGL::onShutdownEvent += []() {
+            WaterDrops::Shutdown();
+            Sire::Shutdown();
         };
         #endif // FUSIONDXHOOK_INCLUDE_OPENGL
 
@@ -154,7 +161,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
 
         FusionDxHook::onShutdownEvent += []()
         {
-            WaterDrops::Shutdown();
+
         };
     });
 }

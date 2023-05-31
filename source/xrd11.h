@@ -568,6 +568,9 @@ public:
 
 	static inline void Init()
 	{
+		if (!Sire::IsRendererActive())
+			return;
+
 		// Get back buffer
 		auto backBuffer = Sire::GetBackBuffer(0);
 		Sire::SetViewport(0.0f, 0.0f, static_cast<float>(backBuffer->w), static_cast<float>(backBuffer->h));
@@ -676,6 +679,15 @@ public:
 			return;
 
 		auto backBuffer = Sire::GetBackBuffer(0);
+		if (backBuffer->w != ms_fbWidth || backBuffer->h != ms_fbHeight) {
+			ms_fbWidth = backBuffer->w;
+			ms_fbHeight = backBuffer->h;
+
+			Sire::Release(backBuffer);
+			Reset();
+			return;
+		}
+
 		Sire::CopyResource(ms_tex, backBuffer);
 		Sire::Release(backBuffer);
 
@@ -694,7 +706,7 @@ public:
 
 		Sire::SetProjectionMode(Sire::SIRE_PROJ_ORTHOGRAPHIC);
 		Sire::SetTexture(ms_tex, ms_maskTex);
-		Sire::Begin();
+		Sire::Begin(Sire::SIRE_TRIANGLE);
 
 		ms_numBatchedDrops = 0;
 		for (auto& drop : ms_drops)

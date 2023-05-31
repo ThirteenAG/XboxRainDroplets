@@ -1,3 +1,4 @@
+#pragma once
 static const struct {
   uint32_t width;
   uint32_t height;
