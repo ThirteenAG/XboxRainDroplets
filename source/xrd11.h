@@ -525,8 +525,8 @@ public:
 		ms_splashDistance = 0;
 		ms_splashPoint = { 0 };
 
-		Sire::Release(ms_tex);
-		Sire::Release(ms_maskTex);
+		ms_tex.release();
+		ms_maskTex.release();
 
 		ms_initialised = 0;
 	}
@@ -550,8 +550,8 @@ public:
 	}
 
 	// Rendering static inline 
-	static inline Sire::tSireTexture2D* ms_tex = nullptr;
-	static inline Sire::tSireTexture2D* ms_maskTex = nullptr;
+	static inline std::unique_ptr<Sire::tSireTexture2D> ms_tex = nullptr;
+	static inline std::unique_ptr<Sire::tSireTexture2D> ms_maskTex = nullptr;
 
 	static inline std::vector<uint16_t> ms_indexBuf = {};
 
@@ -572,8 +572,8 @@ public:
 			return;
 
 		// Get back buffer
-		auto backBuffer = Sire::GetBackBuffer(0);
-		Sire::SetViewport(0.0f, 0.0f, static_cast<float>(backBuffer->w), static_cast<float>(backBuffer->h));
+		auto windowSize = Sire::GetWindowSize();
+		Sire::SetViewport(0.0f, 0.0f, static_cast<float>(windowSize.x), static_cast<float>(windowSize.y));
 
 		ms_drops.resize(MaxDrops);
 		ms_dropsMoving.resize(MaxDropsMoving);
@@ -590,10 +590,10 @@ public:
 			ms_indexBuf[i * 6 + 5] = i * 4 + 3;
 		}
 
-		ms_tex = Sire::CreateTexture(backBuffer->w, backBuffer->h, nullptr);
+		ms_tex = Sire::CreateTexture(windowSize.x, windowSize.y, nullptr);
 
-		ms_fbWidth = backBuffer->w;
-		ms_fbHeight = backBuffer->h;
+		ms_fbWidth = windowSize.x;
+		ms_fbHeight = windowSize.y;
 		ms_scaling = ms_fbHeight / 480.0f;
 
 		ms_maskTex = Sire::CreateTexture(drop_mask.width, drop_mask.height, (uint8_t*)drop_mask.pixel_data);
@@ -618,8 +618,6 @@ public:
 			ms_atlasUsed = false;
 			delete[] pixels;
 		}
-
-		Sire::Release(backBuffer);
 
 		ms_initialised = 1;
 	}
@@ -678,18 +676,15 @@ public:
 		if (!Sire::IsRendererActive())
 			return;
 
-		auto backBuffer = Sire::GetBackBuffer(0);
-		if (backBuffer->w != ms_fbWidth || backBuffer->h != ms_fbHeight) {
-			ms_fbWidth = backBuffer->w;
-			ms_fbHeight = backBuffer->h;
-
-			Sire::Release(backBuffer);
+		auto windowSize = Sire::GetWindowSize();
+		if (windowSize.x != ms_fbWidth || windowSize.y != ms_fbHeight) {
 			Reset();
+			Sire::Shutdown();
 			return;
 		}
 
+		auto backBuffer = Sire::GetBackBuffer(0);
 		Sire::CopyResource(ms_tex, backBuffer);
-		Sire::Release(backBuffer);
 
 		Sire::SetRenderState(Sire::SIRE_BLEND_ALPHATESTENABLE, true);
 		Sire::SetRenderState(Sire::SIRE_BLEND_SRCBLEND, Sire::SIRE_BLEND_SRC_ALPHA);
@@ -707,12 +702,12 @@ public:
 		Sire::SetProjectionMode(Sire::SIRE_PROJ_ORTHOGRAPHIC);
 		Sire::SetTexture(ms_tex, ms_maskTex);
 		Sire::Begin(Sire::SIRE_TRIANGLE);
-
+		
 		ms_numBatchedDrops = 0;
 		for (auto& drop : ms_drops)
 			if (drop.active)
 				AddToRenderList(&drop);
-
+		
 		Sire::SetIndices(ms_indexBuf, ms_numBatchedDrops * 6);
 		Sire::End();
 	}

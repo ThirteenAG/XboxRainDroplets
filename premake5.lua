@@ -148,8 +148,8 @@ workspace "XboxRainDropletsWrapper"
    files { "external/FusionDxHook/includes/minhook/include/*.*" }
    files { "external/FusionDxHook/includes/minhook/src/*.*" }
    files { "external/FusionDxHook/includes/minhook/src/hde/*.*" }
-   files { "external/sire/xrd11.h" }
    files { "external/sire/sire.h" }
+   
    
    filter "configurations:Debug"
       defines "DEBUG"

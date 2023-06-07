@@ -1,12 +1,12 @@
 #include "xrd11.h"
 //#define FUSIONDXHOOK_INCLUDE_D3D8     1
 #define FUSIONDXHOOK_INCLUDE_D3D9     1
-//#define FUSIONDXHOOK_INCLUDE_D3D10    1
+#define FUSIONDXHOOK_INCLUDE_D3D10    1
 //#define FUSIONDXHOOK_INCLUDE_D3D10_1  1
 #define FUSIONDXHOOK_INCLUDE_D3D11    1
 //#define FUSIONDXHOOK_INCLUDE_D3D12    1
 #define FUSIONDXHOOK_INCLUDE_OPENGL   1
-//#define FUSIONDXHOOK_INCLUDE_VULKAN   1
+#define FUSIONDXHOOK_INCLUDE_VULKAN   1
 #define FUSIONDXHOOK_USE_MINHOOK      1
 #include "FusionDxHook.h"
 
@@ -61,9 +61,12 @@ extern "C" __declspec(dllexport) void InitializeASI()
         #endif // FUSIONDXHOOK_INCLUDE_D3D9
 
         #ifdef FUSIONDXHOOK_INCLUDE_D3D10
-        FusionDxHook::D3D10::onPresentEvent += [](IDXGISwapChain*)
+        FusionDxHook::D3D10::onPresentEvent += [](IDXGISwapChain* pSwapChain)
         {
+            Sire::Init(Sire::SIRE_RENDERER_DX10, pSwapChain);
 
+            WaterDrops::Process();
+            WaterDrops::Render();
         };
 
         FusionDxHook::D3D10::onBeforeResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
@@ -74,6 +77,12 @@ extern "C" __declspec(dllexport) void InitializeASI()
         FusionDxHook::D3D10::onAfterResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
         {
 
+        };
+
+        FusionDxHook::D3D10::onShutdownEvent += []()
+        {
+            WaterDrops::Shutdown();
+            Sire::Shutdown();
         };
         #endif // FUSIONDXHOOK_INCLUDE_D3D10
 
@@ -140,10 +149,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
         #ifdef FUSIONDXHOOK_INCLUDE_OPENGL
         FusionDxHook::OPENGL::onSwapBuffersEvent += [](HDC hDC)
         {
-            Sire::Init(Sire::SIRE_RENDERER_OPENGL, hDC);
 
-            WaterDrops::Process();
-            WaterDrops::Render();
         };
 
         FusionDxHook::OPENGL::onShutdownEvent += []() {
@@ -158,6 +164,11 @@ extern "C" __declspec(dllexport) void InitializeASI()
 
         };
         #endif // FUSIONDXHOOK_INCLUDE_VULKAN
+
+        FusionDxHook::VULKAN::onShutdownEvent += []() {
+            WaterDrops::Shutdown();
+            Sire::Shutdown();
+        };
 
         FusionDxHook::onShutdownEvent += []()
         {
