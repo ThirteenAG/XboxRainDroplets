@@ -1,13 +1,18 @@
 #include "xrd11.h"
-//#define FUSIONDXHOOK_INCLUDE_D3D8     1
+#define FUSIONDXHOOK_INCLUDE_D3D8     1
 #define FUSIONDXHOOK_INCLUDE_D3D9     1
 #define FUSIONDXHOOK_INCLUDE_D3D10    1
+<<<<<<< HEAD
 //#define FUSIONDXHOOK_INCLUDE_D3D10_1  1
+=======
+#define FUSIONDXHOOK_INCLUDE_D3D10_1  1
+>>>>>>> 27c85413904a688527b4f507f419c68d3080e49d
 #define FUSIONDXHOOK_INCLUDE_D3D11    1
-//#define FUSIONDXHOOK_INCLUDE_D3D12    1
+#define FUSIONDXHOOK_INCLUDE_D3D12    1
 #define FUSIONDXHOOK_INCLUDE_OPENGL   1
 #define FUSIONDXHOOK_INCLUDE_VULKAN   1
 #define FUSIONDXHOOK_USE_MINHOOK      1
+#define DELAYED_BIND 2000ms
 #include "FusionDxHook.h"
 
 extern "C" __declspec(dllexport) void InitializeASI()
@@ -159,6 +164,11 @@ extern "C" __declspec(dllexport) void InitializeASI()
         #endif // FUSIONDXHOOK_INCLUDE_OPENGL
 
         #ifdef FUSIONDXHOOK_INCLUDE_VULKAN
+        FusionDxHook::VULKAN::onvkCreateDeviceEvent += [](VkPhysicalDevice gpu, const VkDeviceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDevice* pDevice)
+        {
+
+        };
+
         FusionDxHook::VULKAN::onVkQueuePresentKHREvent += [](VkQueue queue, const VkPresentInfoKHR* pPresentInfo)
         {
 
