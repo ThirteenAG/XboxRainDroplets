@@ -133,6 +133,7 @@ workspace "XboxRainDropletsWrapper"
    files { "source/*.def" }
    files { "source/resources/Versioninfo.rc" }
    files { "source/resources/Dropmask.rc" }
+   files { "external/hooking/Hooking.Patterns.h", "external/hooking/Hooking.Patterns.cpp" }
    includedirs { "source" }
    includedirs { "external" }
    includedirs { "external/hooking" }

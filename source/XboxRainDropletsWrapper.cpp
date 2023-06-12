@@ -2,7 +2,7 @@
 #define FUSIONDXHOOK_INCLUDE_D3D8     1
 #define FUSIONDXHOOK_INCLUDE_D3D9     1
 #define FUSIONDXHOOK_INCLUDE_D3D10    1
-//#define FUSIONDXHOOK_INCLUDE_D3D10_1  1
+#define FUSIONDXHOOK_INCLUDE_D3D10_1  1
 #define FUSIONDXHOOK_INCLUDE_D3D11    1
 #define FUSIONDXHOOK_INCLUDE_D3D12    1
 #define FUSIONDXHOOK_INCLUDE_OPENGL   1
@@ -23,7 +23,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
 
         };
 
-        #ifdef FUSIONDXHOOK_INCLUDE_D3D8
+        #if FUSIONDXHOOK_INCLUDE_D3D8
         FusionDxHook::D3D8::onPresentEvent += [](D3D8_LPDIRECT3DDEVICE8 pDevice)
         {
             // reinterpret_cast<LPDIRECT3DDEVICE8>(pDevice);
@@ -33,14 +33,14 @@ extern "C" __declspec(dllexport) void InitializeASI()
         {
             // reinterpret_cast<LPDIRECT3DDEVICE8>(pDevice);
         };
-        #endif // FUSIONDXHOOK_INCLUDE_D3D8
 
-        #ifdef FUSIONDXHOOK_INCLUDE_D3D9
-        FusionDxHook::D3D9::onInitEvent += []()
+        FusionDxHook::D3D8::onShutdownEvent += []()
         {
 
         };
+        #endif // FUSIONDXHOOK_INCLUDE_D3D8
 
+        #if FUSIONDXHOOK_INCLUDE_D3D9
         FusionDxHook::D3D9::onEndSceneEvent += [](LPDIRECT3DDEVICE9 pDevice)
         {
             Sire::Init(Sire::SIRE_RENDERER_DX9, pDevice);
@@ -51,7 +51,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
 
         FusionDxHook::D3D9::onResetEvent += [](LPDIRECT3DDEVICE9 pDevice)
         {
-
+            WaterDrops::Reset();
         };
 
         FusionDxHook::D3D9::onShutdownEvent += []()
@@ -61,7 +61,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
         };
         #endif // FUSIONDXHOOK_INCLUDE_D3D9
 
-        #ifdef FUSIONDXHOOK_INCLUDE_D3D10
+        #if FUSIONDXHOOK_INCLUDE_D3D10
         FusionDxHook::D3D10::onPresentEvent += [](IDXGISwapChain* pSwapChain)
         {
             Sire::Init(Sire::SIRE_RENDERER_DX10, pSwapChain);
@@ -70,14 +70,9 @@ extern "C" __declspec(dllexport) void InitializeASI()
             WaterDrops::Render();
         };
 
-        FusionDxHook::D3D10::onBeforeResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
-        {
-
-        };
-
         FusionDxHook::D3D10::onAfterResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
         {
-
+            WaterDrops::AfterResize(pSwapChain, Width, Height);
         };
 
         FusionDxHook::D3D10::onShutdownEvent += []()
@@ -87,24 +82,22 @@ extern "C" __declspec(dllexport) void InitializeASI()
         };
         #endif // FUSIONDXHOOK_INCLUDE_D3D10
 
-        #ifdef FUSIONDXHOOK_INCLUDE_D3D10_1
-        FusionDxHook::D3D10_1::onPresentEvent += [](IDXGISwapChain*)
+        #if FUSIONDXHOOK_INCLUDE_D3D10_1
+        FusionDxHook::D3D10_1::onPresentEvent += [](IDXGISwapChain* pSwapChain)
         {
+            Sire::Init(Sire::SIRE_RENDERER_DX10, pSwapChain);
 
-        };
-
-        FusionDxHook::D3D10_1::onBeforeResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
-        {
-
+            WaterDrops::Process();
+            WaterDrops::Render();
         };
 
         FusionDxHook::D3D10_1::onAfterResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
         {
-
+            WaterDrops::AfterResize(pSwapChain, Width, Height);
         };
         #endif // FUSIONDXHOOK_INCLUDE_D3D10_1
 
-        #ifdef FUSIONDXHOOK_INCLUDE_D3D11
+        #if FUSIONDXHOOK_INCLUDE_D3D11
         FusionDxHook::D3D11::onPresentEvent += [](IDXGISwapChain* pSwapChain)
         {
             Sire::Init(Sire::SIRE_RENDERER_DX11, pSwapChain);
@@ -113,14 +106,9 @@ extern "C" __declspec(dllexport) void InitializeASI()
             WaterDrops::Render();
         };
 
-        FusionDxHook::D3D11::onBeforeResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
-        {
-
-        };
-
         FusionDxHook::D3D11::onAfterResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
         {
-
+            WaterDrops::AfterResize(pSwapChain, Width, Height);
         };
 
         FusionDxHook::D3D11::onShutdownEvent += []()
@@ -130,7 +118,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
         };
         #endif // FUSIONDXHOOK_INCLUDE_D3D11
 
-        #ifdef FUSIONDXHOOK_INCLUDE_D3D12
+        #if FUSIONDXHOOK_INCLUDE_D3D12
         FusionDxHook::D3D12::onPresentEvent += [](IDXGISwapChain*)
         {
 
@@ -147,7 +135,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
         };
         #endif // FUSIONDXHOOK_INCLUDE_D3D12
 
-        #ifdef FUSIONDXHOOK_INCLUDE_OPENGL
+        #if FUSIONDXHOOK_INCLUDE_OPENGL
         FusionDxHook::OPENGL::onSwapBuffersEvent += [](HDC hDC)
         {
 
@@ -159,7 +147,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
         };
         #endif // FUSIONDXHOOK_INCLUDE_OPENGL
 
-        #ifdef FUSIONDXHOOK_INCLUDE_VULKAN
+        #if FUSIONDXHOOK_INCLUDE_VULKAN
         FusionDxHook::VULKAN::onvkCreateDeviceEvent += [](VkPhysicalDevice gpu, const VkDeviceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDevice* pDevice)
         {
 
@@ -169,12 +157,12 @@ extern "C" __declspec(dllexport) void InitializeASI()
         {
 
         };
-        #endif // FUSIONDXHOOK_INCLUDE_VULKAN
 
         FusionDxHook::VULKAN::onShutdownEvent += []() {
             WaterDrops::Shutdown();
             Sire::Shutdown();
         };
+        #endif // FUSIONDXHOOK_INCLUDE_VULKAN
 
         FusionDxHook::onShutdownEvent += []()
         {
