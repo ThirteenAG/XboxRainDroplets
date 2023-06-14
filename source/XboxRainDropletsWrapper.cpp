@@ -72,7 +72,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
 
         FusionDxHook::D3D10::onAfterResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
         {
-            WaterDrops::AfterResize(pSwapChain, Width, Height);
+
         };
 
         FusionDxHook::D3D10::onShutdownEvent += []()
@@ -93,7 +93,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
 
         FusionDxHook::D3D10_1::onAfterResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
         {
-            WaterDrops::AfterResize(pSwapChain, Width, Height);
+
         };
         #endif // FUSIONDXHOOK_INCLUDE_D3D10_1
 
@@ -108,7 +108,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
 
         FusionDxHook::D3D11::onAfterResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
         {
-            WaterDrops::AfterResize(pSwapChain, Width, Height);
+
         };
 
         FusionDxHook::D3D11::onShutdownEvent += []()

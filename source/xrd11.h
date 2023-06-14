@@ -144,6 +144,7 @@ public:
 	static inline bool bBloodDrops = true;
 	static inline bool bEnableSnow = false;
 	static inline float fSpeedAdjuster = 1.0f;
+	static inline int BackBufferMethod = 0;
 
 	static inline RwV3d right;
 	static inline RwV3d up;
@@ -223,6 +224,7 @@ public:
 		fMoveStep = iniReader.ReadFloat("MAIN", "MoveStep", 0.1f);
 		bBloodDrops = iniReader.ReadInteger("MAIN", "BloodDrops", 1) != 0;
 		bEnableSnow = iniReader.ReadInteger("BONUS", "EnableSnow", 0) != 0;
+		BackBufferMethod = iniReader.ReadInteger("RENDER", "BackBufferMethod", 0);
 
 		static std::once_flag flag;
 		std::call_once(flag, [&]()
@@ -525,9 +527,6 @@ public:
 		ms_splashDistance = 0;
 		ms_splashPoint = { 0 };
 
-		ms_tex.release();
-		ms_maskTex.release();
-
 		ms_initialised = 0;
 	}
 
@@ -550,8 +549,8 @@ public:
 	}
 
 	// Rendering static inline 
-	static inline std::unique_ptr<Sire::tSireTexture2D> ms_tex = nullptr;
-	static inline std::unique_ptr<Sire::tSireTexture2D> ms_maskTex = nullptr;
+	static inline SirePtr<Sire::tSireTexture2D> ms_tex = nullptr;
+	static inline SirePtr<Sire::tSireTexture2D> ms_maskTex = nullptr;
 
 	static inline std::vector<uint16_t> ms_indexBuf = {};
 
@@ -571,7 +570,8 @@ public:
 		if (!Sire::IsRendererActive())
 			return;
 
-		// Get back buffer
+		ReadIniSettings();
+
 		auto windowSize = Sire::GetWindowSize();
 		Sire::SetViewport(0.0f, 0.0f, static_cast<float>(windowSize.x), static_cast<float>(windowSize.y));
 
@@ -683,7 +683,7 @@ public:
 			return;
 		}
 
-		auto backBuffer = Sire::GetBackBuffer(0);
+		auto backBuffer = Sire::GetBackBuffer(BackBufferMethod);
 		Sire::CopyResource(ms_tex, backBuffer);
 
 		Sire::SetRenderState(Sire::SIRE_BLEND_ALPHATESTENABLE, true);
@@ -710,11 +710,6 @@ public:
 		
 		Sire::SetIndices(ms_indexBuf, ms_numBatchedDrops * 6);
 		Sire::End();
-	}
-
-	static inline void AfterResize(IDXGISwapChain* pSwapChain, uint32_t width, uint32_t height) {
-		Shutdown();
-		Init();
 	}
 };
 
