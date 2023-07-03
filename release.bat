@@ -44,7 +44,7 @@ PPSSPP.XboxRainDroplets64
 for %%x in (
 PCSX2F.XboxRainDroplets64
 ) do (
-    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\version.dll" ".\bin\PLUGINS"
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\PLUGINS"
 )
 
 EXIT
