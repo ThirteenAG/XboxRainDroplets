@@ -293,11 +293,6 @@ extern "C" __declspec(dllexport) void InitializeASI()
             RenderDroplets();
         };
 
-        FusionDxHook::D3D11::onAfterResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
-        {
-            WaterDrops::AfterResize(pSwapChain, Width, Height);
-        };
-
         FusionDxHook::D3D11::onShutdownEvent += []()
         {
             WaterDrops::Shutdown();
