@@ -31,7 +31,7 @@ jobs:
       shell: cmd
       run: |
           msbuild -m build/XboxRainDropletsWrapper.sln /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
-          msbuild -m build/XboxRainDropletsWrapper.sln /property:Configuration=${{matrix.buildtype}} /property:Platform=x64
+          msbuild -m build/XboxRainDropletsWrapper.sln /property:Configuration=${{matrix.buildtype}} /property:Platform=Win64
     - name: Download Ultimate ASI Loader x86
       uses: robinraju/release-downloader@v1.8
       with:
