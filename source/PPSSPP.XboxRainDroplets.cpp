@@ -194,6 +194,8 @@ void RenderDroplets()
         const UINT WM_USER_GET_BASE_POINTER = WM_APP + 0x3118;  // 0xB118
         const UINT WM_USER_GET_EMULATION_STATE = WM_APP + 0x3119;  // 0xB119
 
+        static XRData* pXRData = nullptr;
+
         if (SendMessage(hWndPPSSPP, WM_USER_GET_EMULATION_STATE, 0, 0))
         {
             enum
@@ -207,8 +209,6 @@ void RenderDroplets()
             uint32_t high = SendMessage(hWndPPSSPP, WM_USER_GET_BASE_POINTER, 0, hi);
             uint32_t low = SendMessage(hWndPPSSPP, WM_USER_GET_BASE_POINTER, 0, lo);
             uint64_t ptr = (uint64_t(high) << 32 | low); // +0x08804000;
-
-            static XRData* pXRData = nullptr;
 
             if (ptr)
             {
@@ -250,6 +250,8 @@ void RenderDroplets()
             else
                 pXRData = nullptr;
         }
+        else
+            pXRData = nullptr;
     }
 }
 
