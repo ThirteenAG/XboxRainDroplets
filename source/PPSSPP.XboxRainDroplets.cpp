@@ -137,7 +137,7 @@ struct XRData {
     {
         if (FillScreenMoving_amount)
         {
-            if (FillScreenMoving_amount == 1)
+            if (FillScreenMoving_amount == 1.0f)
             {
                 RwV3d prt_pos = { FillScreenMoving_Vec_x, FillScreenMoving_Vec_y, FillScreenMoving_Vec_z };
                 auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(prt_pos);

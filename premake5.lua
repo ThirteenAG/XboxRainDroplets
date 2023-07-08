@@ -24,6 +24,15 @@ workspace "XboxRainDroplets"
    files { "external/hooking/Hooking.Patterns.h", "external/hooking/Hooking.Patterns.cpp" }
    includedirs { "external/hooking" }
    includedirs { "external/injector/include" }
+   includedirs { "external/FusionDxHook/includes" }
+   includedirs { "external/FusionDxHook/minhook" }
+   includedirs { "external/FusionDxHook/minhook/include" }
+   includedirs { "external/FusionDxHook/minhook/src" }
+   includedirs { "external/sire" }
+   files { "external/FusionDxHook/includes/minhook/include/*.*" }
+   files { "external/FusionDxHook/includes/minhook/src/*.*" }
+   files { "external/FusionDxHook/includes/minhook/src/hde/*.*" }
+   files { "external/sire/sire.h" }
    local dxsdk = os.getenv "DXSDK_DIR"
    if dxsdk then
       includedirs { dxsdk .. "/include" }
