@@ -9,10 +9,40 @@ install:
     git submodule update --init --recursive
 
     premake5.bat
+before_build:
+- ps: >-
+    Start-FileDownload https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/download/Win32-latest/dinput8-Win32.zip
+
+
+    Start-FileDownload https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/download/x64-latest/version-x64.zip
+
+
+    Start-FileDownload https://github.com/ThirteenAG/WidescreenFixesPack/releases/download/xrd/PCSX2F.XboxRainDroplets.zip
+
+
+    Start-FileDownload https://github.com/ThirteenAG/WidescreenFixesPack/releases/download/xrd/PPSSPP.XboxRainDroplets.zip
 build:
   project: build/XboxRainDroplets.sln
   verbosity: minimal
 before_package:
-- cmd: release.bat
+- cmd: >-
+    7z x dinput8-Win32.zip -obin/ -y
+
+    7z x version-x64.zip -obin/ -y
+
+    7z x PCSX2F.XboxRainDroplets.zip -obin/ -y
+
+    7z x PPSSPP.XboxRainDroplets.zip -obin/ -y
+
+    del dinput8-Win32.zip
+
+    del version-x64.zip
+
+    del PCSX2F.XboxRainDroplets.zip
+
+    del PPSSPP.XboxRainDroplets.zip
+
+
+    release.bat
 after_build:
 - ps: Get-ChildItem .\bin\*.zip  | % { Push-AppveyorArtifact $_.FullName -FileName $_.Name }
