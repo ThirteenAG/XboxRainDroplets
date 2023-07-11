@@ -20,25 +20,25 @@ DriverParallelLines.XboxRainDroplets
 for %%x in (
 XboxRainDropletsWrapper
 ) do (
-    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\dinput8.dll"
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\version.dll"
 )
 
 for %%x in (
 XboxRainDropletsWrapper64
 ) do (
-    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\version.dll"
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\dinput8.dll"
 )
 
 for %%x in (
 PPSSPP.XboxRainDroplets
 ) do (
-    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\dinput8.dll" ".\bin\memstick"
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\version.dll" ".\bin\memstick"
 )
 
 for %%x in (
 PPSSPP.XboxRainDroplets64
 ) do (
-    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\version.dll" ".\bin\memstick"
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\dinput8.dll" ".\bin\memstick"
 )
 
 for %%x in (

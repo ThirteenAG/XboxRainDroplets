@@ -52,12 +52,12 @@ jobs:
         fileName: "*"
     - name: Unpack dependencies
       run: |
-          7z x dinput8-Win32.zip -obin/ -y
-          7z x version-x64.zip -obin/ -y
+          7z x version-Win32.zip -obin/ -y
+          7z x dinput8-x64.zip -obin/ -y
           7z x PCSX2F.XboxRainDroplets.zip -obin/ -y
           7z x PPSSPP.XboxRainDroplets.zip -obin/ -y
-          del dinput8-Win32.zip
-          del version-x64.zip
+          del version-Win32.zip
+          del dinput8-x64.zip
           del PCSX2F.XboxRainDroplets.zip
           del PPSSPP.XboxRainDroplets.zip
     - name: Pack binaries
