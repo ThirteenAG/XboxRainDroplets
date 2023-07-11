@@ -14,6 +14,18 @@ Various ini settings allow to customize the appearance and can be edited while i
 
 [![[Grand Theft Auto IV] Xbox Rain Droplets Mod](https://i.imgur.com/MyQAw7f.png)](https://www.youtube.com/watch?v=IiEXixRWUMU)
 
+## PPSSPP (GTA LCS / GTA VCS) - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/ppsspp)
+
+#### Video (click on the image to go to YouTube):
+
+[![[PPSSPP] Xbox Rain Droplets Mod](https://img.youtube.com/vi/eREh5a8Q9Ds/maxresdefault.jpg)](https://www.youtube.com/watch?v=eREh5a8Q9Ds)
+
+## PCSX2F (GTA LCS / GTA VCS) - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/pcsx2f)
+
+#### Video (click on the image to go to YouTube):
+
+[![[PCSX2F] Xbox Rain Droplets Mod](https://img.youtube.com/vi/3qz5W3WlUeY/maxresdefault.jpg)](https://www.youtube.com/watch?v=3qz5W3WlUeY)
+
 ## Max Payne 3 - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/maxpayne3)
 
 #### Video (click on the image to go to YouTube):
