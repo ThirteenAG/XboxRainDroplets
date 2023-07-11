@@ -157,11 +157,11 @@ jobs:
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: ppsspp
-        artifacts: bin/PPSSPP.XboxRainDroplets.zip
+        artifacts: bin/PPSSPP.XboxRainDroplets.zip, bin/PPSSPP.XboxRainDroplets64.zip
     - name: PCSX2F.XboxRainDroplets
       uses: ./.github/workflows/release_tag
       if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: pcsx2f
-        artifacts: bin/PCSX2F.XboxRainDroplets.zip
+        artifacts: bin/PCSX2F.XboxRainDroplets64.zip
