@@ -16,9 +16,9 @@ before_build:
     msbuild -m build/XboxRainDropletsWrapper.sln /property:Configuration=Release /property:Platform=Win64
 
 
-    Start-FileDownload https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/download/Win32-latest/dinput8-Win32.zip
+    Start-FileDownload https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/download/Win32-latest/version-Win32.zip
 
-    Start-FileDownload https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/download/x64-latest/version-x64.zip
+    Start-FileDownload https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/download/x64-latest/dinput8-x64.zip
 
     Start-FileDownload https://github.com/ThirteenAG/WidescreenFixesPack/releases/download/xrd/PCSX2F.XboxRainDroplets.zip
 
