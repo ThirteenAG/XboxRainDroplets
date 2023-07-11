@@ -3,19 +3,31 @@
 #include <windows.h>
 #define _USE_MATH_DEFINES
 #include <cmath>
-#ifdef DX8
+#ifndef DIRECT3D_VERSION
+#define DIRECT3D_VERSION         0x0900
+#endif  //DIRECT3D_VERSION
+#if(DIRECT3D_VERSION < 0x0900)
 #include <d3d8.h>
 #include <d3dx8.h>
 #include <d3dx8tex.h>
 #pragma comment(lib, "legacy_stdio_definitions.lib")
 #pragma comment(lib, "D3dx8.lib")
+typedef LPDIRECT3DDEVICE8 LPDIRECT3DDEVICE;
+typedef IDirect3DTexture8 IDirect3DTexture;
+typedef IDirect3DSurface8 IDirect3DSurface;
+typedef IDirect3DVertexBuffer8 IDirect3DVertexBuffer;
+typedef IDirect3DIndexBuffer8 IDirect3DIndexBuffer;
 #else
 #include <d3d9.h>
 #include <d3dx9.h>
 #include <d3dx9tex.h>
 #pragma comment(lib, "D3dx9.lib")
+typedef LPDIRECT3DDEVICE9 LPDIRECT3DDEVICE;
+typedef IDirect3DTexture9 IDirect3DTexture;
+typedef IDirect3DSurface9 IDirect3DSurface;
+typedef IDirect3DVertexBuffer9 IDirect3DVertexBuffer;
+typedef IDirect3DIndexBuffer9 IDirect3DIndexBuffer;
 #endif
-#include "includes/d3dvtbl.h"
 #include <time.h>
 #include <injector\injector.hpp>
 #include <injector\hooking.hpp>
@@ -24,6 +36,7 @@
 #ifdef _M_IX86
 #include <injector\assembly.hpp>
 #endif
+#include <filesystem>
 #include <algorithm>
 #include <thread>
 #include <mutex>
@@ -94,18 +107,6 @@ struct VertexTex2
 
 #define DROPFVF (D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX2)
 #define RAD2DEG(x) (180.0f*(x)/M_PI)
-
-#ifdef DX8
-typedef HRESULT(STDMETHODCALLTYPE* CreateDevice_t)(IDirect3D8*, UINT, D3DDEVTYPE, HWND, DWORD, D3DPRESENT_PARAMETERS*, IDirect3DDevice8**);
-typedef HRESULT(STDMETHODCALLTYPE* Present_t)(LPDIRECT3DDEVICE8, CONST RECT*, CONST RECT*, HWND, CONST RGNDATA*);
-typedef HRESULT(STDMETHODCALLTYPE* EndScene_t)(LPDIRECT3DDEVICE8);
-typedef HRESULT(STDMETHODCALLTYPE* Reset_t)(LPDIRECT3DDEVICE8, D3DPRESENT_PARAMETERS*);
-#else
-typedef HRESULT(STDMETHODCALLTYPE* CreateDevice_t)(IDirect3D9*, UINT, D3DDEVTYPE, HWND, DWORD, D3DPRESENT_PARAMETERS*, IDirect3DDevice9**);
-typedef HRESULT(STDMETHODCALLTYPE* Present_t)(LPDIRECT3DDEVICE9, CONST RECT*, CONST RECT*, HWND, CONST RGNDATA*);
-typedef HRESULT(STDMETHODCALLTYPE* EndScene_t)(LPDIRECT3DDEVICE9);
-typedef HRESULT(STDMETHODCALLTYPE* Reset_t)(LPDIRECT3DDEVICE9, D3DPRESENT_PARAMETERS*);
-#endif
 
 class WaterDrop
 {
@@ -184,14 +185,6 @@ public:
     static inline RwV3d pos;
 
     static inline std::vector<std::pair<RwV3d, float>> ms_sprayLocations;
-    
-    static inline uint32_t* pEndScene = nullptr;
-    static inline uint32_t* pReset = nullptr;
-    static inline CreateDevice_t RealD3D9CreateDevice = NULL;
-    static inline Present_t RealD3D9Present = NULL;
-    static inline EndScene_t RealD3D9EndScene = NULL;
-    static inline Reset_t RealD3D9Reset = NULL;
-    static inline bool bPatchD3D = true;
 
     static inline void(*ProcessCallback1)();
     static inline void(*ProcessCallback2)();
@@ -224,11 +217,7 @@ public:
     {
         return GetTimeStep() / 50.0f * 1000.0f;
     }
-#ifdef DX8
-    static inline void Process(LPDIRECT3DDEVICE8 pDevice)
-#else
-    static inline void Process(LPDIRECT3DDEVICE9 pDevice)
-#endif
+    static inline void Process(LPDIRECT3DDEVICE pDevice)
     {
         if (!fTimeStep)
         {
@@ -275,14 +264,17 @@ public:
             if (invertedRadial)
                 bRadial = !bRadial;
 
-            static filewatch::FileWatch<std::string> watch(iniReader.GetIniPath(), [&](const std::string& path, const filewatch::Event change_type)
+            if (std::filesystem::exists(iniReader.GetIniPath()))
             {
-                if (change_type == filewatch::Event::modified)
+                static filewatch::FileWatch<std::string> watch(iniReader.GetIniPath(), [&](const std::string& path, const filewatch::Event change_type)
                 {
-                    ReadIniSettings(invertedRadial);
-                    ms_initialised = 0;
-                }
-            });
+                    if (change_type == filewatch::Event::modified)
+                    {
+                        ReadIniSettings(invertedRadial);
+                        ms_initialised = 0;
+                    }
+                });
+            }
         });
     }
 
@@ -601,21 +593,12 @@ public:
     }
 
     // Rendering
-#ifdef DX8
-    static inline IDirect3DTexture8* ms_maskTex;
-    static inline IDirect3DTexture8* ms_tex;
-    static inline IDirect3DSurface8* ms_surf;
-    static inline IDirect3DSurface8* ms_bbuf;
-    static inline IDirect3DVertexBuffer8* ms_vertexBuf;
-    static inline IDirect3DIndexBuffer8* ms_indexBuf;
-#else
-    static inline IDirect3DTexture9* ms_maskTex;
-    static inline IDirect3DTexture9* ms_tex;
-    static inline IDirect3DSurface9* ms_surf;
-    static inline IDirect3DSurface9* ms_bbuf;
-    static inline IDirect3DVertexBuffer9* ms_vertexBuf;
-    static inline IDirect3DIndexBuffer9* ms_indexBuf;
-#endif
+    static inline IDirect3DTexture* ms_maskTex;
+    static inline IDirect3DTexture* ms_tex;
+    static inline IDirect3DSurface* ms_surf;
+    static inline IDirect3DSurface* ms_bbuf;
+    static inline IDirect3DVertexBuffer* ms_vertexBuf;
+    static inline IDirect3DIndexBuffer* ms_indexBuf;
     static inline int32_t ms_fbWidth;
     static inline int32_t ms_fbHeight;
     static inline VertexTex2* ms_vertPtr;
@@ -623,23 +606,18 @@ public:
     static inline int32_t ms_initialised;
     static inline bool ms_atlasUsed = true;
 
-#ifdef DX8
-    static inline void InitialiseRender(LPDIRECT3DDEVICE8 pDevice)
-#else
-    static inline void InitialiseRender(LPDIRECT3DDEVICE9 pDevice)
-#endif
+    static inline void InitialiseRender(LPDIRECT3DDEVICE pDevice)
     {
         ms_drops.resize(MaxDrops);
         ms_dropsMoving.resize(MaxDropsMoving);
         
-#ifdef DX8
-        IDirect3DVertexBuffer8* vbuf;
-        IDirect3DIndexBuffer8* ibuf;
+
+        IDirect3DVertexBuffer* vbuf;
+        IDirect3DIndexBuffer* ibuf;
+#if(DIRECT3D_VERSION < 0x0900)
         pDevice->CreateVertexBuffer(ms_drops.capacity() * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf);
         pDevice->CreateIndexBuffer(ms_drops.capacity() * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf);
 #else
-        IDirect3DVertexBuffer9* vbuf;
-        IDirect3DIndexBuffer9* ibuf;
         if (FAILED(pDevice->CreateVertexBuffer(ms_drops.capacity() * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf, nullptr)))
             pDevice->CreateVertexBuffer(ms_drops.capacity() * 4 * sizeof(VertexTex2), D3DUSAGE_DYNAMIC, DROPFVF, D3DPOOL_DEFAULT, &vbuf, nullptr);
         if (FAILED(pDevice->CreateIndexBuffer(ms_drops.capacity() * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf, nullptr)))
@@ -648,7 +626,7 @@ public:
         ms_vertexBuf = vbuf;
         ms_indexBuf = ibuf;
         uint16_t* idx;
-#ifdef DX8
+#if(DIRECT3D_VERSION < 0x0900)
         ibuf->Lock(0, 0, (BYTE**)&idx, 0);
 #else
         ibuf->Lock(0, 0, (void**)&idx, 0);
@@ -664,13 +642,13 @@ public:
         ibuf->Unlock();
 
         D3DSURFACE_DESC d3dsDesc;
-#ifdef DX8
+#if(DIRECT3D_VERSION < 0x0900)
         pDevice->GetBackBuffer(0, D3DBACKBUFFER_TYPE_MONO, &ms_bbuf);
 #else
         pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &ms_bbuf);
 #endif
         ms_bbuf->GetDesc(&d3dsDesc);
-#ifdef DX8
+#if(DIRECT3D_VERSION < 0x0900)
         pDevice->CreateTexture(d3dsDesc.Width, d3dsDesc.Height, 1, D3DUSAGE_RENDERTARGET, d3dsDesc.Format, D3DPOOL_DEFAULT, &ms_tex);
 #else
         pDevice->CreateTexture(d3dsDesc.Width, d3dsDesc.Height, 1, D3DUSAGE_RENDERTARGET, d3dsDesc.Format, D3DPOOL_DEFAULT, &ms_tex, NULL);
@@ -683,7 +661,7 @@ public:
         HRESULT res = NULL;
         HMODULE hm = NULL;
         GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)&InitialiseRender, &hm);
-#ifndef DX8
+#if(DIRECT3D_VERSION >= 0x0900)
         res = D3DXCreateTextureFromResource(pDevice, hm, 
 #ifndef SNOWDROPS
             MAKEINTRESOURCE(IDR_DROPMASK)
@@ -718,7 +696,7 @@ public:
         {
             static constexpr auto MaskSize = 128;
             if (FAILED(D3DXCreateTexture(pDevice, MaskSize, MaskSize, 1, D3DUSAGE_WRITEONLY, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &ms_maskTex)))
-                D3DXCreateTexture(pDevice, MaskSize, MaskSize, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &ms_maskTex);
+                D3DXCreateTexture(pDevice, MaskSize, MaskSize, 1, D3DUSAGE_WRITEONLY, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &ms_maskTex);
             D3DLOCKED_RECT LockedRect;
             ms_maskTex->LockRect(0, &LockedRect, NULL, 0);
             uint8_t* pixels = (uint8_t*)LockedRect.pBits;
@@ -787,20 +765,15 @@ public:
         ms_numBatchedDrops++;
     }
 
-#ifdef DX8
-    static inline void Render(LPDIRECT3DDEVICE8 pDevice)
-#else
-    static inline void Render(LPDIRECT3DDEVICE9 pDevice)
-#endif
+    static inline void Render(LPDIRECT3DDEVICE pDevice)
     {
         if (!ms_enabled || ms_numDrops <= 0)
             return;
 
-#ifdef DX8
-        IDirect3DVertexBuffer8* vbuf = ms_vertexBuf;
+        IDirect3DVertexBuffer* vbuf = ms_vertexBuf;
+#if(DIRECT3D_VERSION < 0x0900)
         vbuf->Lock(0, 0, (BYTE**)&ms_vertPtr, 0);
 #else
-        IDirect3DVertexBuffer9* vbuf = ms_vertexBuf;
         vbuf->Lock(0, 0, (void**)&ms_vertPtr, 0);
 #endif
         ms_numBatchedDrops = 0;
@@ -810,7 +783,7 @@ public:
         vbuf->Unlock();
         
 #ifndef DISABLESTATEBLOCK
-#ifdef DX8
+#if(DIRECT3D_VERSION < 0x0900)
         DWORD pStateBlock = NULL;
         pDevice->CreateStateBlock(D3DSBT_ALL, &pStateBlock);
         pDevice->CaptureStateBlock(pStateBlock);
@@ -854,7 +827,7 @@ public:
         pDevice->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
         pDevice->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
         pDevice->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
-#ifndef DX8
+#if(DIRECT3D_VERSION >= 0x0900)
         pDevice->SetRenderState(D3DRS_SCISSORTESTENABLE, 1);
 #endif
         pDevice->SetRenderState(D3DRS_COLORWRITEENABLE, 0xFFFFFFFF);
@@ -863,7 +836,7 @@ public:
         pDevice->SetPixelShader(NULL);
         pDevice->SetVertexShader(NULL);
 
-#ifdef DX8
+#if(DIRECT3D_VERSION < 0x0900)
         pDevice->SetVertexShader(DROPFVF);
         pDevice->SetStreamSource(0, vbuf, sizeof(VertexTex2));
         pDevice->SetIndices(ms_indexBuf, 0);
@@ -879,7 +852,7 @@ public:
         pDevice->SetTextureStageState(1, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
 
 #ifndef DISABLESTATEBLOCK
-#ifdef DX8
+#if(DIRECT3D_VERSION < 0x0900)
         pDevice->ApplyStateBlock(pStateBlock);
         pDevice->DeleteStateBlock(pStateBlock);
 #else
@@ -888,88 +861,6 @@ public:
 #endif
 #endif
     }
-
-#ifndef DX8
-    static inline HRESULT WINAPI d3dReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresentationParameters)
-    {
-        Reset();
-        return RealD3D9Reset(pDevice, pPresentationParameters);
-    }
-
-    static inline HRESULT WINAPI d3dEndScene(LPDIRECT3DDEVICE9 pDevice)
-    {
-        if (ProcessCallback1)
-            ProcessCallback1();
-        Process(pDevice);
-        Render(pDevice);
-        if (ProcessCallback2)
-            ProcessCallback2();
-        return RealD3D9EndScene(pDevice);
-    }
-
-    static inline HRESULT WINAPI d3d8EndScene(LPDIRECT3DDEVICE9 pDevice)
-    {
-        class Direct3DDevice8 : public IUnknown
-        {
-            //...
-        public:
-            void* ProxyAddressLookupTable;
-            void* const D3D;
-            IDirect3DDevice9 *const ProxyInterface;
-            //...
-        };
-
-        if (ProcessCallback1)
-            ProcessCallback1();
-        Process(((Direct3DDevice8*)pDevice)->ProxyInterface);
-        Render(((Direct3DDevice8*)pDevice)->ProxyInterface);
-        if (ProcessCallback2)
-            ProcessCallback2();
-        return RealD3D9EndScene(pDevice);
-    }
-
-    static inline HRESULT WINAPI d3dCreateDevice(IDirect3D9* d3ddev, UINT Adapter, D3DDEVTYPE DeviceType, HWND hFocusWindow, DWORD BehaviorFlags, D3DPRESENT_PARAMETERS* pPresentationParameters, IDirect3DDevice9** ppReturnedDeviceInterface)
-    {
-        HRESULT retval = RealD3D9CreateDevice(d3ddev, Adapter, DeviceType, hFocusWindow, BehaviorFlags, pPresentationParameters, ppReturnedDeviceInterface);
-        UINT_PTR* pVTable = (UINT_PTR*)(*((UINT_PTR*)*ppReturnedDeviceInterface));
-
-        if (!RealD3D9EndScene)
-            RealD3D9EndScene = (EndScene_t)pVTable[IDirect3DDevice9VTBL::EndScene];
-        pEndScene = reinterpret_cast<uint32_t*>(&pVTable[IDirect3DDevice9VTBL::EndScene]);
-
-        if (!RealD3D9Reset)
-            RealD3D9Reset = (Reset_t)pVTable[IDirect3DDevice9VTBL::Reset];
-        pReset = reinterpret_cast<uint32_t*>(&pVTable[IDirect3DDevice9VTBL::Reset]);
-
-        if (bPatchD3D)
-        {
-            injector::WriteMemory(pEndScene, &d3dEndScene, true);
-            injector::WriteMemory(pReset, &d3dReset, true);
-        }
-        return retval;
-    }
-
-    static inline HRESULT WINAPI d3d8CreateDevice(IDirect3D9* d3ddev, UINT Adapter, D3DDEVTYPE DeviceType, HWND hFocusWindow, DWORD BehaviorFlags, D3DPRESENT_PARAMETERS* pPresentationParameters, IDirect3DDevice9** ppReturnedDeviceInterface)
-    {
-        HRESULT retval = RealD3D9CreateDevice(d3ddev, Adapter, DeviceType, hFocusWindow, BehaviorFlags, pPresentationParameters, ppReturnedDeviceInterface);
-        UINT_PTR* pVTable = (UINT_PTR*)(*((UINT_PTR*)*ppReturnedDeviceInterface));
-
-        if (!RealD3D9EndScene)
-            RealD3D9EndScene = (EndScene_t)pVTable[IDirect3DDevice8VTBL::EndScene];
-        pEndScene = reinterpret_cast<uint32_t*>(&pVTable[IDirect3DDevice8VTBL::EndScene]);
-
-        if (!RealD3D9Reset)
-            RealD3D9Reset = (Reset_t)pVTable[IDirect3DDevice8VTBL::Reset];
-        pReset = reinterpret_cast<uint32_t*>(&pVTable[IDirect3DDevice8VTBL::Reset]);
-
-        if (bPatchD3D)
-        {
-            injector::WriteMemory(pEndScene, &d3d8EndScene, true);
-            injector::WriteMemory(pReset, &d3dReset, true);
-        }
-        return retval;
-    }
-#endif
 };
 
 void WaterDrop::Fade()

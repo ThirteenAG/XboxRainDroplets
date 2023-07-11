@@ -7,3 +7,9 @@
 [submodule "external/inireader"]
 	path = external/inireader
 	url = https://github.com/ThirteenAG/IniReader
+[submodule "external/sire"]
+	path = external/sire
+	url = https://github.com/gennariarmando/sire
+[submodule "external/FusionDxHook"]
+	path = external/FusionDxHook
+	url = https://github.com/ThirteenAG/FusionDxHook

@@ -17,6 +17,36 @@ DriverParallelLines.XboxRainDroplets
     7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini"
 )
 
+for %%x in (
+XboxRainDropletsWrapper
+) do (
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\version.dll"
+)
+
+for %%x in (
+XboxRainDropletsWrapper64
+) do (
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\dinput8.dll"
+)
+
+for %%x in (
+PPSSPP.XboxRainDroplets
+) do (
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\version.dll" ".\bin\memstick"
+)
+
+for %%x in (
+PPSSPP.XboxRainDroplets64
+) do (
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\dinput8.dll" ".\bin\memstick"
+)
+
+for %%x in (
+PCSX2F.XboxRainDroplets64
+) do (
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\PLUGINS"
+)
+
 EXIT
 
 7-Zip Extra

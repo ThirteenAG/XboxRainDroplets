@@ -1,4 +1,4 @@
-#define DX8
+#define DIRECT3D_VERSION         0x0800
 #include "xrd.h"
 
 IDirect3DDevice8* pDevice = nullptr;

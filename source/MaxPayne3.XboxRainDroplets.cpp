@@ -1,16 +1,36 @@
-#define DISABLERENDERSTATES
-#include "xrd.h"
+#include <injector\injector.hpp>
+#include <injector\hooking.hpp>
+#include <injector\calling.hpp>
+#include <injector\utility.hpp>
+#ifdef _M_IX86
+#include <injector\assembly.hpp>
+#endif
 
-static auto ppDevice = *hook::get_pattern<uint32_t>("68 ? ? ? ? 68 ? ? ? ? 8B D7 83 CA 10", 1);
+#include "xrd11.h"
+#define FUSIONDXHOOK_INCLUDE_D3D9     1
+#define FUSIONDXHOOK_INCLUDE_D3D10    1
+#define FUSIONDXHOOK_INCLUDE_D3D10_1  1
+#define FUSIONDXHOOK_INCLUDE_D3D11    1
+#define FUSIONDXHOOK_USE_MINHOOK      1
+#define DELAYED_BIND 2000ms
+#include "FusionDxHook.h"
+
+
+//static auto ppDevice = *hook::get_pattern<uint32_t>("68 ? ? ? ? 68 ? ? ? ? 8B D7 83 CA 10", 1);
 uint32_t jmpaddr;
 void __declspec(naked) sub_12D4470()
 {
-    static auto pDevice = *(LPDIRECT3DDEVICE9*)ppDevice;
+    //static auto pDevice = *(LPDIRECT3DDEVICE9*)ppDevice;
 
-    //WaterDrops::ms_rainIntensity = 1.0f;
-    WaterDrops::Process(pDevice);
-    WaterDrops::Render(pDevice);
-    WaterDrops::ms_rainIntensity = 0.0f;
+    //if (pDevice)
+    {
+        #ifdef DEBUG
+        WaterDrops::ms_rainIntensity = 1.0f; // todo: disable
+        #endif // DEBUG
+        WaterDrops::Process();
+        WaterDrops::Render();
+        WaterDrops::ms_rainIntensity = 0.0f;
+    }
 
     _asm jmp jmpaddr
 }
@@ -20,6 +40,8 @@ void Init()
     WaterDrops::ReadIniSettings();
 
     WaterDrops::ms_rainIntensity = 0.0f;
+
+    FusionDxHook::Init();
 
     auto pattern = hook::pattern("83 EC 08 F3 0F 10 05 ? ? ? ? 8D 04 24 50");
     jmpaddr = (uint32_t)pattern.get_first();
@@ -62,16 +84,25 @@ void Init()
         }
     }; injector::MakeInline<CameraHook>(pattern.get_first(5));
 
-    pattern = hook::pattern("8B 08 8B 51 40 68 ? ? ? ? 50 FF D2 85 C0");
-    struct ResetHook
+    FusionDxHook::D3D9::onEndSceneEvent += [](LPDIRECT3DDEVICE9 pDevice)
     {
-        void operator()(injector::reg_pack& regs)
-        {
-            regs.ecx = *(uint32_t*)(regs.eax);
-            regs.edx = *(uint32_t*)(regs.ecx + 0x40);
-            WaterDrops::Reset();
-        }
-    }; injector::MakeInline<ResetHook>(pattern.get_first(0));
+        Sire::Init(Sire::SIRE_RENDERER_DX9, pDevice);
+    };
+
+    FusionDxHook::D3D9::onResetEvent += [](LPDIRECT3DDEVICE9 pDevice)
+    {
+        WaterDrops::Reset();
+    };
+
+    FusionDxHook::D3D10::onPresentEvent += [](IDXGISwapChain* pSwapChain)
+    {
+        //Sire::Init(Sire::SIRE_RENDERER_DX10, pSwapChain);
+    };
+
+    FusionDxHook::D3D11::onPresentEvent += [](IDXGISwapChain* pSwapChain)
+    {
+        Sire::Init(Sire::SIRE_RENDERER_DX11, pSwapChain);
+    };
 
     pattern = hook::pattern("C6 86 ? ? ? ? ? EB 1C 8B 0D ? ? ? ? 57 E8");
     struct InteriornessHook1

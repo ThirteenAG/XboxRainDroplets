@@ -1,4 +1,4 @@
-#define DX8
+#define DIRECT3D_VERSION         0x0800
 #include "xrd.h"
 
 injector::hook_back<void*(__fastcall*)(void* _this, void* edx, char* name, RwMatrix* pos, int a3, int a4)> hb_CreateFxSystem;

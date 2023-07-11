@@ -17,17 +17,49 @@ jobs:
       uses: microsoft/setup-msbuild@v1.1.3
     - uses: actions/checkout@v3
       with:
-        submodules: 'true'
+        submodules: 'recursive'
     - uses: ThirteenAG/update-tags@v1
-      if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Configure build
       shell: cmd
       run: ./premake5.bat
-    - name: Build
+    - name: Build xrd
       shell: cmd
       run: msbuild -m build/${{github.event.repository.name}}.sln /property:Configuration=${{matrix.buildtype}} /property:Platform=${{matrix.platform}}
+    - name: Build xrd11
+      shell: cmd
+      run: |
+          msbuild -m build/XboxRainDropletsWrapper.sln /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
+          msbuild -m build/XboxRainDropletsWrapper.sln /property:Configuration=${{matrix.buildtype}} /property:Platform=Win64
+    - name: Download Ultimate ASI Loader x86
+      uses: robinraju/release-downloader@v1.8
+      with:
+        repository: "ThirteenAG/Ultimate-ASI-Loader"
+        tag: "Win32-latest"
+        fileName: "version-Win32.zip"
+    - name: Download Ultimate ASI Loader x64
+      uses: robinraju/release-downloader@v1.8
+      with:
+        repository: "ThirteenAG/Ultimate-ASI-Loader"
+        tag: "x64-latest"
+        fileName: "dinput8-x64.zip"
+    - name: Download XboxRainDroplets Plugins
+      uses: robinraju/release-downloader@v1.8
+      with:
+        repository: "ThirteenAG/WidescreenFixesPack"
+        tag: "xrd"
+        fileName: "*"
+    - name: Unpack dependencies
+      run: |
+          7z x version-Win32.zip -obin/ -y
+          7z x dinput8-x64.zip -obin/ -y
+          7z x PCSX2F.XboxRainDroplets.zip -obin/ -y
+          7z x PPSSPP.XboxRainDroplets.zip -obin/ -y
+          del version-Win32.zip
+          del dinput8-x64.zip
+          del PCSX2F.XboxRainDroplets.zip
+          del PPSSPP.XboxRainDroplets.zip
     - name: Pack binaries
       shell: cmd
       run: release.bat
@@ -35,75 +67,101 @@ jobs:
       uses: actions/upload-artifact@v3.1.1
       with:
         path: ./bin/*.zip
-    - uses: ./.github/workflows/release_tag
+    - name: GTAIV.XboxRainDroplets
+      uses: ./.github/workflows/release_tag
       if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: gtaiv
         artifacts: bin/GTAIV.XboxRainDroplets.zip
-    - uses: ./.github/workflows/release_tag
+    - name: Mafia.XboxRainDroplets
+      uses: ./.github/workflows/release_tag
       if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: mafia
         artifacts: bin/Mafia.XboxRainDroplets.zip
-    - uses: ./.github/workflows/release_tag
+    - name: Manhunt.XboxRainDroplets
+      uses: ./.github/workflows/release_tag
       if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: manhunt
         artifacts: bin/Manhunt.XboxRainDroplets.zip
-    - uses: ./.github/workflows/release_tag
+    - name: MaxPayne.XboxRainDroplets
+      uses: ./.github/workflows/release_tag
       if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: maxpayne
         artifacts: bin/MaxPayne.XboxRainDroplets.zip
-    - uses: ./.github/workflows/release_tag
+    - name: MaxPayne2.XboxRainDroplets
+      uses: ./.github/workflows/release_tag
       if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: maxpayne2
         artifacts: bin/MaxPayne2.XboxRainDroplets.zip
-    - uses: ./.github/workflows/release_tag
+    - name: MaxPayne3.XboxRainDroplets
+      uses: ./.github/workflows/release_tag
       if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: maxpayne3
         artifacts: bin/MaxPayne3.XboxRainDroplets.zip
-    - uses: ./.github/workflows/release_tag
+    - name: NFSCarbon.XboxRainDroplets
+      uses: ./.github/workflows/release_tag
       if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: nfsc
         artifacts: bin/NFSCarbon.XboxRainDroplets.zip
-    - uses: ./.github/workflows/release_tag
+    - name: NFSMostWanted.XboxRainDroplets
+      uses: ./.github/workflows/release_tag
       if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: nfsmw
         artifacts: bin/NFSMostWanted.XboxRainDroplets.zip
-    - uses: ./.github/workflows/release_tag
+    - name: NFSUnderground2.XboxRainDroplets
+      uses: ./.github/workflows/release_tag
       if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: nfsu2
         artifacts: bin/NFSUnderground2.XboxRainDroplets.zip
-    - uses: ./.github/workflows/release_tag
+    - name: Scarface.XboxRainDroplets
+      uses: ./.github/workflows/release_tag
       if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: scarface
         artifacts: bin/Scarface.XboxRainDroplets.zip
-    - uses: ./.github/workflows/release_tag
+    - name: Driv3r.XboxRainDroplets
+      uses: ./.github/workflows/release_tag
       if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: driv3r
         artifacts: bin/Driv3r.XboxRainDroplets.zip
-    - uses: ./.github/workflows/release_tag
+    - name: DriverParallelLines.XboxRainDroplets
+      uses: ./.github/workflows/release_tag
       if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: driverpl
         artifacts: bin/DriverParallelLines.XboxRainDroplets.zip
+    - name: PPSSPP.XboxRainDroplets
+      uses: ./.github/workflows/release_tag
+      if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: ppsspp
+        artifacts: bin/PPSSPP.XboxRainDroplets.zip, bin/PPSSPP.XboxRainDroplets64.zip
+    - name: PCSX2F.XboxRainDroplets
+      uses: ./.github/workflows/release_tag
+      if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: pcsx2f
+        artifacts: bin/PCSX2F.XboxRainDroplets64.zip
