@@ -96,7 +96,7 @@ void Init()
 
     FusionDxHook::D3D10::onPresentEvent += [](IDXGISwapChain* pSwapChain)
     {
-        Sire::Init(Sire::SIRE_RENDERER_DX10, pSwapChain);
+        //Sire::Init(Sire::SIRE_RENDERER_DX10, pSwapChain);
     };
 
     FusionDxHook::D3D11::onPresentEvent += [](IDXGISwapChain* pSwapChain)
