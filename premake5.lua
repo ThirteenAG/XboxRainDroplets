@@ -2,7 +2,7 @@ workspace "XboxRainDroplets"
    configurations { "Release", "Debug" }
    architecture "x86"
    location "build"
-   buildoptions {"-std:c++latest"}
+   cppdialect "C++latest"
    kind "SharedLib"
    language "C++"
    targetextension ".asi"
