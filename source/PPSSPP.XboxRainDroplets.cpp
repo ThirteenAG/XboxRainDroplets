@@ -202,16 +202,12 @@ void RenderDroplets()
         const UINT WM_USER_GET_EMULATION_STATE = WM_APP + 0x3119;  // 0xB119
 
         static XRData* pXRData = nullptr;
+        static bool bRefreshXRData = false;
 
         DWORD_PTR dwResult = 0;
-        if (SendMessageTimeout(hWndPPSSPP, WM_USER_GET_EMULATION_STATE, 0, 0, SMTO_NORMAL, 10L, &dwResult))
+        SendMessageTimeout(hWndPPSSPP, WM_USER_GET_EMULATION_STATE, 0, 0, SMTO_NORMAL, 10L, &dwResult);
+        if (dwResult == 1)
         {
-            if (!dwResult)
-            {
-                pXRData = nullptr;
-                return;
-            }
-
             enum
             {
                 lo,   // Lower 32 bits of pointer to the base of emulated memory
@@ -221,13 +217,13 @@ void RenderDroplets()
             };
 
             DWORD_PTR high, low = 0;
-            SendMessageTimeout(hWndPPSSPP, WM_USER_GET_BASE_POINTER, 0, hi, SMTO_NORMAL, 10L, &high);
-            SendMessageTimeout(hWndPPSSPP, WM_USER_GET_BASE_POINTER, 0, lo, SMTO_NORMAL, 10L, &low);
+            auto f1 = SendMessageTimeout(hWndPPSSPP, WM_USER_GET_BASE_POINTER, 0, hi, SMTO_NORMAL, 10L, &high);
+            auto f2 = SendMessageTimeout(hWndPPSSPP, WM_USER_GET_BASE_POINTER, 0, lo, SMTO_NORMAL, 10L, &low);
             uint64_t ptr = (uint64_t(high) << 32 | low); // +0x08804000;
 
-            if (ptr)
+            if (SUCCEEDED(f1) && SUCCEEDED(f2) && ptr)
             {
-                if (pXRData)
+                if (pXRData && !bRefreshXRData)
                 {
                     if (pXRData->Enabled(ptr))
                     {
@@ -260,13 +256,14 @@ void RenderDroplets()
                             memset(pXRData, 0, 255);
                         }
                     }
+                    bRefreshXRData = false;
                 }
             }
             else
-                pXRData = nullptr;
+                bRefreshXRData = true;
         }
         else
-            pXRData = nullptr;
+            bRefreshXRData = true;
     }
 }
 
