@@ -25,13 +25,9 @@ workspace "XboxRainDroplets"
    includedirs { "external/hooking" }
    includedirs { "external/injector/include" }
    includedirs { "external/FusionDxHook/includes" }
-   includedirs { "external/FusionDxHook/minhook" }
-   includedirs { "external/FusionDxHook/minhook/include" }
-   includedirs { "external/FusionDxHook/minhook/src" }
+   includedirs { "external/FusionDxHook/includes/safetyhook" }
    includedirs { "external/sire" }
-   files { "external/FusionDxHook/includes/minhook/include/*.*" }
-   files { "external/FusionDxHook/includes/minhook/src/*.*" }
-   files { "external/FusionDxHook/includes/minhook/src/hde/*.*" }
+   files { "external/FusionDxHook/includes/safetyhook/*.*" }
    files { "external/sire/sire.h" }
    local dxsdk = os.getenv "DXSDK_DIR"
    if dxsdk then
@@ -73,10 +69,10 @@ workspace "XboxRainDroplets"
       targetdir ("bin")
    end
 
-	prebuildcommands {
-		"for /R \"../source/resources/shaders/ps/\" %%f in (*.hlsl) do (\"../source/dxsdk/lib/x86/fxc.exe\" /T ps_3_0 /nologo /E main /Fo \"../source/resources/%%~nf.cso\" %%f)",
-		"for /R \"../source/resources/shaders/vs/\" %%f in (*.hlsl) do (\"../source/dxsdk/lib/x86/fxc.exe\" /T vs_3_0 /nologo /E main /Fo \"../source/resources/%%~nf.cso\" %%f)",
-	}
+    prebuildcommands {
+        "for /R \"../source/resources/shaders/ps/\" %%f in (*.hlsl) do (\"../source/dxsdk/lib/x86/fxc.exe\" /T ps_3_0 /nologo /E main /Fo \"../source/resources/%%~nf.cso\" %%f)",
+        "for /R \"../source/resources/shaders/vs/\" %%f in (*.hlsl) do (\"../source/dxsdk/lib/x86/fxc.exe\" /T vs_3_0 /nologo /E main /Fo \"../source/resources/%%~nf.cso\" %%f)",
+    }
    
    filter "configurations:Debug"
       defines { "DEBUG" }
@@ -148,16 +144,12 @@ workspace "XboxRainDropletsWrapper"
    includedirs { "external/hooking" }
    includedirs { "external/injector/include" }
    includedirs { "external/FusionDxHook/includes" }
-   includedirs { "external/FusionDxHook/minhook" }
-   includedirs { "external/FusionDxHook/minhook/include" }
-   includedirs { "external/FusionDxHook/minhook/src" }
+   includedirs { "external/FusionDxHook/includes/safetyhook" }
    includedirs { "external/sire" }
    includedirs { "source/dxsdk/dx8" }
    libdirs { "source/dxsdk/dx8" }
 
-   files { "external/FusionDxHook/includes/minhook/include/*.*" }
-   files { "external/FusionDxHook/includes/minhook/src/*.*" }
-   files { "external/FusionDxHook/includes/minhook/src/hde/*.*" }
+   files { "external/FusionDxHook/includes/safetyhook/*.*" }
    files { "external/sire/sire.h" }
    
    
@@ -171,14 +163,14 @@ workspace "XboxRainDropletsWrapper"
       
    filter "platforms:Win32"
       architecture "x32"
-	  includedirs { "source/dxsdk" }
-	  libdirs { "source/dxsdk/lib/x86" }
+      includedirs { "source/dxsdk" }
+      libdirs { "source/dxsdk/lib/x86" }
       
    filter "platforms:Win64"
       architecture "x64"
       targetname "%{prj.name}64"
-	  includedirs { "source/dxsdk" }
-	  libdirs { "source/dxsdk/lib/x64" }
+      includedirs { "source/dxsdk" }
+      libdirs { "source/dxsdk/lib/x64" }
 
 project "XboxRainDropletsWrapper"
    setpaths("Z:/WFP/Games/PPSSPP/", "PPSSPPWindows.exe")

@@ -10,6 +10,7 @@
 #include <map>
 #include <iomanip>
 #include <random>
+#include <stacktrace>
 #include "inireader/IniReader.h"
 #include "Hooking.Patterns.h"
 #include "includes/ModuleList.hpp"
@@ -930,16 +931,20 @@ public:
     static inline std::map<std::wstring, std::function<void()>> functions;
 };
 
-bool IsUALPresent()
+bool IsModuleUAL(HMODULE mod)
 {
-    ModuleList dlls;
-    dlls.Enumerate(ModuleList::SearchLocation::LocalOnly);
-    for (auto& e : dlls.m_moduleList)
-    {
-        if (GetProcAddress(std::get<HMODULE>(e), "DirectInput8Create") != NULL &&
-            GetProcAddress(std::get<HMODULE>(e), "DirectSoundCreate8") != NULL &&
-            GetProcAddress(std::get<HMODULE>(e), "InternetOpenA") != NULL)
-            return true;
+    if (GetProcAddress(mod, "IsUltimateASILoader") != NULL || (GetProcAddress(mod, "DirectInput8Create") != NULL && GetProcAddress(mod, "DirectSoundCreate8") != NULL && GetProcAddress(mod, "InternetOpenA") != NULL))
+        return true;
+    return false;
+}
+
+bool IsUALPresent() {
+    for (const auto& entry : std::stacktrace::current()) {
+        HMODULE hModule = NULL;
+        if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)entry.native_handle(), &hModule)) {
+            if (IsModuleUAL(hModule))
+                return true;
+        }
     }
     return false;
 }

@@ -7,7 +7,7 @@
 #define FUSIONDXHOOK_INCLUDE_D3D12    0
 #define FUSIONDXHOOK_INCLUDE_OPENGL   1
 #define FUSIONDXHOOK_INCLUDE_VULKAN   1
-#define FUSIONDXHOOK_USE_MINHOOK      1
+#define FUSIONDXHOOK_USE_SAFETYHOOK   1
 #define DELAYED_BIND 2000ms
 #include "FusionDxHook.h"
 
@@ -63,10 +63,17 @@ struct XRData {
 #ifdef __cplusplus
     bool Enabled(uint64_t ptr)
     {
-        if (p_enabled)
-            return *(uint32_t*)(ptr + p_enabled);
-        else
-            return ms_enabled != 0;
+        __try
+        {
+            if (p_enabled)
+                return *(uint32_t*)(ptr + p_enabled);
+            else
+                return ms_enabled != 0;
+        }
+        __except ((GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION) ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
+        {
+        }
+        return false;
     }
 
     float GetRainIntensity(uint64_t ptr)
@@ -196,8 +203,15 @@ void RenderDroplets()
 
         static XRData* pXRData = nullptr;
 
-        if (SendMessage(hWndPPSSPP, WM_USER_GET_EMULATION_STATE, 0, 0))
+        DWORD_PTR dwResult = 0;
+        if (SendMessageTimeout(hWndPPSSPP, WM_USER_GET_EMULATION_STATE, 0, 0, SMTO_NORMAL, 10L, &dwResult))
         {
+            if (!dwResult)
+            {
+                pXRData = nullptr;
+                return;
+            }
+
             enum
             {
                 lo,   // Lower 32 bits of pointer to the base of emulated memory
@@ -206,8 +220,9 @@ void RenderDroplets()
                 p_hi, // Upper 32 bits of pointer to the pointer to the base of emulated memory
             };
 
-            uint32_t high = SendMessage(hWndPPSSPP, WM_USER_GET_BASE_POINTER, 0, hi);
-            uint32_t low = SendMessage(hWndPPSSPP, WM_USER_GET_BASE_POINTER, 0, lo);
+            DWORD_PTR high, low = 0;
+            SendMessageTimeout(hWndPPSSPP, WM_USER_GET_BASE_POINTER, 0, hi, SMTO_NORMAL, 10L, &high);
+            SendMessageTimeout(hWndPPSSPP, WM_USER_GET_BASE_POINTER, 0, lo, SMTO_NORMAL, 10L, &low);
             uint64_t ptr = (uint64_t(high) << 32 | low); // +0x08804000;
 
             if (ptr)
