@@ -2,9 +2,7 @@
 #include <injector\hooking.hpp>
 #include <injector\calling.hpp>
 #include <injector\utility.hpp>
-#ifdef _M_IX86
 #include <injector\assembly.hpp>
-#endif
 
 #include "xrd11.h"
 #define FUSIONDXHOOK_INCLUDE_D3D9     1
@@ -14,7 +12,6 @@
 #define FUSIONDXHOOK_USE_SAFETYHOOK   1
 #define DELAYED_BIND 2000ms
 #include "FusionDxHook.h"
-
 
 //static auto ppDevice = *hook::get_pattern<uint32_t>("68 ? ? ? ? 68 ? ? ? ? 8B D7 83 CA 10", 1);
 uint32_t jmpaddr;

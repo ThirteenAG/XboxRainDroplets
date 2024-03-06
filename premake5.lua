@@ -22,12 +22,13 @@ workspace "XboxRainDroplets"
    files { "source/resources/Versioninfo.rc" }
    files { "source/resources/Dropmask.rc" }
    files { "external/hooking/Hooking.Patterns.h", "external/hooking/Hooking.Patterns.cpp" }
+   files { "external/injector/safetyhook/safetyhook.hpp", "external/injector/safetyhook/safetyhook.cpp" }
+   files { "external/injector/safetyhook/Zydis.h", "external/injector/safetyhook/Zydis.c" }
    includedirs { "external/hooking" }
    includedirs { "external/injector/include" }
+   includedirs { "external/injector/safetyhook" }
    includedirs { "external/FusionDxHook/includes" }
-   includedirs { "external/FusionDxHook/includes/safetyhook" }
    includedirs { "external/sire" }
-   files { "external/FusionDxHook/includes/safetyhook/*.*" }
    files { "external/sire/sire.h" }
    local dxsdk = os.getenv "DXSDK_DIR"
    if dxsdk then
@@ -139,17 +140,18 @@ workspace "XboxRainDropletsWrapper"
    files { "source/resources/Versioninfo.rc" }
    files { "source/resources/Dropmask.rc" }
    files { "external/hooking/Hooking.Patterns.h", "external/hooking/Hooking.Patterns.cpp" }
+   files { "external/injector/safetyhook/safetyhook.hpp", "external/injector/safetyhook/safetyhook.cpp" }
+   files { "external/injector/safetyhook/Zydis.h", "external/injector/safetyhook/Zydis.c" }
    includedirs { "source" }
    includedirs { "external" }
    includedirs { "external/hooking" }
    includedirs { "external/injector/include" }
+   includedirs { "external/injector/safetyhook" }
    includedirs { "external/FusionDxHook/includes" }
-   includedirs { "external/FusionDxHook/includes/safetyhook" }
    includedirs { "external/sire" }
    includedirs { "source/dxsdk/dx8" }
    libdirs { "source/dxsdk/dx8" }
 
-   files { "external/FusionDxHook/includes/safetyhook/*.*" }
    files { "external/sire/sire.h" }
    
    
