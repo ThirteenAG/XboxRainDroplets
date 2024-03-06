@@ -33,9 +33,7 @@ typedef IDirect3DIndexBuffer9 IDirect3DIndexBuffer;
 #include <injector\hooking.hpp>
 #include <injector\calling.hpp>
 #include <injector\utility.hpp>
-#ifdef _M_IX86
 #include <injector\assembly.hpp>
-#endif
 #include <filesystem>
 #include <algorithm>
 #include <thread>
