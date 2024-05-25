@@ -14,23 +14,6 @@
 #include "FusionDxHook.h"
 
 //static auto ppDevice = *hook::get_pattern<uint32_t>("68 ? ? ? ? 68 ? ? ? ? 8B D7 83 CA 10", 1);
-uint32_t jmpaddr;
-void __declspec(naked) sub_12D4470()
-{
-    //static auto pDevice = *(LPDIRECT3DDEVICE9*)ppDevice;
-
-    //if (pDevice)
-    {
-        #ifdef DEBUG
-        WaterDrops::ms_rainIntensity = 1.0f; // todo: disable
-        #endif // DEBUG
-        WaterDrops::Process();
-        WaterDrops::Render();
-        WaterDrops::ms_rainIntensity = 0.0f;
-    }
-
-    _asm jmp jmpaddr
-}
 
 void Init()
 {
@@ -45,11 +28,8 @@ void Init()
 
         FusionDxHook::Init();
 
-        auto pattern = hook::pattern("83 EC 08 F3 0F 10 05 ? ? ? ? 8D 04 24 50");
-        jmpaddr = (uint32_t)pattern.get_first();
-
         //this enables something for next hook to work
-        pattern = hook::pattern("38 1D ? ? ? ? 75 21 E8");
+        auto pattern = hook::pattern("38 1D ? ? ? ? 75 21 E8");
         injector::WriteMemory<uint8_t>(pattern.get_first(6), 0xEB, true);
 
         static bool bAmbientCheck = false;
@@ -67,7 +47,16 @@ void Init()
         }; injector::MakeInline<AmbientCheckHook>(pattern.get_first(0), pattern.get_first(6));
 
         pattern = hook::pattern("68 ? ? ? ? E8 ? ? ? ? 8B 15 ? ? ? ? 8B 0D ? ? ? ? 8B 04 95 ? ? ? ? 83 C4 08 03 C1");
-        injector::WriteMemory(pattern.get_first(1), sub_12D4470, true);
+        static SafetyHookMid shsub_12D4470 = safetyhook::create_mid(*pattern.get_first<void*>(1),
+        [](SafetyHookContext& ctx)
+        {
+            #ifdef DEBUG
+            WaterDrops::ms_rainIntensity = 1.0f;
+            #endif // DEBUG
+            WaterDrops::Process();
+            WaterDrops::Render();
+            WaterDrops::ms_rainIntensity = 0.0f;
+        });
 
         pattern = hook::pattern("F3 0F 11 6E ? F3 0F 11 46 ? 5E 5B");
         struct CameraHook
@@ -96,10 +85,10 @@ void Init()
             WaterDrops::Reset();
         };
 
-        FusionDxHook::D3D10::onPresentEvent += [](IDXGISwapChain* pSwapChain)
-        {
-            //Sire::Init(Sire::SIRE_RENDERER_DX10, pSwapChain);
-        };
+        //FusionDxHook::D3D10::onPresentEvent += [](IDXGISwapChain* pSwapChain)
+        //{
+        //    //Sire::Init(Sire::SIRE_RENDERER_DX10, pSwapChain);
+        //};
 
         FusionDxHook::D3D11::onPresentEvent += [](IDXGISwapChain* pSwapChain)
         {
