@@ -42,10 +42,14 @@ void Init()
     if (pattern.empty())
     {
         pattern = hook::pattern("74 16 33 C0 80 7C 06");
-        injector::MakeNOP(pattern.get_first(-9), 3);
-        injector::WriteMemory<uint16_t>(pattern.get_first(-9), 0x01B0, true); //mov al,01
+        if (!pattern.empty())
+        {
+            injector::MakeNOP(pattern.get_first(-9), 3);
+            injector::WriteMemory<uint16_t>(pattern.get_first(-9), 0x01B0, true); //mov al,01
+        }
     }
-    injector::MakeNOP(pattern.get_first(0), 2);
+    else
+        injector::MakeNOP(pattern.get_first(0), 2);
 
     pattern = hook::pattern("56 8B F1 80 3E 00 74 08");
     injector::MakeJMP(pattern.get_first(0), sub_B870A0, true);
