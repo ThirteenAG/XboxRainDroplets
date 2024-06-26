@@ -22,11 +22,12 @@ workspace "XboxRainDroplets"
    files { "source/resources/Versioninfo.rc" }
    files { "source/resources/Dropmask.rc" }
    files { "external/hooking/Hooking.Patterns.h", "external/hooking/Hooking.Patterns.cpp" }
-   files { "external/injector/safetyhook/safetyhook.hpp", "external/injector/safetyhook/safetyhook.cpp" }
-   files { "external/injector/safetyhook/Zydis.h", "external/injector/safetyhook/Zydis.c" }
+   files { "external/injector/safetyhook/include/**.hpp", "external/injector/safetyhook/src/**.cpp" }
+   files { "external/injector/zydis/**.h", "external/injector/zydis/**.c" }
    includedirs { "external/hooking" }
    includedirs { "external/injector/include" }
-   includedirs { "external/injector/safetyhook" }
+   includedirs { "external/injector/safetyhook/include" }
+   includedirs { "external/injector/zydis" }
    includedirs { "external/FusionDxHook/includes" }
    includedirs { "external/sire" }
    files { "external/sire/sire.h" }
@@ -140,13 +141,14 @@ workspace "XboxRainDropletsWrapper"
    files { "source/resources/Versioninfo.rc" }
    files { "source/resources/Dropmask.rc" }
    files { "external/hooking/Hooking.Patterns.h", "external/hooking/Hooking.Patterns.cpp" }
-   files { "external/injector/safetyhook/safetyhook.hpp", "external/injector/safetyhook/safetyhook.cpp" }
-   files { "external/injector/safetyhook/Zydis.h", "external/injector/safetyhook/Zydis.c" }
+   files { "external/injector/safetyhook/include/**.hpp", "external/injector/safetyhook/src/**.cpp" }
+   files { "external/injector/zydis/**.h", "external/injector/zydis/**.c" }
    includedirs { "source" }
    includedirs { "external" }
    includedirs { "external/hooking" }
    includedirs { "external/injector/include" }
-   includedirs { "external/injector/safetyhook" }
+   includedirs { "external/injector/safetyhook/include" }
+   includedirs { "external/injector/zydis" }
    includedirs { "external/FusionDxHook/includes" }
    includedirs { "external/sire" }
    includedirs { "source/dxsdk/dx8" }
