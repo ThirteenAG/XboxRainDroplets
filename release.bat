@@ -13,6 +13,7 @@ MaxPayne2.XboxRainDroplets
 MaxPayne3.XboxRainDroplets
 Driv3r.XboxRainDroplets
 DriverParallelLines.XboxRainDroplets
+SplinterCellBlacklist.XboxRainDroplets
 ) do (
     7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini"
 )
