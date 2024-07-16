@@ -34,11 +34,20 @@ void Init()
         regs.xmm0.f32[0] = 0.0f; // disables original droplets
     });
 
-    pattern = hook::pattern("83 C4 1C 8B CB E8");
+    pattern = hook::pattern("E8 ? ? ? ? 83 C4 1C 8B CB");
     static auto BeforeRenderHUDPrimitives = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
     {
         WaterDrops::Process();
         WaterDrops::Render();
+    });
+
+    pattern = hook::pattern("8B 46 58 8D 95");
+    static auto ResizeDXGIBuffers = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
+    {
+        auto pSwapChain = *(IDXGISwapChain**)(regs.esi + 0x58);
+        WaterDrops::Reset();
+        Sire::Shutdown();
+        Sire::Init(Sire::SIRE_RENDERER_DX11, pSwapChain);
     });
 
     pattern = hook::pattern("89 85 ? ? ? ? 85 C0 79 07");
@@ -68,7 +77,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
 {
     std::call_once(CallbackHandler::flag, []()
     {
-        CallbackHandler::RegisterCallback(Init);
+        CallbackHandler::RegisterCallback(Init, hook::pattern("89 85 ? ? ? ? 85 C0 79 07"));
     });
 }
 
