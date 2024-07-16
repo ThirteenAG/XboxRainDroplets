@@ -109,6 +109,8 @@ project "MaxPayne2.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Max Payne/Max Payne 2 The Fall of Max Payne/", "MaxPayne2.exe", "scripts/")
 project "MaxPayne3.XboxRainDroplets"
    setpaths("E:/Games/Steam/steamapps/common/Max Payne 3/Max Payne 3/", "MaxPayne3.exe", "plugins/")
+project "SplinterCellBlacklist.XboxRainDroplets"
+   setpaths("Z:/WFP/Games/Splinter Cell/Splinter Cell Blacklist/src/SYSTEM/", "Blacklist_DX11_game.exe", "scripts/")
 --tests
 --project "GTA3.XboxRainDroplets"
 --   setpaths("Z:/WFP/Games/Grand Theft Auto/GTAIII/", "gta3.exe", "scripts/")
