@@ -16,7 +16,21 @@ void __fastcall sub_B870A0(uint8_t* self, void* edx)
     }
     if (self[12])
     {
-        WaterDrops::ms_rainIntensity = *CWeatherRain; //rain_drops
+        bool bNeedsToDisableDrops = false;
+        static auto ff = GetModuleHandleW(L"GTAIV.EFLC.FusionFix.asi");
+        if (ff)
+        {
+            static auto IsSnowEnabled = (bool(*)())GetProcAddress(ff, "IsSnowEnabled");
+            static auto IsWeatherSnow = (bool(*)())GetProcAddress(ff, "IsWeatherSnow");
+            if (IsSnowEnabled && IsWeatherSnow)
+            {
+                if (IsSnowEnabled() && IsWeatherSnow())
+                    bNeedsToDisableDrops = true;
+            }
+        }
+
+        if (!bNeedsToDisableDrops)
+            WaterDrops::ms_rainIntensity = *CWeatherRain; //rain_drops
         self[12] = 0;
     }
     if (self[28])
