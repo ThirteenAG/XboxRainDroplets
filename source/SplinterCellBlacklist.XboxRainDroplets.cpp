@@ -19,12 +19,25 @@ void Init()
         //auto at = *(RwV3d*)(regs.ebx + 0x8C);
         //auto pos = *(RwV3d*)(regs.ebx + 0x9C);
         //
-        //WaterDrops::right = right;
-        //WaterDrops::up = up;
-        //WaterDrops::at = at;
-        //WaterDrops::pos = pos;
+        //WaterDrops::at = { -right.x, -right.z, -right.y };
+        //WaterDrops::up = { up.x, up.z, up.y };
+        //WaterDrops::right = { -at.x, -at.z, -at.y };
+        //WaterDrops::pos = { pos.x, pos.z, pos.y };
+        //
+        //if (WaterDrops::fSpeedAdjuster)
+        //{
+        //    WaterDrops::right.x *= WaterDrops::fSpeedAdjuster;
+        //    WaterDrops::right.y *= WaterDrops::fSpeedAdjuster;
+        //    WaterDrops::right.z *= WaterDrops::fSpeedAdjuster;
+        //}
 
-        WaterDrops::ms_rainIntensity = 0.0f;
+        WaterDrops::ms_rainIntensity -= 0.05f;
+        if (WaterDrops::ms_rainIntensity < 0.0f)
+            WaterDrops::ms_rainIntensity = 0.0f;
+
+        #ifdef DEBUG
+        WaterDrops::ms_rainIntensity = 1.0f;
+        #endif // DEBUG
     });
 
     pattern = hook::pattern("F3 0F 11 44 24 ? F3 0F 11 45 ? F3 0F 11 04 24 E8 ? ? ? ? 8B 7D F0 8A 55 0B");
@@ -55,19 +68,19 @@ void Init()
     {
         auto pSwapChain = *(IDXGISwapChain**)(regs.edi + 0x330);
 
-        static bool bOnce = false;
-        if (!bOnce)
-        {
-            bOnce = true;
-            ID3D11Device* pDevice = nullptr;
-            HRESULT ret = pSwapChain->GetDevice(__uuidof(ID3D11Device), (PVOID*)&pDevice);
-            ID3D10Multithread* multithread = nullptr;
-            if (SUCCEEDED(pDevice->QueryInterface(__uuidof(ID3D10Multithread), (void**)&multithread))) {
-                multithread->SetMultithreadProtected(TRUE);
-                multithread->Release();
-            }
-            pDevice->Release();
-        }
+        //static bool bOnce = false;
+        //if (!bOnce)
+        //{
+        //    bOnce = true;
+        //    ID3D11Device* pDevice = nullptr;
+        //    HRESULT ret = pSwapChain->GetDevice(__uuidof(ID3D11Device), (PVOID*)&pDevice);
+        //    ID3D10Multithread* multithread = nullptr;
+        //    if (SUCCEEDED(pDevice->QueryInterface(__uuidof(ID3D10Multithread), (void**)&multithread))) {
+        //        multithread->SetMultithreadProtected(TRUE);
+        //        multithread->Release();
+        //    }
+        //    pDevice->Release();
+        //}
 
         Sire::Init(Sire::SIRE_RENDERER_DX11, pSwapChain);
     });
