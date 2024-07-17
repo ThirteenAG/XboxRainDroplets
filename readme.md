@@ -8,6 +8,12 @@ Various ini settings allow to customize the appearance and can be edited while i
 
 # List of releases
 
+## Splinter Cell Blacklist - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/scb)
+
+#### Screen:
+
+![scb](https://github.com/user-attachments/assets/3121f763-6926-4c96-8076-651654f39ee3)
+
 ## Grand Theft Auto IV: The Complete Edition - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/gtaiv)
 
 #### Video (click on the image to go to YouTube):
