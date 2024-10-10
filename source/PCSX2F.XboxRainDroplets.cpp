@@ -211,7 +211,11 @@ void RenderDroplets()
                 memset(pXRData, 0, 255);
         }
         else
-            pXRData = (XRData*)(GetEEMainMemoryStart() + GetPluginSymbolAddr("PLUGINS/PCSX2F.XboxRainDroplets.elf", "XboxRainDropletsData"));
+        {
+            auto sym = GetPluginSymbolAddr("PLUGINS/PCSX2F.XboxRainDroplets.elf", "XboxRainDropletsData");
+            if (sym)
+                pXRData = (XRData*)(GetEEMainMemoryStart() + sym);
+        }
     }
     else
         pXRData = nullptr;
