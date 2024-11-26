@@ -92,6 +92,12 @@ Various ini settings allow to customize the appearance and can be edited while i
 
 [![[MaxPayne2] Xbox Rain Droplets Mod](https://img.youtube.com/vi/wodoq5-YPYc/maxresdefault.jpg)](https://www.youtube.com/watch?v=wodoq5-YPYc)
 
+## GTA San Andreas The Definitive Edition - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/gtasade)
+
+#### Screen:
+
+![scb](https://github.com/user-attachments/assets/af077a90-a75f-4e28-bca0-5ecd0b194ce3)
+
 ## Other
 
 More plugins available on [appveyor artifacts page](https://ci.appveyor.com/project/ThirteenAG/xboxraindroplets/build/artifacts), but they are incomplete. It is not recommended to use them.
