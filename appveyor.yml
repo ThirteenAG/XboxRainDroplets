@@ -13,7 +13,7 @@ before_build:
 - ps: >-
     msbuild -m build/XboxRainDropletsWrapper.sln /property:Configuration=Release /property:Platform=Win32
 
-    msbuild -m build/XboxRainDropletsWrapper.sln /property:Configuration=Release /property:Platform=Win64
+    msbuild -m build/XboxRainDropletsWrapper.sln /property:Configuration=Release /property:Platform=x64
 
 
     Start-FileDownload https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/download/Win32-latest/version-Win32.zip

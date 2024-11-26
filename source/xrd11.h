@@ -11,15 +11,33 @@
 #include <iomanip>
 #include <random>
 #include <stacktrace>
+#include <functional>
 #include "inireader/IniReader.h"
 #include "Hooking.Patterns.h"
 #include "includes/ModuleList.hpp"
 #include "includes/FileWatch.hpp"
+#include "includes/callbacks.h"
 
 #include "sire.h"
 #include "dropmask.h"
 
-#include <subauth.h>
+template<typename T>
+class GameRef
+{
+private:
+    static inline T placeholder{};
+    std::reference_wrapper<T> ref;
+
+public:
+    GameRef() : ref(std::ref(placeholder)) {}
+
+    void SetAddress(auto addr) {
+        ref = std::ref(*reinterpret_cast<T*>(addr));
+    }
+
+    T& get() { return ref.get(); }
+    operator T& () { return ref.get(); }
+};
 
 struct RwV3d
 {
@@ -45,6 +63,10 @@ inline void RwV3dScale(RwV3d* o, RwV3d* a, float s)
 inline float RwV3dDotProduct(RwV3d* a, RwV3d* b)
 {
     return (((a->x * b->x) + (a->y * b->y))) + (a->z * b->z);
+}
+
+inline float RwV3dLength(const RwV3d* in) {
+    return sqrtf(in->x * in->x + in->y * in->y + in->z * in->z);
 }
 
 struct RwMatrix
@@ -725,211 +747,6 @@ void WaterDrop::Fade()
     else if (this->fades)
         this->alpha = (int8_t)(255.0f - time / ttl * 255.0f);
 }
-
-class CallbackHandler
-{
-public:
-    static inline void RegisterCallback(std::function<void()>&& fn)
-    {
-        fn();
-    }
-
-    static inline void RegisterCallback(std::wstring_view module_name, std::function<void()>&& fn)
-    {
-        if (module_name.empty() || GetModuleHandleW(module_name.data()) != NULL)
-        {
-            fn();
-        }
-        else
-        {
-            RegisterDllNotification();
-            GetCallbackList().emplace(module_name, std::forward<std::function<void()>>(fn));
-        }
-    }
-
-    static inline void RegisterCallback(std::function<void()>&& fn, hook::pattern pattern)
-    {
-        if (!pattern.empty())
-        {
-            fn();
-        }
-        else
-        {
-            auto* ptr = new ThreadParams{ fn, pattern };
-            CloseHandle(CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&ThreadProc, (LPVOID)ptr, 0, NULL));
-        }
-    }
-
-private:
-    static inline void call(std::wstring_view module_name)
-    {
-        if (GetCallbackList().count(module_name.data()))
-        {
-            GetCallbackList().at(module_name.data())();
-        }
-    }
-
-    static inline void invoke_all()
-    {
-        for (auto&& fn : GetCallbackList())
-            fn.second();
-    }
-
-private:
-    static inline std::map<std::wstring, std::function<void()>>& GetCallbackList()
-    {
-        return functions;
-    }
-
-    struct ThreadParams
-    {
-        std::function<void()> fn;
-        hook::pattern pattern;
-    };
-
-    typedef NTSTATUS(NTAPI* _LdrRegisterDllNotification) (ULONG, PVOID, PVOID, PVOID);
-    typedef NTSTATUS(NTAPI* _LdrUnregisterDllNotification) (PVOID);
-
-    typedef struct _LDR_DLL_LOADED_NOTIFICATION_DATA
-    {
-        ULONG Flags;                    //Reserved.
-        PUNICODE_STRING FullDllName;    //The full path name of the DLL module.
-        PUNICODE_STRING BaseDllName;    //The base file name of the DLL module.
-        PVOID DllBase;                  //A pointer to the base address for the DLL in memory.
-        ULONG SizeOfImage;              //The size of the DLL image, in bytes.
-    } LDR_DLL_LOADED_NOTIFICATION_DATA, LDR_DLL_UNLOADED_NOTIFICATION_DATA, * PLDR_DLL_LOADED_NOTIFICATION_DATA, * PLDR_DLL_UNLOADED_NOTIFICATION_DATA;
-
-    typedef union _LDR_DLL_NOTIFICATION_DATA
-    {
-        LDR_DLL_LOADED_NOTIFICATION_DATA Loaded;
-        LDR_DLL_UNLOADED_NOTIFICATION_DATA Unloaded;
-    } LDR_DLL_NOTIFICATION_DATA, * PLDR_DLL_NOTIFICATION_DATA;
-
-    typedef NTSTATUS(NTAPI* PLDR_MANIFEST_PROBER_ROUTINE)
-        (
-            IN HMODULE DllBase,
-            IN PCWSTR FullDllPath,
-            OUT PHANDLE ActivationContext
-            );
-
-    typedef NTSTATUS(NTAPI* PLDR_ACTX_LANGUAGE_ROURINE)
-        (
-            IN HANDLE Unk,
-            IN USHORT LangID,
-            OUT PHANDLE ActivationContext
-            );
-
-    typedef void(NTAPI* PLDR_RELEASE_ACT_ROUTINE)
-        (
-            IN HANDLE ActivationContext
-            );
-
-    typedef VOID(NTAPI* fnLdrSetDllManifestProber)
-        (
-            IN PLDR_MANIFEST_PROBER_ROUTINE ManifestProberRoutine,
-            IN PLDR_ACTX_LANGUAGE_ROURINE CreateActCtxLanguageRoutine,
-            IN PLDR_RELEASE_ACT_ROUTINE ReleaseActCtxRoutine
-            );
-
-private:
-    static inline void CALLBACK LdrDllNotification(ULONG NotificationReason, PLDR_DLL_NOTIFICATION_DATA NotificationData, PVOID Context)
-    {
-        static constexpr auto LDR_DLL_NOTIFICATION_REASON_LOADED = 1;
-        if (NotificationReason == LDR_DLL_NOTIFICATION_REASON_LOADED)
-        {
-            call(NotificationData->Loaded.BaseDllName->Buffer);
-        }
-    }
-
-    static inline NTSTATUS NTAPI ProbeCallback(IN HMODULE DllBase, IN PCWSTR FullDllPath, OUT PHANDLE ActivationContext)
-    {
-        std::wstring str(FullDllPath);
-        call(str.substr(str.find_last_of(L"/\\") + 1));
-
-        HANDLE actx = NULL;
-        ACTCTXW act = { 0 };
-
-        act.cbSize = sizeof(act);
-        act.dwFlags = ACTCTX_FLAG_RESOURCE_NAME_VALID | ACTCTX_FLAG_HMODULE_VALID;
-        act.lpSource = FullDllPath;
-        act.hModule = DllBase;
-        act.lpResourceName = ISOLATIONAWARE_MANIFEST_RESOURCE_ID;
-
-        // Reset pointer, crucial for x64 version
-        *ActivationContext = 0;
-
-        actx = CreateActCtxW(&act);
-
-        // Report no manifest is present
-        if (actx == INVALID_HANDLE_VALUE)
-            return 0xC000008B; //STATUS_RESOURCE_NAME_NOT_FOUND;
-
-        *ActivationContext = actx;
-
-        return STATUS_SUCCESS;
-    }
-
-    static inline void RegisterDllNotification()
-    {
-        LdrRegisterDllNotification = (_LdrRegisterDllNotification)GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "LdrRegisterDllNotification");
-        if (LdrRegisterDllNotification)
-        {
-            if (!cookie)
-                LdrRegisterDllNotification(0, LdrDllNotification, 0, &cookie);
-        }
-        else
-        {
-            LdrSetDllManifestProber = (fnLdrSetDllManifestProber)GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "LdrSetDllManifestProber");
-            if (LdrSetDllManifestProber)
-            {
-                LdrSetDllManifestProber(&ProbeCallback, NULL, &ReleaseActCtx);
-            }
-        }
-    }
-
-    static inline void UnRegisterDllNotification()
-    {
-        LdrUnregisterDllNotification = (_LdrUnregisterDllNotification)GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "LdrUnregisterDllNotification");
-        if (LdrUnregisterDllNotification && cookie)
-            LdrUnregisterDllNotification(cookie);
-    }
-
-    static inline DWORD WINAPI ThreadProc(LPVOID ptr)
-    {
-        auto paramsPtr = static_cast<CallbackHandler::ThreadParams*>(ptr);
-        auto params = *paramsPtr;
-        delete paramsPtr;
-
-        HANDLE hTimer = NULL;
-        LARGE_INTEGER liDueTime;
-        liDueTime.QuadPart = -30 * 10000000LL;
-        hTimer = CreateWaitableTimer(NULL, TRUE, NULL);
-        SetWaitableTimer(hTimer, &liDueTime, 0, NULL, NULL, 0);
-
-        while (params.pattern.clear().empty())
-        {
-            Sleep(0);
-
-            if (WaitForSingleObject(hTimer, 0) == WAIT_OBJECT_0)
-            {
-                CloseHandle(hTimer);
-                return 0;
-            }
-        };
-
-        params.fn();
-
-        return 0;
-    }
-private:
-    static inline _LdrRegisterDllNotification   LdrRegisterDllNotification;
-    static inline _LdrUnregisterDllNotification LdrUnregisterDllNotification;
-    static inline void* cookie;
-    static inline fnLdrSetDllManifestProber     LdrSetDllManifestProber;
-public:
-    static inline std::once_flag flag;
-    static inline std::map<std::wstring, std::function<void()>> functions;
-};
 
 bool IsModuleUAL(HMODULE mod)
 {
