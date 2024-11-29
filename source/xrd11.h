@@ -550,6 +550,11 @@ public:
         ms_splashDistance = 0;
         ms_splashPoint = { 0 };
 
+        if (ms_tex)
+            ms_tex.Release();
+        if (ms_maskTex)
+            ms_maskTex.Release();
+
         ms_initialised = 0;
     }
 

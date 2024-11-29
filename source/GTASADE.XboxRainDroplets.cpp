@@ -3,6 +3,10 @@
 #include <safetyhook.hpp>
 #include <utility/Scan.hpp>
 
+#define FUSIONDXHOOK_INCLUDE_D3D12    1
+#define FUSIONDXHOOK_USE_SAFETYHOOK   0
+#include "FusionDxHook.h"
+
 namespace CWeather
 {
     GameRef<float> Rain;
@@ -168,6 +172,8 @@ uintptr_t ResolveDisplacement(hook::pattern& pattern, ptrdiff_t offset = 0)
 
 void Init()
 {
+    FusionDxHook::Init(); // For DX12 compat, no hooks applied
+
     WaterDrops::ReadIniSettings();
     static DXGI_FORMAT gFormat = DXGI_FORMAT_R10G10B10A2_UNORM;
 
@@ -202,14 +208,11 @@ void Init()
     pattern = hook::pattern("48 8D 0D ? ? ? ? E8 ? ? ? ? 80 3D ? ? ? ? ? 48 8D 1D");
     TheCamera.SetAddress(ResolveDisplacement(pattern)); //0x1453E23D0
 
-    pattern = hook::pattern("48 8B 4B ? 48 8B 01 FF 50 ? 8B F0");
-    static auto FD3D11ViewportPresentCheckedHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs) //0x141F5A4F5
+    static auto PresentHook = [](IDXGISwapChain* pSwapChain)
     {
         if (gGameState < 9)
             return;
-
-        auto pSwapChain = *(IDXGISwapChain**)(regs.rbx + 0x78);
-
+        
         Sire::Init(Sire::SIRE_RENDERER_DX11, pSwapChain);
         Sire::SetTextureFormat(Sire::GetCurrentRenderer(), gFormat);
 
@@ -238,10 +241,37 @@ void Init()
                 WaterDrops::Render();
             }
         }
+    };
+
+    pattern = hook::pattern("48 8B 4B ? 48 8B 01 FF 50 ? 8B F0");
+    static auto FD3D11ViewportPresentCheckedHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs) //0x141F5A4F5
+    {
+        auto pSwapChain = *(IDXGISwapChain**)(regs.rbx + 0x78);
+        PresentHook(pSwapChain);
+    });
+
+    pattern = hook::pattern("48 8B 01 44 8B C3 8B D5");
+    static auto FD3D12ViewportPresentCheckedHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs) //0x141FD5E67
+    {
+        auto pSwapChain = (IDXGISwapChain*)(regs.rcx);
+        Sire::SetCommandQueue(FusionDxHook::D3D12::GetCommandQueueFromSwapChain(pSwapChain));
+        PresentHook(pSwapChain);
     });
 
     pattern = hook::pattern("89 44 24 ? 41 FF 52 ? BA 00 00 00 80");
-    static auto onBeforeResizeHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs) //0x141F5A0BC
+    static auto onBeforeResizeHookD3D11 = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs) //0x141F5A0BC
+    {
+        //IDXGISwapChain* pSwapChain = (IDXGISwapChain*)regs.rcx;
+        //UINT Width = regs.r8;
+        //UINT Height = regs.r9;
+        gFormat = (DXGI_FORMAT)regs.rax;
+
+        WaterDrops::Reset();
+        Sire::Shutdown();
+    });
+
+    pattern = hook::pattern("44 89 74 24 ? 89 44 24 ? 41 FF 52");
+    static auto onBeforeResizeHookD3D12 = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs) //0x141FEA673
     {
         //IDXGISwapChain* pSwapChain = (IDXGISwapChain*)regs.rcx;
         //UINT Width = regs.r8;
