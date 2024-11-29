@@ -32,19 +32,19 @@ jobs:
           msbuild -m build/XboxRainDropletsWrapper.sln /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
           msbuild -m build/XboxRainDropletsWrapper.sln /property:Configuration=${{matrix.buildtype}} /property:Platform=x64
     - name: Download Ultimate ASI Loader x86
-      uses: robinraju/release-downloader@v1.8
+      uses: robinraju/release-downloader@v1.11
       with:
         repository: "ThirteenAG/Ultimate-ASI-Loader"
         tag: "Win32-latest"
         fileName: "version-Win32.zip"
     - name: Download Ultimate ASI Loader x64
-      uses: robinraju/release-downloader@v1.8
+      uses: robinraju/release-downloader@v1.11
       with:
         repository: "ThirteenAG/Ultimate-ASI-Loader"
         tag: "x64-latest"
         fileName: "dinput8-x64.zip"
     - name: Download XboxRainDroplets Plugins
-      uses: robinraju/release-downloader@v1.8
+      uses: robinraju/release-downloader@v1.11
       with:
         repository: "ThirteenAG/WidescreenFixesPack"
         tag: "xrd"
