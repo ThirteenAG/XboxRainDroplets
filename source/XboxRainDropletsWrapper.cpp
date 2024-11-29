@@ -8,7 +8,7 @@
 #define FUSIONDXHOOK_INCLUDE_OPENGL   1
 #define FUSIONDXHOOK_INCLUDE_VULKAN   1
 #define FUSIONDXHOOK_USE_SAFETYHOOK   1
-#define DELAYED_BIND 2000ms
+#define DELAYED_BIND 10000ms
 #include "FusionDxHook.h"
 
 extern "C" __declspec(dllexport) void InitializeASI()
@@ -100,15 +100,26 @@ extern "C" __declspec(dllexport) void InitializeASI()
         #if FUSIONDXHOOK_INCLUDE_D3D11
         FusionDxHook::D3D11::onPresentEvent += [](IDXGISwapChain* pSwapChain)
         {
-            Sire::Init(Sire::SIRE_RENDERER_DX11, pSwapChain);
-
-            WaterDrops::Process();
-            WaterDrops::Render();
+            #ifdef SIRE_INCLUDE_DX11ON12
+            if (!d3d11on12::isD3D11on12)
+            #endif
+            {
+                Sire::Init(Sire::SIRE_RENDERER_DX11, pSwapChain);
+            
+                WaterDrops::Process();
+                WaterDrops::Render();
+            }
         };
 
-        FusionDxHook::D3D11::onAfterResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
+        FusionDxHook::D3D11::onBeforeResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
         {
-
+            #ifdef SIRE_INCLUDE_DX11ON12
+            if (!d3d11on12::isD3D11on12)
+            #endif
+            {
+                WaterDrops::Reset();
+                Sire::Shutdown();
+            }
         };
 
         FusionDxHook::D3D11::onShutdownEvent += []()
@@ -118,20 +129,41 @@ extern "C" __declspec(dllexport) void InitializeASI()
         };
         #endif // FUSIONDXHOOK_INCLUDE_D3D11
 
+        // D3D11on12
         #if FUSIONDXHOOK_INCLUDE_D3D12
-        FusionDxHook::D3D12::onPresentEvent += [](IDXGISwapChain*)
+        FusionDxHook::D3D12::onPresentEvent += [](IDXGISwapChain* pSwapChain)
         {
+            Sire::Init(Sire::SIRE_RENDERER_DX11, pSwapChain);
 
+            WaterDrops::Process();
+            WaterDrops::Render();
         };
+
+        #ifdef SIRE_INCLUDE_DX11ON12
+        FusionDxHook::D3D12::onExecuteCommandListsEvent += [](ID3D12CommandQueue* pCommandQueue, UINT NumCommandLists, const ID3D12CommandList** ppCommandLists)
+        {
+            if (pCommandQueue->GetDesc().Type == D3D12_COMMAND_LIST_TYPE_DIRECT)
+            {
+                Sire::SetCommandQueue(pCommandQueue);
+            }
+        };
+        #endif
 
         FusionDxHook::D3D12::onBeforeResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
         {
-
+            WaterDrops::Reset();
+            Sire::Shutdown();
         };
 
         FusionDxHook::D3D12::onAfterResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
         {
 
+        };
+
+        FusionDxHook::D3D12::onShutdownEvent += []()
+        {
+            WaterDrops::Shutdown();
+            Sire::Shutdown();
         };
         #endif // FUSIONDXHOOK_INCLUDE_D3D12
 
