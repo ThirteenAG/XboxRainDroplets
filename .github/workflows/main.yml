@@ -63,7 +63,7 @@ jobs:
       shell: cmd
       run: release.bat
     - name: Upload artifacts to actions
-      uses: actions/upload-artifact@v3.1.1
+      uses: actions/upload-artifact@v4.4.3
       with:
         path: ./bin/*.zip
     - name: GTAIV.XboxRainDroplets
