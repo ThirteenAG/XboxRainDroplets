@@ -133,6 +133,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
         #if FUSIONDXHOOK_INCLUDE_D3D12
         FusionDxHook::D3D12::onPresentEvent += [](IDXGISwapChain* pSwapChain)
         {
+            Sire::SetCommandQueue(FusionDxHook::D3D12::GetCommandQueueFromSwapChain(pSwapChain));
             Sire::Init(Sire::SIRE_RENDERER_DX11, pSwapChain);
 
             WaterDrops::Process();
@@ -142,10 +143,11 @@ extern "C" __declspec(dllexport) void InitializeASI()
         #ifdef SIRE_INCLUDE_DX11ON12
         FusionDxHook::D3D12::onExecuteCommandListsEvent += [](ID3D12CommandQueue* pCommandQueue, UINT NumCommandLists, const ID3D12CommandList** ppCommandLists)
         {
-            if (pCommandQueue->GetDesc().Type == D3D12_COMMAND_LIST_TYPE_DIRECT)
-            {
-                Sire::SetCommandQueue(pCommandQueue);
-            }
+            //FusionDxHook::D3D12::GetCommandQueueFromSwapChain(pSwapChain) is more reliable
+            //if (pCommandQueue->GetDesc().Type == D3D12_COMMAND_LIST_TYPE_DIRECT)
+            //{
+            //    Sire::SetCommandQueue(pCommandQueue);
+            //}
         };
         #endif
 
