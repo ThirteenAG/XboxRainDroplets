@@ -96,7 +96,19 @@ Various ini settings allow to customize the appearance and can be edited while i
 
 #### Screen:
 
-![scb](https://github.com/user-attachments/assets/af077a90-a75f-4e28-bca0-5ecd0b194ce3)
+![gtasade](https://github.com/user-attachments/assets/af077a90-a75f-4e28-bca0-5ecd0b194ce3)
+
+## GTA Vice City The Definitive Edition - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/gtavcde)
+
+#### Screen:
+
+![gtavcde](https://github.com/user-attachments/assets/eabbf55d-0bcd-4b28-b7fd-225e2a094126)
+
+## GTA III The Definitive Edition - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/gta3de)
+
+#### Screen:
+
+![gta3de](https://github.com/user-attachments/assets/79c92148-a348-4cbd-964a-e40e13d3aede)
 
 ## Other
 
