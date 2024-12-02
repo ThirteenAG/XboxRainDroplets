@@ -125,6 +125,14 @@ project "GTASADE.XboxRainDroplets"
    architecture "x64"
    add_kananlib()
    setpaths("Z:/WFP/Games/Grand Theft Auto The Definitive Edition/GTA San Andreas - Definitive Edition/", "Gameface/Binaries/Win64/SanAndreas.exe", "Gameface/Binaries/Win64/scripts/")
+project "GTAVCDE.XboxRainDroplets"
+   architecture "x64"
+   add_kananlib()
+   setpaths("Z:/WFP/Games/Grand Theft Auto The Definitive Edition/GTA Vice City - Definitive Edition/", "Gameface/Binaries/Win64/ViceCity.exe", "Gameface/Binaries/Win64/scripts/")
+project "GTA3DE.XboxRainDroplets"
+   architecture "x64"
+   add_kananlib()
+   setpaths("Z:/WFP/Games/Grand Theft Auto The Definitive Edition/GTA III - Definitive Edition/", "Gameface/Binaries/Win64/LibertyCity.exe", "Gameface/Binaries/Win64/scripts/")
 --tests
 --project "GTA3.XboxRainDroplets"
 --   setpaths("Z:/WFP/Games/Grand Theft Auto/GTAIII/", "gta3.exe", "scripts/")
