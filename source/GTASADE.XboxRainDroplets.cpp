@@ -176,6 +176,7 @@ void Init()
 
     WaterDrops::ReadIniSettings();
     static DXGI_FORMAT gFormat = DXGI_FORMAT_R10G10B10A2_UNORM;
+    WaterDrops::SetXUVScale(0.125f, 0.875f);
 
     auto pattern = hook::pattern("44 38 3D ? ? ? ? 0F 85 ? ? ? ? 44 38 3D ? ? ? ? 0F 85");
     CTimer::m_CodePause.SetAddress(ResolveDisplacement(pattern));        //0x14522BCF3

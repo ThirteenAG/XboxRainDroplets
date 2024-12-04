@@ -7,6 +7,108 @@
 #define FUSIONDXHOOK_USE_SAFETYHOOK   0
 #include "FusionDxHook.h"
 
+enum tParticleType
+{
+    PARTICLE_SPARK = 0,
+    PARTICLE_SPARK_SMALL,
+    PARTICLE_WATER_SPARK,
+    PARTICLE_WHEEL_DIRT,
+    PARTICLE_SAND,
+    PARTICLE_WHEEL_WATER,
+    PARTICLE_BLOOD,
+    PARTICLE_BLOOD_SMALL,
+    PARTICLE_BLOOD_SPURT,
+    PARTICLE_DEBRIS,
+    PARTICLE_DEBRIS2,
+    PARTICLE_FLYERS,
+    PARTICLE_WATER,
+    PARTICLE_FLAME,
+    PARTICLE_FIREBALL,
+    PARTICLE_GUNFLASH,
+    PARTICLE_GUNFLASH_NOANIM,
+    PARTICLE_GUNSMOKE,
+    PARTICLE_GUNSMOKE2,
+    PARTICLE_CIGARETTE_SMOKE,
+    PARTICLE_SMOKE,
+    PARTICLE_SMOKE_SLOWMOTION,
+    PARTICLE_DRY_ICE,
+    PARTICLE_TEARGAS,
+    PARTICLE_GARAGEPAINT_SPRAY,
+    PARTICLE_SHARD,
+    PARTICLE_SPLASH,
+    PARTICLE_CARFLAME,
+    PARTICLE_STEAM,
+    PARTICLE_STEAM2,
+    PARTICLE_STEAM_NY,
+    PARTICLE_STEAM_NY_SLOWMOTION,
+    PARTICLE_GROUND_STEAM,
+    PARTICLE_ENGINE_STEAM,
+    PARTICLE_RAINDROP,
+    PARTICLE_RAINDROP_SMALL,
+    PARTICLE_RAIN_SPLASH,
+    PARTICLE_RAIN_SPLASH_BIGGROW,
+    PARTICLE_RAIN_SPLASHUP,
+    PARTICLE_WATERSPRAY,
+    PARTICLE_EXPLOSION_MEDIUM,
+    PARTICLE_EXPLOSION_LARGE,
+    PARTICLE_EXPLOSION_MFAST,
+    PARTICLE_EXPLOSION_LFAST,
+    PARTICLE_CAR_SPLASH,
+    PARTICLE_BOAT_SPLASH,
+    PARTICLE_BOAT_THRUSTJET,
+    PARTICLE_WATER_HYDRANT,
+    PARTICLE_WATER_CANNON,
+    PARTICLE_EXTINGUISH_STEAM,
+    PARTICLE_PED_SPLASH,
+    PARTICLE_PEDFOOT_DUST,
+    PARTICLE_CAR_DUST,
+    PARTICLE_HELI_DUST,
+    PARTICLE_HELI_ATTACK,
+    PARTICLE_ENGINE_SMOKE,
+    PARTICLE_ENGINE_SMOKE2,
+    PARTICLE_CARFLAME_SMOKE,
+    PARTICLE_FIREBALL_SMOKE,
+    PARTICLE_PAINT_SMOKE,
+    PARTICLE_TREE_LEAVES,
+    PARTICLE_CARCOLLISION_DUST,
+    PARTICLE_CAR_DEBRIS,
+    PARTICLE_BIRD_DEBRIS,
+    PARTICLE_HELI_DEBRIS,
+    PARTICLE_EXHAUST_FUMES,
+    PARTICLE_RUBBER_SMOKE,
+    PARTICLE_BURNINGRUBBER_SMOKE,
+    PARTICLE_BULLETHIT_SMOKE,
+    PARTICLE_GUNSHELL_FIRST,
+    PARTICLE_GUNSHELL,
+    PARTICLE_GUNSHELL_BUMP1,
+    PARTICLE_GUNSHELL_BUMP2,
+    PARTICLE_ROCKET_SMOKE,
+    PARTICLE_THROWN_FLAME,
+    PARTICLE_SWIM_SPLASH,
+    PARTICLE_SWIM_WAKE,
+    PARTICLE_SWIM_WAKE2,
+    PARTICLE_HELI_WATER_DROP,
+    PARTICLE_BALLOON_EXP,
+    PARTICLE_AUDIENCE_FLASH,
+    PARTICLE_TEST,
+    PARTICLE_BIRD_FRONT,
+    PARTICLE_SHIP_SIDE,
+    PARTICLE_BEASTIE,
+    PARTICLE_RAINDROP_2D,
+    PARTICLE_FERRY_CHIM_SMOKE,
+    PARTICLE_MULTIPLAYER_HIT,
+    PARTICLE_HYDRANT_STEAM,
+    PARTICLE_FLOOR_HIT,
+    PARTICLE_BLOODDROP,
+    PARTICLE_HEATHAZE,
+    PARTICLE_HEATHAZE_IN_DIST,
+    PARTICLE_WATERDROP,
+
+    MAX_PARTICLES,
+    PARTICLE_FIRST = PARTICLE_SPARK,
+    PARTICLE_LAST = PARTICLE_HYDRANT_STEAM
+};
+
 namespace CWeather
 {
     GameRef<float> Rain;
@@ -108,15 +210,15 @@ namespace UParticleSystemComponent
             }
             if (name == "water_splsh_sml")
             {
-                SprayDroplets((RwV3d*)a3, 10.0f, false);
+                SprayDroplets((RwV3d*)a3, 2.0f, false);
             }
             else if (name == "water_splash")
             {
-                SprayDroplets((RwV3d*)a3, 20.0f, false);
+                SprayDroplets((RwV3d*)a3, 5.0f, false);
             }
             else if (name == "water_splash_big")
             {
-                SprayDroplets((RwV3d*)a3, 30.0f, false);
+                SprayDroplets((RwV3d*)a3, 20.0f, false);
             }
             else if (name == "water_hydrant")
             {
@@ -168,8 +270,9 @@ void Init()
 {
     FusionDxHook::Init(); // For DX12 compat, no hooks applied
 
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadIniSettings(true);
     static DXGI_FORMAT gFormat = DXGI_FORMAT_R10G10B10A2_UNORM;
+    WaterDrops::SetXUVScale(0.125f, 0.875f);
 
     auto pattern = hook::pattern("44 38 3D ? ? ? ? 0F 85 ? ? ? ? 44 38 3D ? ? ? ? 0F 85 ? ? ? ? 44 38 3D");
     CTimer::m_CodePause.SetAddress(ResolveDisplacement(pattern));
@@ -278,6 +381,18 @@ void Init()
 
     pattern = hook::pattern("E8 ? ? ? ? FF C3 3B DF 0F 8C ? ? ? ? 44 0F 28 BC 24");
     FxSystem_c::shAddParticle = safetyhook::create_inline(ResolveDisplacement(pattern), FxSystem_c::AddParticle);
+
+    pattern = hook::pattern("8D 47 ? 83 F8 24");
+    static auto CParticleAddParticleHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
+    {
+        auto type = (tParticleType)(regs.rcx);
+        auto position = (RwV3d*)(regs.rdx);
+        
+        if (type == PARTICLE_SPLASH || type == PARTICLE_BOAT_THRUSTJET)
+        {
+            SprayDroplets(position, 7.0f, false);
+        }
+    });
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()
