@@ -163,6 +163,7 @@ public:
     static inline bool sprayBlood = false;
     static inline bool ms_StaticRain = false;
     static inline bool bRadial = false;
+    static inline bool bInvertedRadial = false;
     static inline bool bGravity = true;
     static inline bool bBloodDrops = true;
     static inline bool bEnableSnow = false;
@@ -236,6 +237,8 @@ public:
 
     static inline void ReadIniSettings(bool invertedRadial = false)
     {
+        bInvertedRadial = invertedRadial;
+
         CIniReader iniReader("");
         MinSize = iniReader.ReadInteger("MAIN", "MinSize", 4);
         MaxSize = iniReader.ReadInteger("MAIN", "MaxSize", 15);
@@ -249,6 +252,9 @@ public:
         bEnableSnow = iniReader.ReadInteger("BONUS", "EnableSnow", 0) != 0;
         BackBufferMethod = iniReader.ReadInteger("RENDER", "BackBufferMethod", 0);
 
+        if (invertedRadial)
+            bRadial = !bRadial;
+
         static std::once_flag flag;
         std::call_once(flag, [&]()
         {
@@ -261,7 +267,7 @@ public:
                 {
                     if (change_type == filewatch::Event::modified)
                     {
-                        ReadIniSettings(invertedRadial);
+                        ReadIniSettings(bInvertedRadial);
                         ms_initialised = 0;
                     }
                 });
@@ -585,9 +591,23 @@ public:
     static inline int32_t ms_fbWidth = 0;
     static inline int32_t ms_fbHeight = 0;
     static inline int32_t ms_numBatchedDrops;
+    static inline float ms_UVXOffset = 0.0f;
+    static inline float ms_UVXScale = 1.0f;
+    static inline float ms_UVYOffset = 0.0f;
+    static inline float ms_UVYScale = 1.0f;
 
     static inline int32_t ms_initialised = false;
     static inline bool ms_atlasUsed = true;
+
+    static inline void SetXUVScale(float offset, float scale) {
+        ms_UVXOffset = offset;
+        ms_UVXScale = scale;
+    }
+
+    static inline void SetYUVScale(float offset, float scale) {
+        ms_UVYOffset = offset;
+        ms_UVYScale = scale;
+    }
 
     static inline void Shutdown() {
         Reset();
@@ -598,7 +618,7 @@ public:
         if (!Sire::IsRendererActive())
             return;
 
-        ReadIniSettings();
+        ReadIniSettings(bInvertedRadial);
 
         auto windowSize = Sire::GetWindowSize();
         Sire::SetViewport(0.0f, 0.0f, static_cast<float>(windowSize.x), static_cast<float>(windowSize.y));
@@ -676,10 +696,10 @@ public:
         v1_1 = drop->y + ms_yOff - tmp;
         u1_2 = drop->x + ms_xOff + tmp;
         v1_2 = drop->y + ms_yOff + tmp;
-        u1_1 = (u1_1 <= 0.0f ? 0.0f : u1_1) / ms_fbWidth;
-        v1_1 = (v1_1 <= 0.0f ? 0.0f : v1_1) / ms_fbHeight;
-        u1_2 = (u1_2 >= ms_fbWidth ? ms_fbWidth : u1_2) / ms_fbWidth;
-        v1_2 = (v1_2 >= ms_fbHeight ? ms_fbHeight : v1_2) / ms_fbHeight;
+        u1_1 = ((u1_1 <= 0.0f ? 0.0f : u1_1) / ms_fbWidth) * ms_UVXScale + ms_UVXOffset;
+        v1_1 = ((v1_1 <= 0.0f ? 0.0f : v1_1) / ms_fbHeight) * ms_UVYScale + ms_UVYOffset;
+        u1_2 = min(((u1_2 >= ms_fbWidth ? ms_fbWidth : u1_2) / ms_fbWidth) * ms_UVXScale + ms_UVXOffset, 1.0f);
+        v1_2 = min(((v1_2 >= ms_fbHeight ? ms_fbHeight : v1_2) / ms_fbHeight) * ms_UVYScale + ms_UVYOffset, 1.0f);
 
         scale = drop->size * 0.5f;
 
