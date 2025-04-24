@@ -15,7 +15,19 @@
 #include "includes/ModuleList.hpp"
 #include "includes/FileWatch.hpp"
 
+#define SIRE_INCLUDE_MINIMAL_DEPENDECIES
+#define SIRE_DX9
+#define SIRE_INCLUDE_DX9
+#define SIRE_DX10
+#define SIRE_INCLUDE_DX10
+#define SIRE_DX11
+#define SIRE_INCLUDE_DX11
+#define SIRE_DX11ON12
+#define SIRE_INCLUDE_DX11ON12
+#define SIRE_DX12
+#define SIRE_INCLUDE_DX12
 #include "sire.h"
+
 #include "dropmask.h"
 
 #include <subauth.h>
