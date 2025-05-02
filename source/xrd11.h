@@ -18,10 +18,11 @@
 #include "includes/FileWatch.hpp"
 #include "includes/callbacks.h"
 
+#define SIRE_INCLUDE_MINIMAL_DEPENDECIES
 #define SIRE_DX9
 #define SIRE_INCLUDE_DX9
-//#define SIRE_DX10
-//#define SIRE_INCLUDE_DX10
+#define SIRE_DX10
+#define SIRE_INCLUDE_DX10
 #define SIRE_DX11
 #define SIRE_INCLUDE_DX11
 #define SIRE_DX11ON12
