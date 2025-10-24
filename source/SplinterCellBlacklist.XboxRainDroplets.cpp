@@ -9,6 +9,7 @@ void Init()
 {
     WaterDrops::ReadIniSettings();
 
+    WaterDrops::CreateRenderTargetFromBackBuffer = false;
     WaterDrops::ms_rainIntensity = 0.0f;
 
     auto pattern = hook::pattern("E8 ? ? ? ? F3 0F 10 45 ? 56 51 8B CF");
