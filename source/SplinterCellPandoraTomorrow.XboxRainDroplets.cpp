@@ -11,10 +11,15 @@ struct FRotator
     int Pitch, Yaw, Roll;
 };
 
+struct CameraData
+{
+    FVector Location;
+    FRotator Rotation;
+};
+
 uint8_t(__fastcall* ULevel__IsInRainVolume)(void* uLevel, void* edx, FVector* a2) = nullptr;
 
-FVector* gCamPos = nullptr;
-FRotator* gCamRot = nullptr;
+uintptr_t gCurrentPlayerController = 0;
 SafetyHookInline shULevel__Tick = {};
 int __fastcall ULevel__Tick(void* uLevel, void* edx, int a2, float a3)
 {
@@ -22,82 +27,93 @@ int __fastcall ULevel__Tick(void* uLevel, void* edx, int a2, float a3)
     TimeStep = a3;
     WaterDrops::fTimeStep = &TimeStep;
 
-    if (gCamPos && gCamRot && ULevel__IsInRainVolume(uLevel, 0, gCamPos))
+    if (gCurrentPlayerController)
     {
-        WaterDrops::ms_rainIntensity = 1.0f;
+        auto curCam = (CameraData*)(gCurrentPlayerController + 0x14C);
 
-        constexpr float UnrealToRadians = (2.0f * 3.14159265359f) / 65536.0f;
-
-        float SR = sinf(gCamRot->Roll * UnrealToRadians);
-        float CR = cosf(gCamRot->Roll * UnrealToRadians);
-        float SP = sinf(gCamRot->Pitch * UnrealToRadians);
-        float CP = cosf(gCamRot->Pitch * UnrealToRadians);
-        float SY = sinf(gCamRot->Yaw * UnrealToRadians);
-        float CY = cosf(gCamRot->Yaw * UnrealToRadians);
-
-        // Build RwMatrix from Unreal rotation matrix
-        RwMatrix matrix;
-
-        // Right vector (from M[1][0-2])
-        matrix.right.x = SR * SP * CY - CR * SY;
-        matrix.right.y = SR * SP * SY + CR * CY;
-        matrix.right.z = -SR * CP;
-        matrix.flags = 0;
-
-        // Up vector (from M[2][0-2])
-        matrix.up.x = -(CR * SP * CY + SR * SY);
-        matrix.up.y = CY * SR - CR * SP * SY;
-        matrix.up.z = CR * CP;
-        matrix.pad1 = 0;
-
-        // At vector (from M[0][0-2]) - Forward
-        matrix.at.x = CP * CY;
-        matrix.at.y = CP * SY;
-        matrix.at.z = SP;
-        matrix.pad2 = 0;
-
-        // Position
-        matrix.pos.x = gCamPos->X;
-        matrix.pos.y = gCamPos->Y;
-        matrix.pos.z = gCamPos->Z;
-        matrix.pad3 = 0;
-
-        // Apply to WaterDrops
-        WaterDrops::right.x = -matrix.right.x;
-        WaterDrops::right.y = -matrix.right.y;
-        WaterDrops::right.z = -matrix.right.z;
-        WaterDrops::up = matrix.up;
-        WaterDrops::at = matrix.at;
-        WaterDrops::pos = matrix.pos;
-
-        if (WaterDrops::fSpeedAdjuster)
+        if (ULevel__IsInRainVolume(uLevel, 0, &curCam->Location))
         {
-            WaterDrops::right.x *= WaterDrops::fSpeedAdjuster;
-            WaterDrops::right.y *= WaterDrops::fSpeedAdjuster;
-            WaterDrops::right.z *= WaterDrops::fSpeedAdjuster;
-            WaterDrops::up.x *= WaterDrops::fSpeedAdjuster;
-            WaterDrops::up.y *= WaterDrops::fSpeedAdjuster;
-            WaterDrops::up.z *= WaterDrops::fSpeedAdjuster;
+            WaterDrops::ms_rainIntensity = 1.0f;
+
+            constexpr float UnrealToRadians = (2.0f * 3.14159265359f) / 65536.0f;
+
+            float SR = sinf(curCam->Rotation.Roll * UnrealToRadians);
+            float CR = cosf(curCam->Rotation.Roll * UnrealToRadians);
+            float SP = sinf(curCam->Rotation.Pitch * UnrealToRadians);
+            float CP = cosf(curCam->Rotation.Pitch * UnrealToRadians);
+            float SY = sinf(curCam->Rotation.Yaw * UnrealToRadians);
+            float CY = cosf(curCam->Rotation.Yaw * UnrealToRadians);
+
+            // Build RwMatrix from Unreal rotation matrix
+            RwMatrix matrix;
+
+            // Right vector (from M[1][0-2])
+            matrix.right.x = SR * SP * CY - CR * SY;
+            matrix.right.y = SR * SP * SY + CR * CY;
+            matrix.right.z = -SR * CP;
+            matrix.flags = 0;
+
+            // Up vector (from M[2][0-2])
+            matrix.up.x = -(CR * SP * CY + SR * SY);
+            matrix.up.y = CY * SR - CR * SP * SY;
+            matrix.up.z = CR * CP;
+            matrix.pad1 = 0;
+
+            // At vector (from M[0][0-2]) - Forward
+            matrix.at.x = CP * CY;
+            matrix.at.y = CP * SY;
+            matrix.at.z = SP;
+            matrix.pad2 = 0;
+
+            // Position
+            matrix.pos.x = curCam->Location.X;
+            matrix.pos.y = curCam->Location.Y;
+            matrix.pos.z = curCam->Location.Z;
+            matrix.pad3 = 0;
+
+            // Apply to WaterDrops
+            WaterDrops::right.x = -matrix.right.x;
+            WaterDrops::right.y = -matrix.right.y;
+            WaterDrops::right.z = -matrix.right.z;
+            WaterDrops::up = matrix.up;
+            WaterDrops::at = matrix.at;
+            WaterDrops::pos = matrix.pos;
+
+            if (WaterDrops::fSpeedAdjuster)
+            {
+                WaterDrops::right.x *= WaterDrops::fSpeedAdjuster;
+                WaterDrops::right.y *= WaterDrops::fSpeedAdjuster;
+                WaterDrops::right.z *= WaterDrops::fSpeedAdjuster;
+                WaterDrops::up.x *= WaterDrops::fSpeedAdjuster;
+                WaterDrops::up.y *= WaterDrops::fSpeedAdjuster;
+                WaterDrops::up.z *= WaterDrops::fSpeedAdjuster;
+            }
         }
     }
-
+    gCurrentPlayerController = 0;
     return shULevel__Tick.unsafe_fastcall<int>(uLevel, edx, a2, a3);
+}
+
+SafetyHookInline shAPlayerController__Tick = {};
+int __fastcall APlayerController__Tick(void* PlayerController, int a2, float a3, int a4)
+{
+    static void* prevPlayerController = nullptr;
+    gCurrentPlayerController = (uintptr_t)PlayerController;
+
+    if (PlayerController != prevPlayerController)
+    {
+        prevPlayerController = PlayerController;
+        WaterDrops::Clear();
+    }
+
+    return shAPlayerController__Tick.unsafe_fastcall<int>(PlayerController, a2, a3, a4);
 }
 
 void InitEngine()
 {
-    auto pattern = hook::module_pattern(GetModuleHandle(L"Engine"), "55 8B EC 53 8B D9 56 57 33 F6");
-    ULevel__IsInRainVolume = (decltype(ULevel__IsInRainVolume))pattern.get_first();
-
-    pattern = hook::module_pattern(GetModuleHandle(L"Engine"), "55 8B EC 6A ? 68 ? ? ? ? 64 A1 ? ? ? ? 50 83 EC ? 53 56 57 A1 ? ? ? ? 33 C5 50 8D 45 ? 64 A3 ? ? ? ? 8B D9 8B 43 ? 8B 38");
-    shULevel__Tick = safetyhook::create_inline(pattern.get_first(), ULevel__Tick);
-
-    pattern = hook::module_pattern(GetModuleHandle(L"Engine"), "8B 4E ? F7 C1 ? ? ? ? 74 ? 8A 86");
-    static auto CameraHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
-    {
-        gCamPos = (FVector*)(regs.esi + 0x14C);
-        gCamRot = (FRotator*)(regs.esi + 0x14C + sizeof(FVector));
-    });
+    ULevel__IsInRainVolume = (decltype(ULevel__IsInRainVolume))GetProcAddress(GetModuleHandle(L"Engine"), "?IsInRainVolume@ULevel@@UAEEAAVFVector@@@Z");
+    shULevel__Tick = safetyhook::create_inline(GetProcAddress(GetModuleHandle(L"Engine"), "?Tick@ULevel@@UAEXW4ELevelTick@@M@Z"), ULevel__Tick);
+    shAPlayerController__Tick = safetyhook::create_inline(GetProcAddress(GetModuleHandle(L"Engine"), "?Tick@APlayerController@@UAEHMW4ELevelTick@@@Z"), APlayerController__Tick);
 }
 
 void InitD3DDrv()
