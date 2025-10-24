@@ -29,7 +29,7 @@ void Init()
         auto gCamRot = (FRotator*)(regs.esi + 0x6C);
         WaterDrops::fTimeStep = (float*)(regs.esi + 0x00);
 
-        const float UnrealToRadians = (2.0f * 3.14159265359f) / 65536.0f;
+        constexpr float UnrealToRadians = (2.0f * 3.14159265359f) / 65536.0f;
 
         float SR = sinf(gCamRot->Roll * UnrealToRadians);
         float CR = cosf(gCamRot->Roll * UnrealToRadians);
@@ -41,8 +41,8 @@ void Init()
         // Build RwMatrix from Unreal rotation matrix
         RwMatrix matrix;
 
-        // Right vector (from M[1][0-2]) - NEGATE X to swap left/right
-        matrix.right.x = -(SR * SP * CY - CR * SY);
+        // Right vector (from M[1][0-2])
+        matrix.right.x = SR * SP * CY - CR * SY;
         matrix.right.y = SR * SP * SY + CR * CY;
         matrix.right.z = -SR * CP;
         matrix.flags = 0;
@@ -66,7 +66,9 @@ void Init()
         matrix.pad3 = 0;
 
         // Apply to WaterDrops
-        WaterDrops::right = matrix.right;
+        WaterDrops::right.x = -matrix.right.x;
+        WaterDrops::right.y = -matrix.right.y;
+        WaterDrops::right.z = -matrix.right.z;
         WaterDrops::up = matrix.up;
         WaterDrops::at = matrix.at;
         WaterDrops::pos = matrix.pos;
@@ -76,6 +78,9 @@ void Init()
             WaterDrops::right.x *= WaterDrops::fSpeedAdjuster;
             WaterDrops::right.y *= WaterDrops::fSpeedAdjuster;
             WaterDrops::right.z *= WaterDrops::fSpeedAdjuster;
+            WaterDrops::up.x *= WaterDrops::fSpeedAdjuster;
+            WaterDrops::up.y *= WaterDrops::fSpeedAdjuster;
+            WaterDrops::up.z *= WaterDrops::fSpeedAdjuster;
         }
     });
 

@@ -9,6 +9,7 @@ void Init()
 {
     WaterDrops::ReadIniSettings();
 
+    WaterDrops::CreateRenderTargetFromBackBuffer = false;
     WaterDrops::ms_rainIntensity = 0.0f;
 
     static auto ppDevice = *hook::get_pattern<IDirect3DDevice9**>("68 ? ? ? ? 68 ? ? ? ? 8B D7 83 CA 10", 1);
