@@ -178,6 +178,7 @@ public:
     static inline bool bEnableSnow = false;
     static inline float fSpeedAdjuster = 1.0f;
     static inline int BackBufferMethod = 0;
+    static inline bool CreateRenderTargetFromBackBuffer = true;
 
     static inline RwV3d right;
     static inline RwV3d up;
@@ -569,6 +570,12 @@ public:
             ms_tex.Release();
         if (ms_maskTex)
             ms_maskTex.Release();
+        if (ms_renderTarget)
+            ms_renderTarget.Release();
+
+        ms_renderTarget = nullptr;
+        ms_maskTex = nullptr;
+        ms_tex = nullptr;
 
         ms_initialised = 0;
     }
@@ -592,8 +599,9 @@ public:
     }
 
     // Rendering static inline 
-    static inline SirePtr<Sire::tSireTexture2D> ms_tex = nullptr;
-    static inline SirePtr<Sire::tSireTexture2D> ms_maskTex = nullptr;
+    static inline Sire::SirePtr<Sire::tSireTexture2D> ms_tex = nullptr;
+    static inline Sire::SirePtr<Sire::tSireTexture2D> ms_maskTex = nullptr;
+    static inline Sire::SirePtr<Sire::tSireRenderTarget> ms_renderTarget = nullptr;
 
     static inline std::vector<uint16_t> ms_indexBuf = {};
 
@@ -675,6 +683,9 @@ public:
             ms_atlasUsed = false;
             delete[] pixels;
         }
+
+        if (CreateRenderTargetFromBackBuffer)
+		    ms_renderTarget = Sire::CreateRenderTargetView(Sire::GetBackBuffer(0));
 
         ms_initialised = 1;
     }
@@ -758,6 +769,10 @@ public:
 
         Sire::SetProjectionMode(Sire::SIRE_PROJ_ORTHOGRAPHIC);
         Sire::SetTexture(ms_tex, ms_maskTex);
+
+        if (ms_renderTarget)
+            Sire::SetRenderTarget(ms_renderTarget);
+
         Sire::Begin(Sire::SIRE_TRIANGLE);
         
         ms_numBatchedDrops = 0;
