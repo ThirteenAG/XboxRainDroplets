@@ -18,6 +18,10 @@ FRotator* gCamRot = nullptr;
 SafetyHookInline shULevel__Tick = {};
 int __fastcall ULevel__Tick(void* uLevel, void* edx, int a2, float a3)
 {
+    static float TimeStep = 0.0f;
+    TimeStep = a3;
+    WaterDrops::fTimeStep = &TimeStep;
+
     if (gCamPos && gCamRot && ULevel__IsInRainVolume(uLevel, 0, gCamPos))
     {
         WaterDrops::ms_rainIntensity = 1.0f;
@@ -76,8 +80,6 @@ int __fastcall ULevel__Tick(void* uLevel, void* edx, int a2, float a3)
             WaterDrops::up.z *= WaterDrops::fSpeedAdjuster;
         }
     }
-    else
-        WaterDrops::ms_rainIntensity = 0.0f;
 
     return shULevel__Tick.unsafe_fastcall<int>(uLevel, edx, a2, a3);
 }
