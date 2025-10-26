@@ -330,6 +330,12 @@ public:
 
         if (fSpeedAdjuster)
         {
+            right.x *= fSpeedAdjuster;
+            right.y *= fSpeedAdjuster;
+            right.z *= fSpeedAdjuster;
+            up.x *= fSpeedAdjuster;
+            up.y *= fSpeedAdjuster;
+            up.z *= fSpeedAdjuster;
             at.x *= fSpeedAdjuster;
             at.y *= fSpeedAdjuster;
             at.z *= fSpeedAdjuster;

@@ -72,16 +72,6 @@ void Init()
         WaterDrops::up = matrix.up;
         WaterDrops::at = matrix.at;
         WaterDrops::pos = matrix.pos;
-
-        if (WaterDrops::fSpeedAdjuster)
-        {
-            WaterDrops::right.x *= WaterDrops::fSpeedAdjuster;
-            WaterDrops::right.y *= WaterDrops::fSpeedAdjuster;
-            WaterDrops::right.z *= WaterDrops::fSpeedAdjuster;
-            WaterDrops::up.x *= WaterDrops::fSpeedAdjuster;
-            WaterDrops::up.y *= WaterDrops::fSpeedAdjuster;
-            WaterDrops::up.z *= WaterDrops::fSpeedAdjuster;
-        }
     });
 
     pattern = hook::pattern("E8 ? ? ? ? F3 0F 10 45 ? 56 51 8B CF");

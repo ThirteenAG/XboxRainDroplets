@@ -76,18 +76,10 @@ int __fastcall ULevel__Tick(void* uLevel, void* edx, int a2, float a3)
             WaterDrops::right.y = -matrix.right.y;
             WaterDrops::right.z = -matrix.right.z;
             WaterDrops::up = matrix.up;
-            WaterDrops::at = matrix.at;
+            WaterDrops::at.x = matrix.at.x * 2.0f;
+            WaterDrops::at.y = matrix.at.y * 2.0f;
+            WaterDrops::at.z = matrix.at.z * 2.0f;
             WaterDrops::pos = matrix.pos;
-
-            if (WaterDrops::fSpeedAdjuster)
-            {
-                WaterDrops::right.x *= WaterDrops::fSpeedAdjuster;
-                WaterDrops::right.y *= WaterDrops::fSpeedAdjuster;
-                WaterDrops::right.z *= WaterDrops::fSpeedAdjuster;
-                WaterDrops::up.x *= WaterDrops::fSpeedAdjuster;
-                WaterDrops::up.y *= WaterDrops::fSpeedAdjuster;
-                WaterDrops::up.z *= WaterDrops::fSpeedAdjuster;
-            }
         }
     }
     gCurrentPlayerController = 0;
