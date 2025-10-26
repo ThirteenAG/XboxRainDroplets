@@ -13,6 +13,7 @@
 
 #pragma pack(push, 1)
 struct XRData {
+    char signature[21]; // "XBOXRAINDROPLETSDATA"
     uint32_t p_enabled;
     uint32_t ms_enabled;
 
@@ -200,8 +201,11 @@ void RenderDroplets()
     {
         const UINT WM_USER_GET_BASE_POINTER = WM_APP + 0x3118;  // 0xB118
         const UINT WM_USER_GET_EMULATION_STATE = WM_APP + 0x3119;  // 0xB119
+        const UINT WM_USER_GET_CURRENT_GAMEID = WM_APP + 0x311A;  // 0xB11A
+        const UINT WM_USER_GET_MODULE_INFO = WM_APP + 0x311B;  // 0xB11B
 
         static XRData* pXRData = nullptr;
+        static ptrdiff_t XRDataOffset = 0;
         static bool bRefreshXRData = false;
 
         DWORD_PTR dwResult = 0;
@@ -219,51 +223,55 @@ void RenderDroplets()
             DWORD_PTR high, low = 0;
             auto f1 = SendMessageTimeout(hWndPPSSPP, WM_USER_GET_BASE_POINTER, 0, hi, SMTO_NORMAL, 10L, &high);
             auto f2 = SendMessageTimeout(hWndPPSSPP, WM_USER_GET_BASE_POINTER, 0, lo, SMTO_NORMAL, 10L, &low);
-            uint64_t ptr = (uint64_t(high) << 32 | low); // +0x08804000;
+            uint64_t ptr = (uint64_t(high) << 32 | low);
 
             if (SUCCEEDED(f1) && SUCCEEDED(f2) && ptr)
             {
-                if (pXRData && !bRefreshXRData)
+                // Get module info for "PPSSPP.XboxRainDroplets" (all info packed (lParam=3))
+                uint64_t moduleInfo = SendMessage(hWndPPSSPP, WM_USER_GET_MODULE_INFO, (WPARAM)"PPSSPP.XboxRainDroplets", 3);
+                uint32_t moduleAddr = (uint32_t)(moduleInfo & 0xFFFFFFFF);
+                uint32_t moduleSize = (uint32_t)((moduleInfo >> 32) & 0x7FFFFFFF);
+                bool active = (moduleInfo >> 63) != 0;
+
+                if (active)
                 {
-                    if (pXRData->Enabled(ptr))
+                    if (XRDataOffset)
                     {
-                        WaterDrops::ms_rainIntensity = pXRData->GetRainIntensity(ptr);
+                        auto pXRDataRaw = (char*)(ptr + moduleAddr + XRDataOffset);
+                        pXRData = (XRData*)pXRDataRaw;
 
-                        WaterDrops::bRadial = false;
-
-                        WaterDrops::up = pXRData->GetUp(ptr);
-                        WaterDrops::at = pXRData->GetAt(ptr);
-                        WaterDrops::right = pXRData->GetRight(ptr);
-                        WaterDrops::pos = pXRData->GetPos(ptr);
-
-                        pXRData->RegisterSplash();
-                        pXRData->FillScreen();
-                        pXRData->FillScreenMoving();
-
-                        WaterDrops::Process();
-                        WaterDrops::Render();
-                    }
-                }
-                else
-                {
-                    MEMORY_BASIC_INFORMATION MemoryInf;
-                    if (VirtualQuery((LPCVOID)(ptr + 0x08804000), &MemoryInf, sizeof(MemoryInf)) != 0)
-                    {
-                        auto mem = hook::range_pattern((uintptr_t)MemoryInf.BaseAddress, (uintptr_t)MemoryInf.BaseAddress + MemoryInf.RegionSize, "58 42 4F 58 52 41 49 4E 44 52 4F 50 4C 45 54 53 44 41 54 41");
-                        if (!mem.empty())
+                        if (pXRData->Enabled(ptr))
                         {
-                            pXRData = (XRData*)mem.get_first();
-                            memset(pXRData, 0, 255);
+                            WaterDrops::ms_rainIntensity = pXRData->GetRainIntensity(ptr);
+
+                            WaterDrops::bRadial = false;
+
+                            WaterDrops::up = pXRData->GetUp(ptr);
+                            WaterDrops::at = pXRData->GetAt(ptr);
+                            WaterDrops::right = pXRData->GetRight(ptr);
+                            WaterDrops::pos = pXRData->GetPos(ptr);
+
+                            pXRData->RegisterSplash();
+                            pXRData->FillScreen();
+                            pXRData->FillScreenMoving();
+
+                            WaterDrops::Process();
+                            WaterDrops::Render();
                         }
                     }
-                    bRefreshXRData = false;
+                    else if (moduleAddr)
+                    {
+                        auto pModule = (uintptr_t)(ptr + moduleAddr);
+                        auto pattern = hook::range_pattern(pModule, pModule + moduleSize, pattern_str(to_bytes("XBOXRAINDROPLETSDATA")));
+                        if (!pattern.empty())
+                        {
+                            XRDataOffset = (uintptr_t)pattern.get_first() - pModule;
+                            memset((char*)(ptr + moduleAddr + XRDataOffset) + offsetof(XRData, p_enabled), 0, sizeof(XRData) - offsetof(XRData, p_enabled));
+                        }
+                    }
                 }
             }
-            else
-                bRefreshXRData = true;
         }
-        else
-            bRefreshXRData = true;
     }
 }
 
