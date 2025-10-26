@@ -12,6 +12,7 @@
 #include <random>
 #include <stacktrace>
 #include <functional>
+#include <format>
 #include "inireader/IniReader.h"
 #include "Hooking.Patterns.h"
 #include "includes/ModuleList.hpp"
@@ -335,6 +336,12 @@ public:
 
         if (fSpeedAdjuster)
         {
+            right.x *= fSpeedAdjuster;
+            right.y *= fSpeedAdjuster;
+            right.z *= fSpeedAdjuster;
+            up.x *= fSpeedAdjuster;
+            up.y *= fSpeedAdjuster;
+            up.z *= fSpeedAdjuster;
             at.x *= fSpeedAdjuster;
             at.y *= fSpeedAdjuster;
             at.z *= fSpeedAdjuster;
@@ -685,7 +692,7 @@ public:
         }
 
         if (CreateRenderTargetFromBackBuffer)
-		    ms_renderTarget = Sire::CreateRenderTargetView(Sire::GetBackBuffer(0));
+            ms_renderTarget = Sire::CreateRenderTargetView(Sire::GetBackBuffer(0));
 
         ms_initialised = 1;
     }
@@ -813,4 +820,74 @@ bool IsUALPresent() {
         }
     }
     return false;
+}
+
+template<typename T>
+std::array<uint8_t, sizeof(T)> to_bytes(const T& object)
+{
+    std::array<uint8_t, sizeof(T)> bytes;
+    const uint8_t* begin = reinterpret_cast<const uint8_t*>(std::addressof(object));
+    const uint8_t* end = begin + sizeof(T);
+    std::copy(begin, end, std::begin(bytes));
+    return bytes;
+}
+
+template<typename T, size_t N>
+auto to_bytes(const T(&arr)[N]) -> std::array<uint8_t, N - 1>
+{
+    std::array<uint8_t, N - 1> bytes;
+    const uint8_t* begin = reinterpret_cast<const uint8_t*>(arr);
+    std::copy(begin, begin + N - 1, std::begin(bytes));
+    return bytes;
+}
+
+template<typename T>
+T& from_bytes(const std::array<uint8_t, sizeof(T)>& bytes, T& object)
+{
+    static_assert(std::is_trivially_copyable<T>::value, "not a TriviallyCopyable type");
+    uint8_t* begin_object = reinterpret_cast<uint8_t*>(std::addressof(object));
+    std::copy(std::begin(bytes), std::end(bytes), begin_object);
+    return object;
+}
+
+template<class T, class T1>
+T from_bytes(const T1& bytes)
+{
+    static_assert(std::is_trivially_copyable<T>::value, "not a TriviallyCopyable type");
+    T object;
+    uint8_t* begin_object = reinterpret_cast<uint8_t*>(std::addressof(object));
+    std::copy(std::begin(bytes), std::end(bytes) - (sizeof(T1) - sizeof(T)), begin_object);
+    return object;
+}
+
+template <size_t n>
+std::string pattern_str(const std::array<uint8_t, n> bytes)
+{
+    std::string result;
+    result.reserve(n * 3);
+    for (size_t i = 0; i < n; i++)
+    {
+        result += std::format("{:02X} ", bytes[i]);
+    }
+    return result;
+}
+
+template <typename T>
+std::string pattern_str(T t)
+{
+    if constexpr (std::is_same<T, char>::value)
+        return std::format("{} ", t);
+    else
+        return std::format("{:02X} ", t);
+}
+
+template <typename T, typename... Rest>
+std::string pattern_str(T t, Rest... rest)
+{
+    std::string prefix;
+    if constexpr (std::is_same<T, char>::value)
+        prefix = std::format("{} ", t);
+    else
+        prefix = std::format("{:02X} ", t);
+    return prefix + pattern_str(rest...);
 }
