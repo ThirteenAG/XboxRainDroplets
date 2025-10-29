@@ -20,6 +20,12 @@ Various ini settings allow to customize the appearance and can be edited while i
 
 ![scpt](https://github.com/user-attachments/assets/8b940b49-3414-42d5-ae5c-c9814409fdc2)
 
+## Splinter Cell - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/sc)
+
+#### Screen:
+
+![sc](https://github.com/user-attachments/assets/a6efd9e6-e3e0-458a-9d38-9bb19ad219fb)
+
 ## Grand Theft Auto IV: The Complete Edition - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/gtaiv)
 
 #### Video (click on the image to go to YouTube):
