@@ -13,6 +13,7 @@ MaxPayne2.XboxRainDroplets
 MaxPayne3.XboxRainDroplets
 Driv3r.XboxRainDroplets
 DriverParallelLines.XboxRainDroplets
+SplinterCell.XboxRainDroplets
 SplinterCellPandoraTomorrow.XboxRainDroplets
 SplinterCellBlacklist.XboxRainDroplets
 GTASADE.XboxRainDroplets
