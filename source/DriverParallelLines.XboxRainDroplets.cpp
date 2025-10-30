@@ -259,6 +259,7 @@ void Init()
                 {
                     WaterDrops::ms_rainIntensity = 0.0f;
                     CSnow::targetSnow = 0.0f;
+                    CSnow::Snow = 0.0f;
                 }
                 
                 if (WaterDrops::bEnableSnow)

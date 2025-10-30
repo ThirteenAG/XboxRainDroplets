@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
 #include <random>
+#include <vector>
+#include <cassert>
 
 class CSnow
 {
@@ -9,17 +11,27 @@ class CSnow
         float x, y, z;
     };
 
-    struct snowFlake {
+    struct snowFlake
+    {
         CVector pos;
         float xChange;
         float yChange;
+
+        // Rain-specific extras (unused for snow)
+        float fallSpeed; // units/sec
+        float length;    // half-length in view space units
+        uint32_t color;  // ARGB
     };
 
-    class CBox {
+    class CBox
+    {
     public:
         CVector min;
         CVector max;
-        void Set(CVector a, CVector b) { min = a; max = b; }
+        void Set(CVector a, CVector b)
+        {
+            min = a; max = b;
+        }
     };
 
     struct Im3DVertex
@@ -49,6 +61,17 @@ public:
     static inline bool snowArrayInitialized = false;
     static inline float Snow;
     static inline CBox snowBox;
+
+    // Rain tuning parameters (static so they can be tweaked externally if needed)
+    static inline float RainMinSpeed = 22.0f;     // units/sec
+    static inline float RainMaxSpeed = 48.0f;     // units/sec
+    static inline float RainMinLength = 0.20f;    // in view-space length units (half-length)
+    static inline float RainMaxLength = 0.60f;    // "
+    static inline float RainWidth = 0.0065f; // half-width in view-space
+    static inline float RainWindX = 5.0f;    // world-space wind (x) units/sec
+    static inline float RainWindY = 2.0f;    // world-space wind (y) units/sec
+    static inline uint8_t RainMinAlpha = 0x66;    // ARGB alpha range
+    static inline uint8_t RainMaxAlpha = 0xAA;
 
 public:
     static inline void openIm3D(LPDIRECT3DDEVICE9 pDev)
@@ -88,6 +111,8 @@ public:
         SafeRelease(&im3dindbuf);
         SafeRelease(&snowTex);
         ms_initialised = 0;
+        snowArrayInitialized = false;
+        snowArray.clear();
     }
 
     static inline void im3DRenderIndexedPrimitive(LPDIRECT3DDEVICE9 pDev, D3DPRIMITIVETYPE primType, void* indices, int32_t numIndices)
@@ -195,28 +220,68 @@ public:
             return ((v) < (low) ? (low) : (v) > (high) ? (high) : (v));
         };
 
+        static auto GetRandomFloat = [](float range = RAND_MAX) -> float
+        {
+            static std::random_device rd;
+            static std::mt19937 gen(rd());
+            std::uniform_real_distribution<> dis(0.0f, range);
+            return static_cast<float>(dis(gen));
+        };
+
         if (!ms_initialised)
         {
             ms_fbWidth = Width;
             ms_fbHeight = Height;
 
-            snowFlakes = 2000;
+            // Denser for rain for better coverage
+            snowFlakes = swapWithRain ? 3000 : 2000;
             snowArray.resize(snowFlakes);
             openIm3D(pDev);
 
-            static constexpr auto MaskSize = 32;
+            // Build texture: circular mask for snow, soft streak for rain
+            static constexpr auto MaskSize = 64;
             D3DXCreateTexture(pDev, MaskSize, MaskSize, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &snowTex);
             D3DLOCKED_RECT LockedRect;
             snowTex->LockRect(0, &LockedRect, NULL, 0);
             uint8_t* pixels = (uint8_t*)LockedRect.pBits;
             int32_t stride = LockedRect.Pitch;
+
             for (int y = 0; y < MaskSize; y++)
             {
-                float yf = ((y + 0.5f) / MaskSize - 0.5f) * 2.0f;
+                float yf = ((y + 0.5f) / MaskSize - 0.5f) * 2.0f; // [-1,1]
                 for (int x = 0; x < MaskSize; x++)
                 {
-                    float xf = ((x + 0.5f) / MaskSize - 0.5f) * 2.0f;
-                    memset(&pixels[y * stride + x * 4], xf * xf + yf * yf < 1.0f ? (swapWithRain ? 0x99 : 0xFF) : 0x00, 4);
+                    float xf = ((x + 0.5f) / MaskSize - 0.5f) * 2.0f; // [-1,1]
+                    uint8_t* px = &pixels[y * stride + x * 4];
+
+                    if (!swapWithRain)
+                    {
+                        // Snow: soft disc
+                        float r2 = xf * xf + yf * yf;
+                        float a = r2 < 1.0f ? (1.0f - r2) : 0.0f; // falloff to edge
+                        uint8_t alpha = (uint8_t)clamp(a * 255.0f, 0.0f, 255.0f);
+                        // Set ARGB (in memory: BB GG RR AA for A8R8G8B8)
+                        px[0] = alpha; // B
+                        px[1] = alpha; // G
+                        px[2] = alpha; // R
+                        px[3] = alpha; // A
+                    }
+                    else
+                    {
+                        // Rain: narrow vertical gaussian with tapered ends
+                        float sigma = 0.25f;             // controls width
+                        float core = expf(-(xf * xf) / (2.0f * sigma * sigma));
+                        float tipTaper = 1.0f - clamp((fabsf(yf) - 0.6f) / 0.4f, 0.0f, 1.0f); // fade to tips
+                        float a = clamp(core * tipTaper, 0.0f, 1.0f);
+                        float brightness = 0.85f; // slightly gray/white
+                        uint8_t alpha = (uint8_t)clamp(a * 220.0f, 0.0f, 255.0f);
+                        uint8_t rgb = (uint8_t)clamp(a * 255.0f * brightness, 0.0f, 255.0f);
+
+                        px[0] = rgb;   // B
+                        px[1] = rgb;   // G
+                        px[2] = rgb;   // R
+                        px[3] = alpha; // A
+                    }
                 }
             }
             snowTex->UnlockRect(0);
@@ -228,56 +293,57 @@ public:
         auto InterpolationValue = 0.5f;
         //targetSnow = 1.0f;
 
-        if (targetSnow != 0.0f || Snow != 0.0f) { // Weather == SNOW
+        if (targetSnow != 0.0f || Snow != 0.0f)
+        { // Weather == SNOW/RAIN
 
-            if (targetSnow == 0.0f) {
+            if (targetSnow == 0.0f)
+            {
                 Snow -= Snow / 100.0f;
-
                 Snow = clamp(Snow, 0.0f, 1.0f);
             }
-            else {
-                //Snow = InterpolationValue * 4.0f;
+            else
+            {
                 if (Snow < targetSnow)
                     Snow += targetSnow / 100.0f;
-
                 Snow = clamp(Snow, 0.0f, 1.0f);
-
-                //Snow = targetSnow;
-                //Snow = clamp(Snow, 0.0f, targetSnow);
             }
         }
-        else {
+        else
+        {
             return;
         }
 
         {
             auto snowAmount = (int)min(snowFlakes, Snow * snowFlakes);
             snowBox.Set(CVector(camMatrix->pos.x, camMatrix->pos.y, camMatrix->pos.z), CVector(camMatrix->pos.x, camMatrix->pos.y, camMatrix->pos.z));
+            // Spawn volume around camera
             snowBox.min.x -= 40.0f;
             snowBox.min.y -= 40.0f;
             snowBox.max.x += 40.0f;
-            snowBox.min.z -= 15.0f; // -= 10.0f; in PSP
-            snowBox.max.z += 15.0f; // += 10.0f; in PSP
+            snowBox.min.z -= 15.0f; // vertical span (z acts as "height" here)
+            snowBox.max.z += 15.0f;
             snowBox.max.y += 40.0f;
 
             if (!snowArrayInitialized)
             {
-                static auto GetRandomFloat = [](float range = RAND_MAX) -> float
-                {
-                    static std::random_device rd;
-                    static std::mt19937 gen(rd());
-                    std::uniform_real_distribution<> dis(0.0f, range);
-                    return static_cast<float>(dis(gen));
-                };
-                
                 snowArrayInitialized = true;
                 for (int i = 0; i < snowFlakes; i++)
                 {
                     snowArray[i].pos.x = snowBox.min.x + ((snowBox.max.x - snowBox.min.x) * (GetRandomFloat() / (float)RAND_MAX));
-                    snowArray[i].pos.y = snowBox.min.y + ((GetRandomFloat() / (float)RAND_MAX) * (snowBox.max.y - snowBox.min.y));
-                    snowArray[i].pos.z = snowBox.min.z + ((GetRandomFloat() / (float)RAND_MAX) * (snowBox.max.z - snowBox.min.z));
+                    snowArray[i].pos.y = snowBox.min.y + ((snowBox.max.y - snowBox.min.y) * (GetRandomFloat() / (float)RAND_MAX));
+                    snowArray[i].pos.z = snowBox.min.z + ((snowBox.max.z - snowBox.min.z) * (GetRandomFloat() / (float)RAND_MAX));
                     snowArray[i].xChange = 0.0f;
                     snowArray[i].yChange = 0.0f;
+
+                    // Initialize rain attributes too (cheap for snow; ignored in snow path)
+                    float spdNorm = GetRandomFloat(1.0f); // [0..1]
+                    snowArray[i].fallSpeed = RainMinSpeed + (RainMaxSpeed - RainMinSpeed) * spdNorm;
+                    snowArray[i].length = RainMinLength + (RainMaxLength - RainMinLength) * spdNorm;
+                    uint8_t alpha = (uint8_t)(RainMinAlpha + (RainMaxAlpha - RainMinAlpha) * spdNorm);
+                    snowArray[i].color = (uint32_t(alpha) << 24) | 0x00FFFFFF;
+                    // gusts
+                    snowArray[i].xChange = (GetRandomFloat(2.0f) - 1.0f) * 3.0f;
+                    snowArray[i].yChange = (GetRandomFloat(2.0f) - 1.0f) * 2.0f;
                 }
             }
 
@@ -303,109 +369,162 @@ public:
             pDev->SetRenderState(D3DRS_SCISSORTESTENABLE, 1);
             pDev->SetRenderState(D3DRS_COLORWRITEENABLE, 0xFFFFFFFF);
 
-            //pDev->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_ONE);
-            //pDev->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_ONE);
-            //pDev->SetRenderState(D3DRS_CLIPPING, TRUE);
-            //pDev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+            // Cleaner sampling for streak texture
+            pDev->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+            pDev->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+            pDev->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+            pDev->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
+            pDev->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
 
             pDev->SetVertexShader(NULL);
             pDev->SetPixelShader(NULL);
 
             auto mat = *camMatrix;
 
-            int i = 0;
-            for (; i < snowAmount; i++)
+            static constexpr uint16_t snowRenderOrder[] = { 0, 1, 2, 3, 4, 5 };
+            #define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
+
+            const float dt = *fTimeStep;
+
+            for (int i = 0; i < snowAmount; i++)
             {
-                float& xPos = snowArray[i].pos.x; // s3
+                float& xPos = snowArray[i].pos.x;
                 float& yPos = snowArray[i].pos.y;
                 float& zPos = snowArray[i].pos.z;
-                float& xChangeRate = snowArray[i].xChange; // s4
-                float& yChangeRate = snowArray[i].yChange; // s5
-
-                float minChange = -*fTimeStep / (swapWithRain ? 1.0f : 10.0f);
-                float maxChange = -minChange;
-
-                zPos -= maxChange;
-
-                xChangeRate += minChange + (2 * maxChange * (rand() / (float)RAND_MAX));
-
-                yChangeRate += minChange + (2 * maxChange * (rand() / (float)RAND_MAX));
-
-                xChangeRate = clamp(xChangeRate, minChange, maxChange);
-                yChangeRate = clamp(yChangeRate, minChange, maxChange);
+                float& xChangeRate = snowArray[i].xChange;
+                float& yChangeRate = snowArray[i].yChange;
 
                 if (!swapWithRain)
                 {
+                    // Original snow drift and fall (z acts as vertical here)
+                    float minChange = -*fTimeStep / 10.0f;
+                    float maxChange = -minChange;
+
+                    zPos -= maxChange;
+
+                    xChangeRate += minChange + (2 * maxChange * (rand() / (float)RAND_MAX));
+                    yChangeRate += minChange + (2 * maxChange * (rand() / (float)RAND_MAX));
+
+                    xChangeRate = clamp(xChangeRate, minChange, maxChange);
+                    yChangeRate = clamp(yChangeRate, minChange, maxChange);
+
                     yPos += yChangeRate;
                     xPos += xChangeRate;
                 }
-
-                while (zPos < snowBox.min.z) {
-                    zPos += 30.0f; // += 20.0f; in PSP
-                }
-
-                while (zPos > snowBox.max.z) {
-                    zPos -= 30.0f; // -= 20.0f; in PSP
-                }
-
-                while (xPos < snowBox.min.x) {
-                    xPos += 80.0f;
-                }
-
-                while (xPos > snowBox.max.x) {
-                    xPos -= 80.0f;
-                }
-
-                while (yPos < snowBox.min.y) {
-                    yPos += 80.0f;
-                }
-
-                while (yPos > snowBox.max.y) {
-                    yPos -= 80.0f;
-                }
-
-                mat.pos.x = snowArray[i].pos.x;
-                mat.pos.y = snowArray[i].pos.y;
-                mat.pos.z = snowArray[i].pos.z;
-
-                static constexpr Im3DVertex snowVertexBuffer[] =
-                {
-                    {RwV3d(0.1f  / 5.0f,  0.1f / 5.0f, 1.0f), RwV3d(), 0xFFFFFFFF, 1.0f, 1.0f},
-                    {RwV3d(-0.1f / 5.0f,  0.1f / 5.0f, 1.0f), RwV3d(), 0xFFFFFFFF, 0.0f, 1.0f},
-                    {RwV3d(-0.1f / 5.0f, -0.1f / 5.0f, 1.0f), RwV3d(), 0xFFFFFFFF, 0.0f, 0.0f},
-                    {RwV3d(0.1f  / 5.0f,  0.1f / 5.0f, 1.0f), RwV3d(), 0xFFFFFFFF, 1.0f, 1.0f},
-                    {RwV3d(0.1f  / 5.0f, -0.1f / 5.0f, 1.0f), RwV3d(), 0xFFFFFFFF, 1.0f, 0.0f},
-                    {RwV3d(-0.1f / 5.0f, -0.1f / 5.0f, 1.0f), RwV3d(), 0xFFFFFFFF, 0.0f, 0.0f},
-                };
-
-                static constexpr Im3DVertex rainVertexBuffer[] =
-                {
-                    {RwV3d(0.1f  / 20.0f,  0.1f * 2.0f, 0.0f), RwV3d(), 0xFFFFFFFF, 1.0f, 1.0f},
-                    {RwV3d(-0.1f / 20.0f,  0.1f * 2.0f, 0.0f), RwV3d(), 0xFFFFFFFF, 0.0f, 1.0f},
-                    {RwV3d(-0.1f / 20.0f, -0.1f * 2.0f, 0.0f), RwV3d(), 0xFFFFFFFF, 0.0f, 0.0f},
-                    {RwV3d(0.1f  / 20.0f,  0.1f * 2.0f, 0.0f), RwV3d(), 0xFFFFFFFF, 1.0f, 1.0f},
-                    {RwV3d(0.1f  / 20.0f, -0.1f * 2.0f, 0.0f), RwV3d(), 0xFFFFFFFF, 1.0f, 0.0f},
-                    {RwV3d(-0.1f / 20.0f, -0.1f * 2.0f, 0.0f), RwV3d(), 0xFFFFFFFF, 0.0f, 0.0f},
-                };
-
-                static constexpr uint16_t snowRenderOrder[] =
-                {
-                    0, 1, 2, 3, 4, 5
-                };
-
-                #define ARRAY_SIZE(array)	(sizeof(array) / sizeof(array[0]))
-                if (swapWithRain)
-                    im3DTransform(pDev, viewMatrix, (void*)rainVertexBuffer, ARRAY_SIZE(rainVertexBuffer), (RwMatrix*)&mat, 1);
                 else
-                    im3DTransform(pDev, viewMatrix, (void*)snowVertexBuffer, ARRAY_SIZE(snowVertexBuffer), (RwMatrix*)&mat, 1);
-                im3DRenderIndexedPrimitive(pDev, D3DPT_TRIANGLELIST, (void*)snowRenderOrder, ARRAY_SIZE(snowRenderOrder));
-            }
+                {
+                    // RAIN: move down fast, drift with wind and gusts
+                    float speed = snowArray[i].fallSpeed; // units/sec
+                    // Fall along -Z (consistent with original vertical handling)
+                    zPos -= speed * dt;
 
-            //pDev->SetRenderState(D3DRS_ZENABLE, 0);
-            //pDev->SetRenderState(D3DRS_ZWRITEENABLE, 0);
-            //pDev->SetRenderState(D3DRS_SRCBLEND, 5);
-            //pDev->SetRenderState(D3DRS_DESTBLEND, 6);
-            //pDev->SetRenderState(D3DRS_FOGENABLE, 0);
+                    // Horizontal wind + per-drop gusts
+                    xPos += (RainWindX + xChangeRate) * dt;
+                    yPos += (RainWindY + yChangeRate) * dt;
+
+                    // mild time-varying gusts
+                    xChangeRate += (GetRandomFloat(0.5f) - 0.25f) * dt * 2.0f;
+                    yChangeRate += (GetRandomFloat(0.5f) - 0.25f) * dt * 2.0f;
+
+                    // clamp gust magnitudes a bit
+                    xChangeRate = clamp(xChangeRate, -6.0f, 6.0f);
+                    yChangeRate = clamp(yChangeRate, -5.0f, 5.0f);
+                }
+
+                // Wrap/respawn in the local volume
+                const float zSpan = (snowBox.max.z - snowBox.min.z);
+                if (zPos < snowBox.min.z)
+                {
+                    if (swapWithRain)
+                    {
+                        // Respawn at top with new attributes for variation
+                        zPos = snowBox.max.z;
+                        xPos = snowBox.min.x + ((snowBox.max.x - snowBox.min.x) * (GetRandomFloat() / (float)RAND_MAX));
+                        yPos = snowBox.min.y + ((snowBox.max.y - snowBox.min.y) * (GetRandomFloat() / (float)RAND_MAX));
+
+                        float spdNorm = GetRandomFloat(1.0f);
+                        snowArray[i].fallSpeed = RainMinSpeed + (RainMaxSpeed - RainMinSpeed) * spdNorm;
+                        snowArray[i].length = RainMinLength + (RainMaxLength - RainMinLength) * spdNorm;
+                        uint8_t alpha = (uint8_t)(RainMinAlpha + (RainMaxAlpha - RainMinAlpha) * spdNorm);
+                        snowArray[i].color = (uint32_t(alpha) << 24) | 0x00FFFFFF;
+                        snowArray[i].xChange = (GetRandomFloat(2.0f) - 1.0f) * 3.0f;
+                        snowArray[i].yChange = (GetRandomFloat(2.0f) - 1.0f) * 2.0f;
+                    }
+                    else
+                    {
+                        zPos += zSpan; // snow wrap
+                    }
+                }
+                while (zPos > snowBox.max.z)
+                {
+                    zPos -= zSpan;
+                }
+
+                const float xSpan = (snowBox.max.x - snowBox.min.x);
+                const float ySpan = (snowBox.max.y - snowBox.min.y);
+                while (xPos < snowBox.min.x)
+                {
+                    xPos += xSpan;
+                }
+                while (xPos > snowBox.max.x)
+                {
+                    xPos -= xSpan;
+                }
+                while (yPos < snowBox.min.y)
+                {
+                    yPos += ySpan;
+                }
+                while (yPos > snowBox.max.y)
+                {
+                    yPos -= ySpan;
+                }
+
+                mat.pos.x = xPos;
+                mat.pos.y = yPos;
+                mat.pos.z = zPos;
+
+                if (!swapWithRain)
+                {
+                    // SNOW quad (billboard)
+                    static constexpr Im3DVertex snowVertexBuffer[] =
+                    {
+                        {RwV3d(0.1f / 5.0f,  0.1f / 5.0f, 1.0f), RwV3d(), 0xFFFFFFFF, 1.0f, 1.0f},
+                        {RwV3d(-0.1f / 5.0f,  0.1f / 5.0f, 1.0f), RwV3d(), 0xFFFFFFFF, 0.0f, 1.0f},
+                        {RwV3d(-0.1f / 5.0f, -0.1f / 5.0f, 1.0f), RwV3d(), 0xFFFFFFFF, 0.0f, 0.0f},
+                        {RwV3d(0.1f / 5.0f,  0.1f / 5.0f, 1.0f), RwV3d(), 0xFFFFFFFF, 1.0f, 1.0f},
+                        {RwV3d(0.1f / 5.0f, -0.1f / 5.0f, 1.0f), RwV3d(), 0xFFFFFFFF, 1.0f, 0.0f},
+                        {RwV3d(-0.1f / 5.0f, -0.1f / 5.0f, 1.0f), RwV3d(), 0xFFFFFFFF, 0.0f, 0.0f},
+                    };
+                    im3DTransform(pDev, viewMatrix, (void*)snowVertexBuffer, ARRAY_SIZE(snowVertexBuffer), (RwMatrix*)&mat, 1);
+                    im3DRenderIndexedPrimitive(pDev, D3DPT_TRIANGLELIST, (void*)snowRenderOrder, ARRAY_SIZE(snowRenderOrder));
+                }
+                else
+                {
+                    // RAIN: build per-drop stretched, slightly slanted quad in view space
+                    // Width is constant; length scales with speed for "motion blur" feel
+                    float halfWidth = RainWidth;
+                    float halfLen = snowArray[i].length + snowArray[i].fallSpeed * 0.0045f;
+
+                    // Slant proportionally to horizontal velocity onto screen X
+                    float slant = (RainWindX + snowArray[i].xChange) * 0.004f;
+
+                    Im3DVertex v[6];
+                    const uint32_t col = snowArray[i].color;
+
+                    // top
+                    v[0] = { RwV3d(+halfWidth, +halfLen, 0.0f), RwV3d(), col, 1.0f, 0.0f };
+                    v[1] = { RwV3d(-halfWidth, +halfLen, 0.0f), RwV3d(), col, 0.0f, 0.0f };
+                    // bottom (slanted)
+                    v[2] = { RwV3d(-halfWidth + slant, -halfLen, 0.0f), RwV3d(), col, 0.0f, 1.0f };
+                    // re-emit for tri list
+                    v[3] = { RwV3d(+halfWidth, +halfLen, 0.0f), RwV3d(), col, 1.0f, 0.0f };
+                    v[4] = { RwV3d(+halfWidth + slant, -halfLen, 0.0f), RwV3d(), col, 1.0f, 1.0f };
+                    v[5] = { RwV3d(-halfWidth + slant, -halfLen, 0.0f), RwV3d(), col, 0.0f, 1.0f };
+
+                    im3DTransform(pDev, viewMatrix, (void*)v, ARRAY_SIZE(v), (RwMatrix*)&mat, 1);
+                    im3DRenderIndexedPrimitive(pDev, D3DPT_TRIANGLELIST, (void*)snowRenderOrder, ARRAY_SIZE(snowRenderOrder));
+                }
+            }
 
             pStateBlock->Apply();
             pStateBlock->Release();
