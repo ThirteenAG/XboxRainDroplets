@@ -14,6 +14,12 @@ Various ini settings allow to customize the appearance and can be edited while i
 
 ![scb](https://github.com/user-attachments/assets/3121f763-6926-4c96-8076-651654f39ee3)
 
+## Splinter Cell Chaos Theory - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/scct)
+
+#### Screen:
+
+![scct](https://github.com/user-attachments/assets/387611d4-7b77-40ad-8f6e-eab6116fca76)
+
 ## Splinter Cell Pandora Tomorrow - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/scpt)
 
 #### Screen:
