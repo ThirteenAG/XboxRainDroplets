@@ -15,6 +15,7 @@ Driv3r.XboxRainDroplets
 DriverParallelLines.XboxRainDroplets
 SplinterCell.XboxRainDroplets
 SplinterCellPandoraTomorrow.XboxRainDroplets
+SplinterCellChaosTheory.XboxRainDroplets
 SplinterCellBlacklist.XboxRainDroplets
 GTASADE.XboxRainDroplets
 GTAVCDE.XboxRainDroplets
