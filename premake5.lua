@@ -126,6 +126,8 @@ project "SplinterCellPandoraTomorrow.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Splinter Cell/Splinter Cell Pandora Tomorrow/system/", "SplinterCell2.exe", "scripts/")
 project "SplinterCellChaosTheory.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Splinter Cell/SplinterCell Chaos Theory/System/", "splintercell3.exe", "scripts/")
+project "SplinterCellDoubleAgent.XboxRainDroplets"
+   setpaths("Z:/WFP/Games/Splinter Cell/Splinter Cell - Double Agent/SCDA-Offline/System/", "SplinterCell4.exe", "scripts/")
 project "SplinterCellBlacklist.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Splinter Cell/Splinter Cell Blacklist/src/SYSTEM/", "Blacklist_DX11_game.exe", "scripts/")
 project "GTASADE.XboxRainDroplets"
