@@ -14,6 +14,12 @@ Various ini settings allow to customize the appearance and can be edited while i
 
 ![scb](https://github.com/user-attachments/assets/3121f763-6926-4c96-8076-651654f39ee3)
 
+## Splinter Cell Double Agent - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/scda)
+
+#### Screen:
+
+![scda](https://github.com/user-attachments/assets/7ab82c88-f9e4-4436-ad57-c2ff75c07641)
+
 ## Splinter Cell Chaos Theory - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/scct)
 
 #### Screen:
