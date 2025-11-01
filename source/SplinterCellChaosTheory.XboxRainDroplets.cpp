@@ -117,6 +117,18 @@ void Init()
     static auto CreateDeviceHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
     {
         WaterDrops::Reset();
+
+        auto SafeRelease = [](auto ppT)
+        {
+            if (*ppT)
+            {
+                (*ppT)->Release();
+                *ppT = NULL;
+            }
+        };
+
+        SafeRelease(&WaterDrops::ms_vertexBuf);
+        SafeRelease(&WaterDrops::ms_indexBuf);
     });
 
     pattern = hook::pattern("8B 10 50 FF 92 ? ? ? ? 8B 45 00 39 86 98 56 00 00");
