@@ -106,10 +106,10 @@ void Init()
 
     auto pattern = hook::pattern("53 56 57 8B F9 8B 87 DC 39 00 00 33 F6 85 C0 7E ? 8B 5C 24 10");
     ULevel__IsInRainVolume = (decltype(ULevel__IsInRainVolume))pattern.count(2).get(0).get<void>(0);
-    
+
     pattern = hook::pattern("A1 ? ? ? ? 83 EC 24 85 C0");
     shULevel__Tick = safetyhook::create_inline(pattern.get_first(), ULevel__Tick);
-    
+
     pattern = hook::pattern("83 EC 08 55 56 8B F1 8B 46 7C");
     shAPlayerController__Tick = safetyhook::create_inline(pattern.get_first(), APlayerController__Tick);
 
@@ -131,7 +131,7 @@ void Init()
         SafeRelease(&WaterDrops::ms_indexBuf);
     });
 
-    pattern = hook::pattern("8B 10 50 FF 92 ? ? ? ? 8B 45 00 39 86 98 56 00 00");
+    pattern = hook::pattern("8B 10 51 50 FF 92 ? ? ? ? 8B 86 ? ? ? ? 6A 04 8D 54 24 ? 52 C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? 8B 80 ? ? ? ? 8B 08 6A 00 50 FF 91 ? ? ? ? 8B CE E8 ? ? ? ? 8B 8E");
     static auto RenderHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
     {
         IDirect3DDevice9* pDevice = (IDirect3DDevice9*)(regs.eax);
