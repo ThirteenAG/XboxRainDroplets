@@ -47,27 +47,21 @@ void Init()
     }; injector::MakeInline<RenderHook>(pattern.get_first(0), pattern.get_first(8));
 }
 
+safetyhook::MidHook GetDeviceHook = {};
+safetyhook::MidHook ResetHook = {};
 void InitE2_D3D8_DRIVER_MFC()
 {
     auto pattern = hook::module_pattern(GetModuleHandle(L"e2_d3d8_driver_mfc"), "8B 86 ? ? ? ? 85 C0 74 0F 8B 50 50");
-    struct GetDeviceHook
+    GetDeviceHook = safetyhook::create_mid(pattern.get_first(6), [](SafetyHookContext& regs)
     {
-        void operator()(injector::reg_pack& regs)
-        {
-            regs.eax = *(uint32_t*)(regs.esi + 0x14C);
-            pDevice = (IDirect3DDevice8*)(*(uint32_t*)(regs.esi + 0x100));
-        }
-    }; injector::MakeInline<GetDeviceHook>(pattern.get_first(0), pattern.get_first(6));
+        pDevice = (IDirect3DDevice8*)(*(uint32_t*)(regs.esi + 0x100));
+    });
 
     pattern = hook::module_pattern(GetModuleHandle(L"e2_d3d8_driver_mfc"), "8B 86 ? ? ? ? 8B 10 8D 8E ? ? ? ? 51 50 FF 52 38");
-    struct ResetHook
+    ResetHook = safetyhook::create_mid(pattern.get_first(6), [](SafetyHookContext& regs)
     {
-        void operator()(injector::reg_pack& regs)
-        {
-            regs.eax = *(uint32_t*)(regs.esi + 0x100);
-            WaterDrops::Reset();
-        }
-    }; injector::MakeInline<ResetHook>(pattern.get_first(0), pattern.get_first(6));
+        WaterDrops::Reset();
+    });
 }
 
 void InitE2MFC()
@@ -99,6 +93,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
         CallbackHandler::RegisterCallback(Init);
         CallbackHandler::RegisterCallback(L"E2MFC.dll", InitE2MFC);
         CallbackHandler::RegisterCallback(L"E2_D3D8_DRIVER_MFC.dll", InitE2_D3D8_DRIVER_MFC);
+        CallbackHandler::RegisterModuleUnloadCallback(L"E2_D3D8_DRIVER_MFC.dll", []() { GetDeviceHook.reset(); ResetHook.reset(); });
         CallbackHandler::RegisterCallback(L"X_GameObjectsMFC.dll", InitX_GameObjectsMFC);
         CallbackHandler::RegisterCallback(L"X_ModesMFC.dll", InitX_ModesMFC);
         CallbackHandler::RegisterCallback(L"sndmfc.dll", InitX_sndmfc);
