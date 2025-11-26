@@ -12,16 +12,24 @@ int __stdcall sub_10001770(float a1)
     return (int)a1;
 }
 
-void __fastcall sub_10004820(float* _this, void* edx, float* a2)
+void __fastcall TransformPoint3D(float* point, void* edx, float* matrix)
 {
-    _this[0] = *_this * a2[0] + _this[1] * a2[3] + _this[2] * a2[6] + a2[9];
-    _this[1] = *_this * a2[1] + _this[1] * a2[4] + _this[2] * a2[7] + a2[10];
-    _this[2] = *_this * a2[2] + _this[1] * a2[5] + _this[2] * a2[8] + a2[11];
+    float x = point[0];
+    float y = point[1];
+    float z = point[2];
 
-    auto right = RwV3d{ a2[0], a2[1], a2[2] };
-    auto up = RwV3d{ a2[3], a2[4], a2[5] };
-    auto at = RwV3d{ a2[6], a2[7], a2[8] };
-    auto pos = RwV3d{ a2[9], a2[10], a2[11] };
+    float transformedX = x * matrix[0] + y * matrix[3] + z * matrix[6] + matrix[9];
+    float transformedY = x * matrix[1] + y * matrix[4] + z * matrix[7] + matrix[10];
+    float transformedZ = x * matrix[2] + y * matrix[5] + z * matrix[8] + matrix[11];
+
+    point[0] = transformedX;
+    point[1] = transformedY;
+    point[2] = transformedZ;
+
+    auto right = RwV3d{ matrix[0], matrix[1], matrix[2] };
+    auto up = RwV3d{ matrix[3], matrix[4], matrix[5] };
+    auto at = RwV3d{ matrix[6], matrix[7], matrix[8] };
+    auto pos = RwV3d{ matrix[9], matrix[10], matrix[11] };
 
     WaterDrops::right = { at.x, at.y, at.z };
     WaterDrops::up = { up.x, up.y, up.z };
@@ -72,7 +80,7 @@ void InitE2MFC()
 void InitX_GameObjectsMFC()
 {
     auto pattern = hook::module_pattern(GetModuleHandle(L"X_GameObjectsMFC"), "8D 4C 24 08 E8 ? ? ? ? D9 44 24 0C");
-    injector::MakeCALL(pattern.get_first(4), sub_10004820, true);
+    injector::MakeCALL(pattern.get_first(4), TransformPoint3D, true);
 }
 
 void InitX_ModesMFC()
