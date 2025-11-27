@@ -3,10 +3,16 @@
 
 IDirect3DDevice8* pDevice = nullptr;
 
+std::string currentLevelRoomName;
 int __stdcall sub_10001770(float a1)
 {
     if (a1 == -1000.0f)
-        WaterDrops::ms_rainIntensity = 1.0f;
+    {
+        if (currentLevelRoomName != "02_kitchen" && currentLevelRoomName != "StartRoom" && currentLevelRoomName != "memoriam")
+            WaterDrops::ms_rainIntensity = 1.0f;
+        else
+            WaterDrops::ms_rainIntensity = 0.0f;
+    }
     else
         WaterDrops::ms_rainIntensity = 0.0f;
     return (int)a1;
@@ -53,6 +59,13 @@ void Init()
             WaterDrops::ms_rainIntensity = 0.0f;
         }
     }; injector::MakeInline<RenderHook>(pattern.get_first(0), pattern.get_first(8));
+
+    pattern = hook::pattern("84 C0 74 ? 8D 8E ? ? ? ? 57");
+    static auto X_LevelRuntimeCameraroomsToRenderWithSkyboxHook = safetyhook::create_mid(pattern.get_first(0), [](SafetyHookContext& regs)
+    {
+        if ((regs.eax & 0xFF) == 0)
+            WaterDrops::ms_rainIntensity = 0.0f;
+    });
 }
 
 safetyhook::MidHook GetDeviceHook = {};
@@ -81,6 +94,13 @@ void InitX_GameObjectsMFC()
 {
     auto pattern = hook::module_pattern(GetModuleHandle(L"X_GameObjectsMFC"), "8D 4C 24 08 E8 ? ? ? ? D9 44 24 0C");
     injector::MakeCALL(pattern.get_first(4), TransformPoint3D, true);
+
+    pattern = hook::module_pattern(GetModuleHandle(L"X_GameObjectsMFC"), "84 C0 74 ? 8B 9C 24");
+    static auto X_LevelRuntimeCameraroomsToRenderWithSkyboxHook = safetyhook::create_mid(pattern.get_first(0), [](SafetyHookContext& regs)
+    {
+        if ((regs.eax & 0xFF) == 0)
+            WaterDrops::ms_rainIntensity = 0.0f;
+    });
 }
 
 void InitX_ModesMFC()
@@ -94,6 +114,19 @@ void InitX_sndmfc()
     injector::MakeCALL(pattern.get_first(0), sub_10001770, true);
 }
 
+SafetyHookInline shX_LevelRuntimeRoom__getLevelRoom = {};
+void* __fastcall X_LevelRuntimeRoom__getLevelRoom(void* X_LevelRuntimeRoom, void* edx)
+{
+    auto sv = std::string_view(*(const char**)((uintptr_t)X_LevelRuntimeRoom + 0x14) + 0xA);
+    currentLevelRoomName = sv;
+    return shX_LevelRuntimeRoom__getLevelRoom.unsafe_fastcall<void*>(X_LevelRuntimeRoom, edx);
+}
+
+void InitX_LevelRuntimeMFC()
+{
+    shX_LevelRuntimeRoom__getLevelRoom = safetyhook::create_inline(GetProcAddress(GetModuleHandle(L"X_LevelRuntimeMFC"), "?getLevelRoom@X_LevelRuntimeRoom@@QBEPBVX_LevelRoom@@XZ"), X_LevelRuntimeRoom__getLevelRoom);
+}
+
 extern "C" __declspec(dllexport) void InitializeASI()
 {
     std::call_once(CallbackHandler::flag, []()
@@ -105,6 +138,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
         CallbackHandler::RegisterCallback(L"X_GameObjectsMFC.dll", InitX_GameObjectsMFC);
         CallbackHandler::RegisterCallback(L"X_ModesMFC.dll", InitX_ModesMFC);
         CallbackHandler::RegisterCallback(L"sndmfc.dll", InitX_sndmfc);
+        CallbackHandler::RegisterCallback(L"X_LevelRuntimeMFC.dll", InitX_LevelRuntimeMFC);
     });
 }
 
