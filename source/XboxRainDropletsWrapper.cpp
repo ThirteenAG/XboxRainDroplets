@@ -101,6 +101,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
         FusionDxHook::D3D11::onPresentEvent += [](IDXGISwapChain* pSwapChain)
         {
             #ifdef SIRE_INCLUDE_DX11ON12
+            d3d11on12::RetrieveD3DDeviceFromSwapChain(pSwapChain);
             if (!d3d11on12::isD3D11on12)
             #endif
             {
