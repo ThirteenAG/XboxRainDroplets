@@ -60,7 +60,7 @@ jobs:
       shell: cmd
       run: release.bat
     - name: Upload artifacts to actions
-      uses: actions/upload-artifact@v5.0.0
+      uses: actions/upload-artifact@v6.0.0
       with:
         path: ./bin/*.zip
     - name: Update Tags
