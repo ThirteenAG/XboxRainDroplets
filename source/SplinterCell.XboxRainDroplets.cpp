@@ -125,6 +125,18 @@ void InitD3DDrv()
     static auto DeviceResetHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
     {
         WaterDrops::Reset();
+
+        auto SafeRelease = [](auto ppT)
+        {
+            if (*ppT)
+            {
+                (*ppT)->Release();
+                *ppT = NULL;
+            }
+        };
+
+        SafeRelease(&WaterDrops::ms_vertexBuf);
+        SafeRelease(&WaterDrops::ms_indexBuf);
     });
 }
 
