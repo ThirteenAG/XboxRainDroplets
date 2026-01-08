@@ -110,8 +110,8 @@ void Init()
     pattern = hook::pattern("A1 ? ? ? ? 83 EC 24 85 C0");
     shULevel__Tick = safetyhook::create_inline(pattern.get_first(), ULevel__Tick);
 
-    pattern = hook::pattern("83 EC 08 55 56 8B F1 8B 46 7C");
-    shAPlayerController__Tick = safetyhook::create_inline(pattern.get_first(), APlayerController__Tick);
+    pattern = hook::pattern("8B 88 ? ? ? ? 8B 6E");
+    shAPlayerController__Tick = safetyhook::create_inline(pattern.get_first(-10), APlayerController__Tick);
 
     pattern = hook::pattern("8B 08 8D 9E 3C 4D 00 00");
     static auto CreateDeviceHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
