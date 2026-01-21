@@ -78,7 +78,8 @@ inline float RwV3dDotProduct(RwV3d* a, RwV3d* b)
     return (((a->x * b->x) + (a->y * b->y))) + (a->z * b->z);
 }
 
-inline float RwV3dLength(const RwV3d* in) {
+inline float RwV3dLength(const RwV3d* in)
+{
     return sqrtf(in->x * in->x + in->y * in->y + in->z * in->z);
 }
 
@@ -235,7 +236,7 @@ public:
 
             if (m_times.size() >= 2)
                 fps = static_cast<uint32_t>(0.5f + (static_cast<float>(m_times.size() - 1) *
-                      static_cast<float>(frequency.QuadPart)) / static_cast<float>(m_times.back() - m_times.front()));
+                                            static_cast<float>(frequency.QuadPart)) / static_cast<float>(m_times.back() - m_times.front()));
         }
         if (!ms_initialised)
             InitialiseRender(pDevice);
@@ -261,8 +262,8 @@ public:
         bEnableSnow = iniReader.ReadInteger("BONUS", "EnableSnow", 0) != 0;
 
         static std::once_flag flag;
-        std::call_once(flag, [&]() 
-        { 
+        std::call_once(flag, [&]()
+        {
             if (invertedRadial)
                 bRadial = !bRadial;
 
@@ -286,12 +287,12 @@ public:
         RwV3dSub(&dist, emitterPos, &WaterDrops::ms_lastPos);
         return RwV3dDotProduct(&dist, &dist);
     }
-    
+
     static inline float GetDistanceBetweenEmitterAndCamera(RwV3d emitterPos)
     {
         return GetDistanceBetweenEmitterAndCamera(&emitterPos);
     }
-    
+
     static inline float GetDropsAmountBasedOnEmitterDistance(float emitterDistance, float maxDistance, float maxAmount = 100.0f)
     {
         static auto SolveEqSys = [](float a, float b, float c, float d, float value) -> float
@@ -305,15 +306,15 @@ public:
         constexpr float minAmount = 0.0f;
         return maxAmount - SolveEqSys(minDistance, minAmount, maxDistance, maxAmount, emitterDistance);
     }
-    
+
     static inline void RegisterGlobalEmitter(RwV3d pos, float radius = 1.0f)
     {
         ms_sprayLocations.emplace_back(pos, radius);
     }
-    
+
     static inline void ProcessGlobalEmitters()
     {
-        for (auto& it: ms_sprayLocations)
+        for (auto& it : ms_sprayLocations)
         {
             RwV3d dist;
             RwV3dSub(&dist, &it.first, &WaterDrops::pos);
@@ -369,7 +370,8 @@ public:
 
     static inline void SprayDrops()
     {
-        if (!NoRain() && ms_rainIntensity != 0.0f && ms_enabled) {
+        if (!NoRain() && ms_rainIntensity != 0.0f && ms_enabled)
+        {
             auto tmp = (int32_t)(180.0f - ms_rainStrength);
             if (tmp < 40) tmp = 40;
             FillScreenMoving((tmp - 40.0f) / 150.0f * ms_rainIntensity * 0.5f);
@@ -378,8 +380,10 @@ public:
             FillScreenMoving(0.5f, false);
         if (sprayBlood)
             FillScreenMoving(0.5f, true);
-        if (ms_splashDuration >= 0) {
-            if (ms_numDrops < int32_t(ms_drops.capacity() - 1)) {
+        if (ms_splashDuration >= 0)
+        {
+            if (ms_numDrops < int32_t(ms_drops.capacity() - 1))
+            {
                 RwV3d dist;
                 RwV3dSub(&dist, &ms_splashPoint, &ms_lastPos);
                 float f = RwV3dDotProduct(&dist, &dist);
@@ -398,7 +402,8 @@ public:
         WaterDrop* drop = moving->drop;
         if (!ms_movingEnabled)
             return;
-        if (!drop->active) {
+        if (!drop->active)
+        {
             moving->drop = NULL;
             ms_numDropsMoving--;
             return;
@@ -419,7 +424,8 @@ public:
         dx = drop->x - ms_fbWidth * 0.5f + ms_vec.x;
         dy = drop->y - ms_fbHeight * 0.5f - (ms_vec.y + randgravity);
         sum = fabs(dx) + fabs(dy);
-        if (sum >= 0.001f) {
+        if (sum >= 0.001f)
+        {
             dx *= (1.0f / sum);
             dy *= (1.0f / sum);
         }
@@ -435,7 +441,8 @@ public:
         drop->size -= (drop->size / 100.0f) * GetTimeStepInMilliseconds();
 
         if (drop->x < -(float)(SC(MaxSize)) || drop->y < -(float)(SC(MaxSize)) ||
-            drop->x >(ms_fbWidth + SC(MaxSize)) || drop->y >(ms_fbHeight + SC(MaxSize))) {
+            drop->x >(ms_fbWidth + SC(MaxSize)) || drop->y >(ms_fbHeight + SC(MaxSize)))
+        {
             moving->drop = NULL;
             ms_numDropsMoving--;
         }
@@ -461,7 +468,7 @@ public:
     {
         if (NoDrops())
             return NULL;
-        
+
         for (auto& drop : ms_drops)
         {
             if (drop.active == 0)
@@ -488,13 +495,14 @@ public:
 
     static inline void NewTrace(WaterDropMoving* moving, float ttl)
     {
-        if (ms_numDrops < int32_t(ms_drops.capacity() - 1)) {
+        if (ms_numDrops < int32_t(ms_drops.capacity() - 1))
+        {
             moving->dist = 0.0f;
             PlaceNew(moving->drop->x, moving->drop->y, (float)(SC(MinSize)), ttl, 1, moving->drop->r, moving->drop->g, moving->drop->b);
         }
     }
 
-    static inline void NewDropMoving(WaterDrop *drop)
+    static inline void NewDropMoving(WaterDrop* drop)
     {
         for (auto& moving : ms_dropsMoving)
         {
@@ -542,9 +550,11 @@ public:
             return;
 
         ms_numDrops = 0;
-        for (auto& drop : ms_drops) {
+        for (auto& drop : ms_drops)
+        {
             drop.active = 0;
-            if (&drop < &ms_drops[n]) {
+            if (&drop < &ms_drops[n])
+            {
                 float x = (float)(rand() % ms_fbWidth);
                 float y = (float)(rand() % ms_fbHeight);
                 float time = (float)(rand() % (SC(MaxSize) - SC(MinSize)) + SC(MinSize));
@@ -567,7 +577,8 @@ public:
         ms_splashDistance = 0;
         ms_splashPoint = { 0 };
 
-        auto SafeRelease = [](auto ppT) {
+        auto SafeRelease = [](auto ppT)
+        {
             if (*ppT)
             {
                 (*ppT)->Release();
@@ -618,28 +629,29 @@ public:
     {
         ms_drops.resize(MaxDrops);
         ms_dropsMoving.resize(MaxDropsMoving);
-        
+
 
         IDirect3DVertexBuffer* vbuf;
         IDirect3DIndexBuffer* ibuf;
-#if(DIRECT3D_VERSION < 0x0900)
+        #if(DIRECT3D_VERSION < 0x0900)
         pDevice->CreateVertexBuffer(ms_drops.capacity() * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf);
         pDevice->CreateIndexBuffer(ms_drops.capacity() * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf);
-#else
+        #else
         if (FAILED(pDevice->CreateVertexBuffer(ms_drops.capacity() * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf, nullptr)))
             pDevice->CreateVertexBuffer(ms_drops.capacity() * 4 * sizeof(VertexTex2), D3DUSAGE_DYNAMIC, DROPFVF, D3DPOOL_DEFAULT, &vbuf, nullptr);
         if (FAILED(pDevice->CreateIndexBuffer(ms_drops.capacity() * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf, nullptr)))
             pDevice->CreateIndexBuffer(ms_drops.capacity() * 6 * sizeof(short), D3DUSAGE_DYNAMIC, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &ibuf, nullptr);
-#endif
+        #endif
         ms_vertexBuf = vbuf;
         ms_indexBuf = ibuf;
         uint16_t* idx;
-#if(DIRECT3D_VERSION < 0x0900)
+        #if(DIRECT3D_VERSION < 0x0900)
         ibuf->Lock(0, 0, (BYTE**)&idx, 0);
-#else
+        #else
         ibuf->Lock(0, 0, (void**)&idx, 0);
-#endif
-        for (auto i = 0; i < int32_t(ms_drops.capacity()); i++) {
+        #endif
+        for (auto i = 0; i < int32_t(ms_drops.capacity()); i++)
+        {
             idx[i * 6 + 0] = i * 4 + 0;
             idx[i * 6 + 1] = i * 4 + 1;
             idx[i * 6 + 2] = i * 4 + 2;
@@ -650,17 +662,17 @@ public:
         ibuf->Unlock();
 
         D3DSURFACE_DESC d3dsDesc;
-#if(DIRECT3D_VERSION < 0x0900)
+        #if(DIRECT3D_VERSION < 0x0900)
         pDevice->GetBackBuffer(0, D3DBACKBUFFER_TYPE_MONO, &ms_bbuf);
-#else
+        #else
         pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &ms_bbuf);
-#endif
+        #endif
         ms_bbuf->GetDesc(&d3dsDesc);
-#if(DIRECT3D_VERSION < 0x0900)
+        #if(DIRECT3D_VERSION < 0x0900)
         pDevice->CreateTexture(d3dsDesc.Width, d3dsDesc.Height, 1, D3DUSAGE_RENDERTARGET, d3dsDesc.Format, D3DPOOL_DEFAULT, &ms_tex);
-#else
+        #else
         pDevice->CreateTexture(d3dsDesc.Width, d3dsDesc.Height, 1, D3DUSAGE_RENDERTARGET, d3dsDesc.Format, D3DPOOL_DEFAULT, &ms_tex, NULL);
-#endif
+        #endif
         ms_tex->GetSurfaceLevel(0, &ms_surf);
         ms_fbWidth = d3dsDesc.Width;
         ms_fbHeight = d3dsDesc.Height;
@@ -669,37 +681,41 @@ public:
         HRESULT res = NULL;
         HMODULE hm = NULL;
         GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)&InitialiseRender, &hm);
-#if(DIRECT3D_VERSION >= 0x0900)
-        res = D3DXCreateTextureFromResource(pDevice, hm, 
+        #if(DIRECT3D_VERSION >= 0x0900)
+        res = D3DXCreateTextureFromResource(pDevice, hm,
 #ifndef SNOWDROPS
             MAKEINTRESOURCE(IDR_DROPMASK)
 #else
             MAKEINTRESOURCE(IDR_SNOWDROPMASK)
 #endif
             , &ms_maskTex);
-#else
+        #else
         //res = D3DXCreateTextureFromResource(pDevice, hm, MAKEINTRESOURCE(IDR_SNOWDROPMASK), &ms_maskTex);
-        HRSRC hResource = FindResource(hm, 
+        HRSRC hResource = FindResource(hm,
 #ifndef SNOWDROPS
             MAKEINTRESOURCE(IDR_DROPMASK)
 #else
             MAKEINTRESOURCE(IDR_SNOWDROPMASK)
 #endif
             , RT_RCDATA);
-        if (hResource) {
+        if (hResource)
+        {
             HGLOBAL hLoadedResource = LoadResource(hm, hResource);
-            if (hLoadedResource) {
+            if (hLoadedResource)
+            {
                 LPVOID pLockedResource = LockResource(hLoadedResource);
-                if (pLockedResource) {
+                if (pLockedResource)
+                {
                     size_t dwResourceSize = SizeofResource(hm, hResource);
-                    if (dwResourceSize) {
+                    if (dwResourceSize)
+                    {
                         res = D3DXCreateTextureFromFileInMemory(pDevice, pLockedResource, dwResourceSize, &ms_maskTex);
                     }
                 }
                 FreeResource(hLoadedResource);
             }
         }
-#endif
+        #endif
         if (FAILED(res) || ms_maskTex == nullptr)
         {
             static constexpr auto MaskSize = 128;
@@ -721,11 +737,11 @@ public:
             ms_maskTex->UnlockRect(0);
             ms_atlasUsed = false;
         }
-        
+
         ms_initialised = 1;
     }
 
-    static inline void AddToRenderList(WaterDrop *drop)
+    static inline void AddToRenderList(WaterDrop* drop)
     {
         static float uv[5][8] = {
             { 0.0f, 0.0f, 0.0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.0f },
@@ -746,7 +762,7 @@ public:
         float v1_1, v1_2;
         float tmp;
 
-        tmp = drop->uvsize*(300.0f - 40.0f) + 40.0f;
+        tmp = drop->uvsize * (300.0f - 40.0f) + 40.0f;
         u1_1 = drop->x + ms_xOff - tmp;
         v1_1 = drop->y + ms_yOff - tmp;
         u1_2 = drop->x + ms_xOff + tmp;
@@ -758,7 +774,8 @@ public:
 
         scale = drop->size * 0.5f;
 
-        for (i = 0; i < 4; i++) {
+        for (i = 0; i < 4; i++)
+        {
             ms_vertPtr->x = drop->x + xy[i * 2] * scale + ms_xOff;
             ms_vertPtr->y = drop->y + xy[i * 2 + 1] * scale + ms_yOff;
             ms_vertPtr->z = 0.0f;
@@ -779,32 +796,32 @@ public:
             return;
 
         IDirect3DVertexBuffer* vbuf = ms_vertexBuf;
-#if(DIRECT3D_VERSION < 0x0900)
+        #if(DIRECT3D_VERSION < 0x0900)
         vbuf->Lock(0, 0, (BYTE**)&ms_vertPtr, 0);
-#else
+        #else
         vbuf->Lock(0, 0, (void**)&ms_vertPtr, 0);
-#endif
+        #endif
         ms_numBatchedDrops = 0;
         for (auto& drop : ms_drops)
             if (drop.active)
                 AddToRenderList(&drop);
         vbuf->Unlock();
-        
-#ifndef DISABLESTATEBLOCK
-#if(DIRECT3D_VERSION < 0x0900)
+
+        #ifndef DISABLESTATEBLOCK
+        #if(DIRECT3D_VERSION < 0x0900)
         DWORD pStateBlock = NULL;
         pDevice->CreateStateBlock(D3DSBT_ALL, &pStateBlock);
         pDevice->CaptureStateBlock(pStateBlock);
 
         pDevice->CopyRects(ms_bbuf, 0, 0, ms_surf, 0);
-#else
+        #else
         LPDIRECT3DSTATEBLOCK9 pStateBlock = NULL;
         pDevice->CreateStateBlock(D3DSBT_ALL, &pStateBlock);
         pStateBlock->Capture();
 
         pDevice->StretchRect(ms_bbuf, NULL, ms_surf, NULL, D3DTEXF_LINEAR);
-#endif
-#endif
+        #endif
+        #endif
 
         pDevice->SetTexture(0, ms_maskTex);
         pDevice->SetTexture(1, ms_tex);
@@ -818,15 +835,15 @@ public:
         pDevice->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_DIFFUSE);
         pDevice->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_TEXTURE);
         pDevice->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_MODULATE);
-#ifndef SNOWDROPS
+        #ifndef SNOWDROPS
         pDevice->SetTextureStageState(1, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-#else
+        #else
         pDevice->SetTextureStageState(1, D3DTSS_COLORARG1, D3DTA_TEXTURE | D3DTA_COMPLEMENT);
-#endif
+        #endif
         pDevice->SetTextureStageState(1, D3DTSS_COLORARG2, D3DTA_CURRENT);
         pDevice->SetTextureStageState(1, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
         pDevice->SetTextureStageState(1, D3DTSS_ALPHAARG1, D3DTA_CURRENT);
-#ifndef DISABLERENDERSTATES
+        #ifndef DISABLERENDERSTATES
         pDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
         pDevice->SetRenderState(D3DRS_LIGHTING, 0);
         pDevice->SetRenderState(D3DRS_ZENABLE, 0);
@@ -835,39 +852,39 @@ public:
         pDevice->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
         pDevice->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
         pDevice->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
-#if(DIRECT3D_VERSION >= 0x0900)
+        #if(DIRECT3D_VERSION >= 0x0900)
         pDevice->SetRenderState(D3DRS_SCISSORTESTENABLE, 1);
-#endif
+        #endif
         pDevice->SetRenderState(D3DRS_COLORWRITEENABLE, 0xFFFFFFFF);
-#endif
+        #endif
 
         pDevice->SetPixelShader(NULL);
         pDevice->SetVertexShader(NULL);
 
-#if(DIRECT3D_VERSION < 0x0900)
+        #if(DIRECT3D_VERSION < 0x0900)
         pDevice->SetVertexShader(DROPFVF);
         pDevice->SetStreamSource(0, vbuf, sizeof(VertexTex2));
         pDevice->SetIndices(ms_indexBuf, 0);
         pDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, ms_numBatchedDrops * 4, 0, ms_numBatchedDrops * 2);
-#else
+        #else
         pDevice->SetFVF(DROPFVF);
         pDevice->SetStreamSource(0, vbuf, 0, sizeof(VertexTex2));
         pDevice->SetIndices(ms_indexBuf);
         pDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, ms_numBatchedDrops * 4, 0, ms_numBatchedDrops * 2);
-#endif
+        #endif
         pDevice->SetTexture(1, NULL);
         pDevice->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
         pDevice->SetTextureStageState(1, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
 
-#ifndef DISABLESTATEBLOCK
-#if(DIRECT3D_VERSION < 0x0900)
+        #ifndef DISABLESTATEBLOCK
+        #if(DIRECT3D_VERSION < 0x0900)
         pDevice->ApplyStateBlock(pStateBlock);
         pDevice->DeleteStateBlock(pStateBlock);
-#else
+        #else
         pStateBlock->Apply();
         pStateBlock->Release();
-#endif
-#endif
+        #endif
+        #endif
     }
 };
 
@@ -875,7 +892,8 @@ void WaterDrop::Fade()
 {
     auto delta = WaterDrops::GetTimeStepInMilliseconds() * 100.0f;
     this->time += delta;
-    if (this->time >= this->ttl) {
+    if (this->time >= this->ttl)
+    {
         WaterDrops::ms_numDrops--;
         this->active = 0;
     }
@@ -893,4 +911,28 @@ bool IsUALPresent()
             return true;
     }
     return false;
+}
+
+template <size_t count = 1, typename... Args>
+hook::pattern find_pattern(Args... args)
+{
+    hook::pattern pattern;
+    ((pattern = hook::pattern(args), !pattern.count_hint(count).empty()) || ...);
+    return pattern;
+}
+
+template <size_t count = 1, typename... Args>
+hook::pattern find_module_pattern(HMODULE hModule, Args... args)
+{
+    hook::pattern pattern;
+    ((pattern = hook::module_pattern(hModule, args), !pattern.count_hint(count).empty()) || ...);
+    return pattern;
+}
+
+template <size_t count = 1, typename... Args>
+hook::pattern find_range_pattern(uintptr_t range_start, size_t range_size, Args... args)
+{
+    hook::pattern pattern;
+    ((pattern = hook::range_pattern(range_start, range_size, args), !pattern.count_hint(count).empty()) || ...);
+    return pattern;
 }
