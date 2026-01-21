@@ -41,7 +41,8 @@ private:
 public:
     GameRef() : ref(std::ref(placeholder)) {}
 
-    void SetAddress(auto addr) {
+    void SetAddress(auto addr)
+    {
         ref = std::ref(*reinterpret_cast<T*>(addr));
     }
 
@@ -75,7 +76,8 @@ inline float RwV3dDotProduct(RwV3d* a, RwV3d* b)
     return (((a->x * b->x) + (a->y * b->y))) + (a->z * b->z);
 }
 
-inline float RwV3dLength(const RwV3d* in) {
+inline float RwV3dLength(const RwV3d* in)
+{
     return sqrtf(in->x * in->x + in->y * in->y + in->z * in->z);
 }
 
@@ -144,7 +146,7 @@ public:
     static inline float* fTimeStep;
     static inline bool isPaused = false;
     static inline float ms_scaling;
-#define SC(x) ((int32_t)((x)*ms_scaling))
+    #define SC(x) ((int32_t)((x)*ms_scaling))
     static inline float ms_xOff;
     static inline float ms_yOff;
     static inline auto ms_drops = std::vector<WaterDrop>(MaxDrops);
@@ -233,7 +235,7 @@ public:
 
             if (m_times.size() >= 2)
                 fps = static_cast<uint32_t>(0.5f + (static_cast<float>(m_times.size() - 1) *
-                    static_cast<float>(frequency.QuadPart)) / static_cast<float>(m_times.back() - m_times.front()));
+                                            static_cast<float>(frequency.QuadPart)) / static_cast<float>(m_times.back() - m_times.front()));
         }
 
         if (!ms_initialised)
@@ -375,7 +377,8 @@ public:
 
     static inline void SprayDrops()
     {
-        if (!NoRain() && ms_rainIntensity != 0.0f && ms_enabled) {
+        if (!NoRain() && ms_rainIntensity != 0.0f && ms_enabled)
+        {
             auto tmp = (int32_t)(180.0f - ms_rainStrength);
             if (tmp < 40) tmp = 40;
             FillScreenMoving((tmp - 40.0f) / 150.0f * ms_rainIntensity * 0.5f);
@@ -384,8 +387,10 @@ public:
             FillScreenMoving(0.5f, false);
         if (sprayBlood)
             FillScreenMoving(0.5f, true);
-        if (ms_splashDuration >= 0) {
-            if (ms_numDrops < int32_t(ms_drops.capacity() - 1)) {
+        if (ms_splashDuration >= 0)
+        {
+            if (ms_numDrops < int32_t(ms_drops.capacity() - 1))
+            {
                 RwV3d dist;
                 RwV3dSub(&dist, &ms_splashPoint, &ms_lastPos);
                 float f = RwV3dDotProduct(&dist, &dist);
@@ -404,7 +409,8 @@ public:
         WaterDrop* drop = moving->drop;
         if (!ms_movingEnabled)
             return;
-        if (!drop->active) {
+        if (!drop->active)
+        {
             moving->drop = NULL;
             ms_numDropsMoving--;
             return;
@@ -425,7 +431,8 @@ public:
         dx = drop->x - ms_fbWidth * 0.5f + ms_vec.x;
         dy = drop->y - ms_fbHeight * 0.5f - (ms_vec.y + randgravity);
         sum = fabs(dx) + fabs(dy);
-        if (sum >= 0.001f) {
+        if (sum >= 0.001f)
+        {
             dx *= (1.0f / sum);
             dy *= (1.0f / sum);
         }
@@ -441,7 +448,8 @@ public:
         drop->size -= (drop->size / 100.0f) * GetTimeStepInMilliseconds();
 
         if (drop->x < -(float)(SC(MaxSize)) || drop->y < -(float)(SC(MaxSize)) ||
-            drop->x >(ms_fbWidth + SC(MaxSize)) || drop->y >(ms_fbHeight + SC(MaxSize))) {
+            drop->x >(ms_fbWidth + SC(MaxSize)) || drop->y >(ms_fbHeight + SC(MaxSize)))
+        {
             moving->drop = NULL;
             ms_numDropsMoving--;
         }
@@ -494,7 +502,8 @@ public:
 
     static inline void NewTrace(WaterDropMoving* moving, float ttl)
     {
-        if (ms_numDrops < int32_t(ms_drops.capacity() - 1)) {
+        if (ms_numDrops < int32_t(ms_drops.capacity() - 1))
+        {
             moving->dist = 0.0f;
             PlaceNew(moving->drop->x, moving->drop->y, (float)(SC(MinSize)), ttl, 1, moving->drop->r, moving->drop->g, moving->drop->b);
         }
@@ -548,9 +557,11 @@ public:
             return;
 
         ms_numDrops = 0;
-        for (auto& drop : ms_drops) {
+        for (auto& drop : ms_drops)
+        {
             drop.active = 0;
-            if (&drop < &ms_drops[n]) {
+            if (&drop < &ms_drops[n])
+            {
                 float x = (float)(rand() % ms_fbWidth);
                 float y = (float)(rand() % ms_fbHeight);
                 float time = (float)(rand() % (SC(MaxSize) - SC(MinSize)) + SC(MinSize));
@@ -623,17 +634,20 @@ public:
     static inline int32_t ms_initialised = false;
     static inline bool ms_atlasUsed = true;
 
-    static inline void SetXUVScale(float offset, float scale) {
+    static inline void SetXUVScale(float offset, float scale)
+    {
         ms_UVXOffset = offset;
         ms_UVXScale = scale;
     }
 
-    static inline void SetYUVScale(float offset, float scale) {
+    static inline void SetYUVScale(float offset, float scale)
+    {
         ms_UVYOffset = offset;
         ms_UVYScale = scale;
     }
 
-    static inline void Shutdown() {
+    static inline void Shutdown()
+    {
         Reset();
     }
 
@@ -732,7 +746,8 @@ public:
 
         Sire::SetColor4f(drop->r / 255.0f, drop->g / 255.0f, drop->b / 255.0f, drop->alpha / 255.0f);
 
-        for (i = 0; i < 4; i++) {
+        for (i = 0; i < 4; i++)
+        {
             Sire::SetTexCoords4f(i >= 2 ? u1_2 : u1_1, i % 3 == 0 ? v1_2 : v1_1,
                 uv[drop->uv_index][i * 2], uv[drop->uv_index][i * 2 + 1]);
             Sire::SetVertex2f(drop->x + xy[i * 2] * scale + ms_xOff, drop->y + xy[i * 2 + 1] * scale + ms_yOff);
@@ -752,7 +767,8 @@ public:
             return;
 
         auto windowSize = Sire::GetWindowSize();
-        if (windowSize.x != ms_fbWidth || windowSize.y != ms_fbHeight) {
+        if (windowSize.x != ms_fbWidth || windowSize.y != ms_fbHeight)
+        {
             Reset();
             Sire::Shutdown();
             return;
@@ -781,12 +797,12 @@ public:
             Sire::SetRenderTarget(ms_renderTarget);
 
         Sire::Begin(Sire::SIRE_TRIANGLE);
-        
+
         ms_numBatchedDrops = 0;
         for (auto& drop : ms_drops)
             if (drop.active)
                 AddToRenderList(&drop);
-        
+
         Sire::SetIndices(ms_indexBuf, ms_numBatchedDrops * 6);
         Sire::End();
     }
@@ -796,7 +812,8 @@ void WaterDrop::Fade()
 {
     auto delta = WaterDrops::GetTimeStepInMilliseconds() * 100.0f;
     this->time += delta;
-    if (this->time >= this->ttl) {
+    if (this->time >= this->ttl)
+    {
         WaterDrops::ms_numDrops--;
         this->active = 0;
     }
@@ -811,10 +828,13 @@ bool IsModuleUAL(HMODULE mod)
     return false;
 }
 
-bool IsUALPresent() {
-    for (const auto& entry : std::stacktrace::current()) {
+bool IsUALPresent()
+{
+    for (const auto& entry : std::stacktrace::current())
+    {
         HMODULE hModule = NULL;
-        if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)entry.native_handle(), &hModule)) {
+        if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)entry.native_handle(), &hModule))
+        {
             if (IsModuleUAL(hModule))
                 return true;
         }
@@ -890,4 +910,28 @@ std::string pattern_str(T t, Rest... rest)
     else
         prefix = std::format("{:02X} ", t);
     return prefix + pattern_str(rest...);
+}
+
+template <size_t count = 1, typename... Args>
+hook::pattern find_pattern(Args... args)
+{
+    hook::pattern pattern;
+    ((pattern = hook::pattern(args), !pattern.count_hint(count).empty()) || ...);
+    return pattern;
+}
+
+template <size_t count = 1, typename... Args>
+hook::pattern find_module_pattern(HMODULE hModule, Args... args)
+{
+    hook::pattern pattern;
+    ((pattern = hook::module_pattern(hModule, args), !pattern.count_hint(count).empty()) || ...);
+    return pattern;
+}
+
+template <size_t count = 1, typename... Args>
+hook::pattern find_range_pattern(uintptr_t range_start, size_t range_size, Args... args)
+{
+    hook::pattern pattern;
+    ((pattern = hook::range_pattern(range_start, range_size, args), !pattern.count_hint(count).empty()) || ...);
+    return pattern;
 }

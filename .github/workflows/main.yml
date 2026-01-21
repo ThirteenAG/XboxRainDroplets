@@ -223,3 +223,10 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: gta3de
         artifacts: bin/GTA3DE.XboxRainDroplets.zip
+    - name: TrueCrimeNewYorkCity.XboxRainDroplets
+      uses: ./.github/workflows/release_tag
+      if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: tcnyc
+        artifacts: bin/TrueCrimeNewYorkCity.XboxRainDroplets.zip

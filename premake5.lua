@@ -142,6 +142,8 @@ project "GTA3DE.XboxRainDroplets"
    architecture "x64"
    add_kananlib()
    setpaths("Z:/WFP/Games/Grand Theft Auto The Definitive Edition/GTA III - Definitive Edition/", "Gameface/Binaries/Win64/LibertyCity.exe", "Gameface/Binaries/Win64/scripts/")
+project "TrueCrimeNewYorkCity.XboxRainDroplets"
+   setpaths("Z:/WFP/Games/True Crime New York City/", "True Crime New York City.exe", "scripts/")
 --tests
 --project "GTA3.XboxRainDroplets"
 --   setpaths("Z:/WFP/Games/Grand Theft Auto/GTAIII/", "gta3.exe", "scripts/")

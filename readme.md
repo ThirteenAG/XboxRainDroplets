@@ -134,6 +134,12 @@ Various ini settings allow to customize the appearance and can be edited while i
 
 ![gta3de](https://github.com/user-attachments/assets/79c92148-a348-4cbd-964a-e40e13d3aede)
 
+## True Crime New York City - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/tcnyc)
+
+#### Screen:
+
+![tcnyc](https://github.com/user-attachments/assets/b96cbf26-ea47-4d6c-84d8-17e020d97260)
+
 ## Other
 
 More plugins available on [appveyor artifacts page](https://ci.appveyor.com/project/ThirteenAG/xboxraindroplets/build/artifacts), but they are incomplete. It is not recommended to use them.
