@@ -126,6 +126,7 @@ void Init()
     {
         if (*nLoading != 0 || *bCutscene || *bPause)
         {
+            WaterDrops::ms_splashDuration = 0;
             WaterDrops::Clear();
             return;
         }
