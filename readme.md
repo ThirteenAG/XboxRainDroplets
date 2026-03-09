@@ -50,7 +50,7 @@ Various ini settings allow to customize the appearance and can be edited while i
 
 [![[PPSSPP] Xbox Rain Droplets Mod](https://img.youtube.com/vi/eREh5a8Q9Ds/maxresdefault.jpg)](https://www.youtube.com/watch?v=eREh5a8Q9Ds)
 
-## PCSX2F (GTA LCS / GTA VCS) - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/pcsx2f)
+## PCSX2F (GTA LCS / GTA VCS / True Crime New York City) - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/pcsx2f)
 
 #### Video (click on the image to go to YouTube):
 
