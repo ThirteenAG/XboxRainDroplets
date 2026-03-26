@@ -140,6 +140,12 @@ Various ini settings allow to customize the appearance and can be edited while i
 
 ![tcnyc](https://github.com/user-attachments/assets/b96cbf26-ea47-4d6c-84d8-17e020d97260)
 
+## King Kong Gamers Edition - [Download Link](https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/kingkong)
+
+#### Screen:
+
+![kingkong](https://github.com/user-attachments/assets/f7363c93-d8bb-4271-9ebc-a08528084baf)
+
 ## Other
 
 More plugins available on [appveyor artifacts page](https://ci.appveyor.com/project/ThirteenAG/xboxraindroplets/build/artifacts), but they are incomplete. It is not recommended to use them.
