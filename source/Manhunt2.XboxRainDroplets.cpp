@@ -7,7 +7,7 @@ namespace Manhunt2
 
     static constexpr uintptr_t kRenderHook = 0x005C5FE5; // CALL RslScreenSpaceEnd after RenderBloodDrops in CScene::Render.
     static constexpr uintptr_t kScreenSpaceEnd = 0x0060CEB0;
-    static constexpr uintptr_t kResetD3DDevice = 0x00000000; // Candidate function: 0x00409130. Need an internal callsite/prologue-safe hook.
+    static constexpr uintptr_t kResetD3DDevice = 0x00000000; // Not needed since we use TestCooperativeLevel to fix render device loss
     static constexpr uintptr_t kGetD3DDevice = 0x00404010;
 
     static constexpr uintptr_t kSceneCamera = 0x00789488;
@@ -25,6 +25,7 @@ namespace Manhunt2
     static inline RwV3d lastRawCameraPos = { 0.0f, 0.0f, 0.0f };
     static inline RwV3d scaledCameraPos = { 0.0f, 0.0f, 0.0f };
     static inline bool bCameraPositionInitialized = false;
+    static inline bool bDeviceReady = true;
 
     static constexpr uintptr_t kCreateFxSystemCalls[] = {
         0x00000000,
@@ -43,6 +44,33 @@ namespace Manhunt2
     static void ScreenSpaceEnd()
     {
         ((ScreenSpaceEndFn)kScreenSpaceEnd)();
+    }
+
+    static void ResetWaterDrops()
+    {
+        WaterDrops::Reset();
+        bCameraPositionInitialized = false;
+    }
+
+    static bool IsDeviceReady(LPDIRECT3DDEVICE pDevice)
+    {
+        if (!pDevice)
+            return false;
+
+        auto hr = pDevice->TestCooperativeLevel();
+        if (hr == D3D_OK)
+        {
+            bDeviceReady = true;
+            return true;
+        }
+
+        if (bDeviceReady)
+        {
+            ResetWaterDrops();
+            bDeviceReady = false;
+        }
+
+        return false;
     }
 
     static void ScaleCameraMovement(RwMatrix& matrix)
@@ -164,7 +192,7 @@ void Init()
             void operator()(injector::reg_pack& regs)
             {
                 auto pDevice = Manhunt2::GetD3DDevice();
-                if (pDevice)
+                if (Manhunt2::IsDeviceReady(pDevice))
                 {
                     RwMatrix matrix;
                     Manhunt2::GetCameraMatrix(matrix);
@@ -190,7 +218,8 @@ void Init()
         {
             void operator()(injector::reg_pack& regs)
             {
-                WaterDrops::Reset();
+                Manhunt2::ResetWaterDrops();
+                Manhunt2::bDeviceReady = false;
             }
         }; injector::MakeInline<ResetHook>(Manhunt2::kResetD3DDevice);
     }
