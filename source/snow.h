@@ -18,9 +18,15 @@ class CSnow
         float yChange;
 
         // Rain-specific extras (unused for snow)
-        float fallSpeed; // units/sec
-        float length;    // half-length in view space units
-        uint32_t color;  // ARGB
+        float fallSpeed;   // units/sec
+        float length;      // base half-length in world units
+        uint32_t color;    // ARGB
+        float gustPhaseX;  // per-drop smooth gust phase
+        float gustPhaseY;
+        float gustFreqX;   // per-drop smooth gust frequency
+        float gustFreqY;
+        float shimmerPhase;
+        float shimmerFreq;
     };
 
     class CBox
@@ -68,10 +74,21 @@ public:
     static inline float RainMinLength = 0.35f;    // world-space half-length of streak
     static inline float RainMaxLength = 1.00f;    // world-space half-length of streak
     static inline float RainWidth = 0.025f;       // world-space half-width of streak
-    static inline float RainWindX = 5.0f;    // world-space wind (x) units/sec
-    static inline float RainWindY = 2.0f;    // world-space wind (y) units/sec
-    static inline uint8_t RainMinAlpha = 0x66;    // ARGB alpha range
-    static inline uint8_t RainMaxAlpha = 0xAA;
+    static inline float RainWindX = 5.0f;             // world-space wind (x) units/sec
+    static inline float RainWindY = 2.0f;             // world-space wind (y) units/sec
+    static inline float RainGustStrengthX = 4.5f;     // smooth per-drop gust amplitude (x)
+    static inline float RainGustStrengthY = 3.0f;     // smooth per-drop gust amplitude (y)
+    static inline float RainMacroGustStrengthX = 1.6f; // coherent field gust amplitude (x)
+    static inline float RainMacroGustStrengthY = 1.1f; // coherent field gust amplitude (y)
+    static inline float RainLodNear = 8.0f;           // camera-distance LOD near
+    static inline float RainLodFar = 70.0f;           // camera-distance LOD far
+    static inline float RainNearDropDistance = 13.0f; // where larger near drops can appear
+    static inline float RainNearDropChance = 0.08f;   // chance for occasional fat near streaks
+    static inline float RainNearDropWidthMul = 1.9f;
+    static inline float RainNearDropLengthMul = 1.35f;
+    static inline float RainNearDropAlphaMul = 1.30f;
+    static inline uint8_t RainMinAlpha = 0x66;        // ARGB alpha range
+    static inline uint8_t RainMaxAlpha = 0x99;
 
 public:
     static inline void openIm3D(LPDIRECT3DDEVICE9 pDev)
@@ -230,6 +247,9 @@ public:
             return static_cast<float>(dis(gen));
         };
 
+        static float RainTime = 0.0f;
+        RainTime += *fTimeStep;
+
         if (!ms_initialised)
         {
             ms_fbWidth = Width;
@@ -334,6 +354,14 @@ public:
                     snowArray[i].pos.x = snowBox.min.x + ((snowBox.max.x - snowBox.min.x) * (GetRandomFloat() / (float)RAND_MAX));
                     snowArray[i].pos.y = snowBox.min.y + ((snowBox.max.y - snowBox.min.y) * (GetRandomFloat() / (float)RAND_MAX));
                     snowArray[i].pos.z = snowBox.min.z + ((snowBox.max.z - snowBox.min.z) * (GetRandomFloat() / (float)RAND_MAX));
+
+                    if (swapWithRain)
+                    {
+                        // Bias rain spawn slightly in front of camera.
+                        snowArray[i].pos.x += camMatrix->at.x * 12.0f;
+                        snowArray[i].pos.y += camMatrix->at.y * 12.0f;
+                    }
+
                     snowArray[i].xChange = 0.0f;
                     snowArray[i].yChange = 0.0f;
 
@@ -343,9 +371,14 @@ public:
                     snowArray[i].length = RainMinLength + (RainMaxLength - RainMinLength) * spdNorm;
                     uint8_t alpha = (uint8_t)(RainMinAlpha + (RainMaxAlpha - RainMinAlpha) * spdNorm);
                     snowArray[i].color = (uint32_t(alpha) << 24) | 0x00FFFFFF;
-                    // gusts
-                    snowArray[i].xChange = (GetRandomFloat(2.0f) - 1.0f) * 3.0f;
-                    snowArray[i].yChange = (GetRandomFloat(2.0f) - 1.0f) * 2.0f;
+
+                    // Smooth per-drop gust profile.
+                    snowArray[i].gustPhaseX = GetRandomFloat(6.28318f);
+                    snowArray[i].gustPhaseY = GetRandomFloat(6.28318f);
+                    snowArray[i].gustFreqX = 0.5f + GetRandomFloat(1.0f) * 1.1f;
+                    snowArray[i].gustFreqY = 0.4f + GetRandomFloat(1.0f) * 0.9f;
+                    snowArray[i].shimmerPhase = GetRandomFloat(6.28318f);
+                    snowArray[i].shimmerFreq = 1.2f + GetRandomFloat(1.0f) * 2.2f;
                 }
             }
 
@@ -415,22 +448,25 @@ public:
                 }
                 else
                 {
-                    // RAIN: move down fast, drift with wind and gusts
-                    float speed = snowArray[i].fallSpeed; // units/sec
-                    // Fall along -Z (consistent with original vertical handling)
-                    zPos -= speed * dt;
+                    // RAIN: move down fast, drift with coherent macro gust + smooth per-drop gusts
+                    const float macroPhase = RainTime * 0.35f + (xPos + yPos) * 0.035f;
+                    const float macroGustX = sinf(macroPhase) * RainMacroGustStrengthX;
+                    const float macroGustY = cosf(macroPhase * 1.13f) * RainMacroGustStrengthY;
 
-                    // Horizontal wind + per-drop gusts
-                    xPos += (RainWindX + xChangeRate) * dt;
-                    yPos += (RainWindY + yChangeRate) * dt;
+                    const float gustX = sinf(RainTime * snowArray[i].gustFreqX + snowArray[i].gustPhaseX) * RainGustStrengthX;
+                    const float gustY = sinf(RainTime * snowArray[i].gustFreqY + snowArray[i].gustPhaseY) * RainGustStrengthY;
 
-                    // mild time-varying gusts
-                    xChangeRate += (GetRandomFloat(0.5f) - 0.25f) * dt * 2.0f;
-                    yChangeRate += (GetRandomFloat(0.5f) - 0.25f) * dt * 2.0f;
+                    const float windX = RainWindX + macroGustX + gustX;
+                    const float windY = RainWindY + macroGustY + gustY;
+                    xChangeRate = windX;
+                    yChangeRate = windY;
 
-                    // clamp gust magnitudes a bit
-                    xChangeRate = clamp(xChangeRate, -6.0f, 6.0f);
-                    yChangeRate = clamp(yChangeRate, -5.0f, 5.0f);
+                    const float shimmer = 0.90f + 0.18f * sinf(RainTime * snowArray[i].shimmerFreq + snowArray[i].shimmerPhase);
+                    float speed = snowArray[i].fallSpeed * shimmer; // units/sec
+                    zPos -= speed * dt; // fall along -Z
+
+                    xPos += xChangeRate * dt;
+                    yPos += yChangeRate * dt;
                 }
 
                 // Wrap/respawn in the local volume
@@ -439,18 +475,29 @@ public:
                 {
                     if (swapWithRain)
                     {
-                        // Respawn at top with new attributes for variation
+                        // Respawn at top with forward-biased placement and new attributes.
                         zPos = snowBox.max.z;
                         xPos = snowBox.min.x + ((snowBox.max.x - snowBox.min.x) * (GetRandomFloat() / (float)RAND_MAX));
                         yPos = snowBox.min.y + ((snowBox.max.y - snowBox.min.y) * (GetRandomFloat() / (float)RAND_MAX));
+
+                        // Frustum-ish bias: keep more particles in front of camera.
+                        xPos += camMatrix->at.x * 10.0f;
+                        yPos += camMatrix->at.y * 10.0f;
 
                         float spdNorm = GetRandomFloat(1.0f);
                         snowArray[i].fallSpeed = RainMinSpeed + (RainMaxSpeed - RainMinSpeed) * spdNorm;
                         snowArray[i].length = RainMinLength + (RainMaxLength - RainMinLength) * spdNorm;
                         uint8_t alpha = (uint8_t)(RainMinAlpha + (RainMaxAlpha - RainMinAlpha) * spdNorm);
                         snowArray[i].color = (uint32_t(alpha) << 24) | 0x00FFFFFF;
-                        snowArray[i].xChange = (GetRandomFloat(2.0f) - 1.0f) * 3.0f;
-                        snowArray[i].yChange = (GetRandomFloat(2.0f) - 1.0f) * 2.0f;
+
+                        snowArray[i].gustPhaseX = GetRandomFloat(6.28318f);
+                        snowArray[i].gustPhaseY = GetRandomFloat(6.28318f);
+                        snowArray[i].gustFreqX = 0.5f + GetRandomFloat(1.0f) * 1.1f;
+                        snowArray[i].gustFreqY = 0.4f + GetRandomFloat(1.0f) * 0.9f;
+                        snowArray[i].shimmerPhase = GetRandomFloat(6.28318f);
+                        snowArray[i].shimmerFreq = 1.2f + GetRandomFloat(1.0f) * 2.2f;
+                        snowArray[i].xChange = 0.0f;
+                        snowArray[i].yChange = 0.0f;
                     }
                     else
                     {
@@ -507,22 +554,36 @@ public:
                     // it foreshortens naturally when viewed from any angle (dots when looking
                     // straight down, long streaks when looking horizontally).
 
-                    float halfWidth = RainWidth;
-                    float halfLen = snowArray[i].length;
+                    // Distance-based LOD + speed-based stretching.
+                    float cdx = xPos - camMatrix->pos.x;
+                    float cdy = yPos - camMatrix->pos.y;
+                    float cdz = zPos - camMatrix->pos.z;
+                    float dist = sqrtf(cdx * cdx + cdy * cdy + cdz * cdz);
+                    float lodT = clamp((dist - RainLodNear) / (RainLodFar - RainLodNear), 0.0f, 1.0f);
+
+                    const float speedNorm = clamp((snowArray[i].fallSpeed - RainMinSpeed) / (RainMaxSpeed - RainMinSpeed), 0.0f, 1.0f);
+                    float halfWidth = RainWidth * (1.20f - 0.55f * lodT); // thinner at distance
+                    float halfLen = snowArray[i].length * (0.90f + speedNorm * 0.85f) * (0.95f + lodT * 0.35f);
+
+                    // Occasional larger near-camera drops.
+                    const float nearDropRnd = GetRandomFloat(1.0f);
+                    const bool isNearFatDrop = (dist < RainNearDropDistance) && (nearDropRnd < RainNearDropChance);
+                    if (isNearFatDrop)
+                    {
+                        halfWidth *= RainNearDropWidthMul;
+                        halfLen *= RainNearDropLengthMul;
+                    }
 
                     // --- fall velocity direction in world space (Z-up world) ---
-                    float vx = RainWindX + snowArray[i].xChange;
-                    float vy = RainWindY + snowArray[i].yChange;
+                    float vx = snowArray[i].xChange;
+                    float vy = snowArray[i].yChange;
                     float vz = -snowArray[i].fallSpeed;
                     float vlen = sqrtf(vx * vx + vy * vy + vz * vz);
                     if (vlen < 0.001f) vlen = 0.001f;
                     float fdx = vx / vlen, fdy = vy / vlen, fdz = vz / vlen; // fall dir (world)
 
                     // --- camera-to-drop direction in world space ---
-                    float cdx = xPos - camMatrix->pos.x;
-                    float cdy = yPos - camMatrix->pos.y;
-                    float cdz = zPos - camMatrix->pos.z;
-                    float clen = sqrtf(cdx * cdx + cdy * cdy + cdz * cdz);
+                    float clen = dist;
                     if (clen < 0.001f) clen = 0.001f;
                     cdx /= clen; cdy /= clen; cdz /= clen;
 
@@ -556,7 +617,20 @@ public:
                     float wl_a = wx * camMatrix->at.x + wy * camMatrix->at.y + wz * camMatrix->at.z;
 
                     Im3DVertex v[6];
-                    const uint32_t col = snowArray[i].color;
+
+                    // Subtle brightness/alpha shaping by distance and view angle.
+                    float facing = fabsf(fdx * cdx + fdy * cdy + fdz * cdz);
+                    float nearFade = 1.0f - lodT * 0.55f;
+                    const float shimmer = 0.88f + 0.22f * sinf(RainTime * snowArray[i].shimmerFreq + snowArray[i].shimmerPhase);
+                    float sparkle = (0.84f + (1.0f - facing) * 0.20f) * shimmer;
+
+                    uint8_t baseA = uint8_t((snowArray[i].color >> 24) & 0xFF);
+                    float alphaScale = nearFade * shimmer;
+                    if (isNearFatDrop)
+                        alphaScale *= RainNearDropAlphaMul;
+                    uint8_t outA = (uint8_t)clamp(baseA * alphaScale, 25.0f, 255.0f);
+                    uint8_t outRGB = (uint8_t)clamp(230.0f * sparkle, 0.0f, 255.0f);
+                    const uint32_t col = (uint32_t(outA) << 24) | (uint32_t(outRGB) << 16) | (uint32_t(outRGB) << 8) | uint32_t(outRGB);
 
                     // top-right, top-left, bot-left, top-right, bot-right, bot-left
                     v[0] = { RwV3d(wl_r * halfWidth + fl_r * halfLen,  wl_u * halfWidth + fl_u * halfLen,  wl_a * halfWidth + fl_a * halfLen), RwV3d(), col, 1.0f, 0.0f };
