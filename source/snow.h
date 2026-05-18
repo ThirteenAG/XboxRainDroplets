@@ -65,9 +65,9 @@ public:
     // Rain tuning parameters (static so they can be tweaked externally if needed)
     static inline float RainMinSpeed = 22.0f;     // units/sec
     static inline float RainMaxSpeed = 48.0f;     // units/sec
-    static inline float RainMinLength = 0.20f;    // in view-space length units (half-length)
-    static inline float RainMaxLength = 0.60f;    // "
-    static inline float RainWidth = 0.0065f; // half-width in view-space
+    static inline float RainMinLength = 0.35f;    // world-space half-length of streak
+    static inline float RainMaxLength = 1.00f;    // world-space half-length of streak
+    static inline float RainWidth = 0.025f;       // world-space half-width of streak
     static inline float RainWindX = 5.0f;    // world-space wind (x) units/sec
     static inline float RainWindY = 2.0f;    // world-space wind (y) units/sec
     static inline uint8_t RainMinAlpha = 0x66;    // ARGB alpha range
@@ -99,7 +99,8 @@ public:
 
     static inline void Reset()
     {
-        auto SafeRelease = [](auto ppT) {
+        auto SafeRelease = [](auto ppT)
+        {
             if (*ppT)
             {
                 (*ppT)->Release();
@@ -142,22 +143,23 @@ public:
         pDev->SetIndices(im3dindbuf);
 
         uint32_t primCount = 0;
-        switch (primType) {
-        case D3DPT_LINELIST:
-            primCount = numIndices / 2;
-            break;
-        case D3DPT_TRIANGLELIST:
-            primCount = numIndices / 3;
-            break;
-        case D3DPT_TRIANGLESTRIP:
-            primCount = numIndices - 2;
-            break;
-        case D3DPT_TRIANGLEFAN:
-            primCount = numIndices - 2;
-            break;
-        case D3DPT_POINTLIST:
-            primCount = numIndices;
-            break;
+        switch (primType)
+        {
+            case D3DPT_LINELIST:
+                primCount = numIndices / 2;
+                break;
+            case D3DPT_TRIANGLELIST:
+                primCount = numIndices / 3;
+                break;
+            case D3DPT_TRIANGLESTRIP:
+                primCount = numIndices - 2;
+                break;
+            case D3DPT_TRIANGLEFAN:
+                primCount = numIndices - 2;
+                break;
+            case D3DPT_POINTLIST:
+                primCount = numIndices;
+                break;
         }
         pDev->DrawIndexedPrimitive(primType, 0, 0, num3DVertices, 0, primCount);
     }
@@ -500,26 +502,69 @@ public:
                 }
                 else
                 {
-                    // RAIN: build per-drop stretched, slightly slanted quad in view space
-                    // Width is constant; length scales with speed for "motion blur" feel
-                    float halfWidth = RainWidth;
-                    float halfLen = snowArray[i].length + snowArray[i].fallSpeed * 0.0045f;
+                    // RAIN: 3D velocity-aligned billboard
+                    // The streak is oriented along its actual world-space velocity vector so
+                    // it foreshortens naturally when viewed from any angle (dots when looking
+                    // straight down, long streaks when looking horizontally).
 
-                    // Slant proportionally to horizontal velocity onto screen X
-                    float slant = (RainWindX + snowArray[i].xChange) * 0.004f;
+                    float halfWidth = RainWidth;
+                    float halfLen = snowArray[i].length;
+
+                    // --- fall velocity direction in world space (Z-up world) ---
+                    float vx = RainWindX + snowArray[i].xChange;
+                    float vy = RainWindY + snowArray[i].yChange;
+                    float vz = -snowArray[i].fallSpeed;
+                    float vlen = sqrtf(vx * vx + vy * vy + vz * vz);
+                    if (vlen < 0.001f) vlen = 0.001f;
+                    float fdx = vx / vlen, fdy = vy / vlen, fdz = vz / vlen; // fall dir (world)
+
+                    // --- camera-to-drop direction in world space ---
+                    float cdx = xPos - camMatrix->pos.x;
+                    float cdy = yPos - camMatrix->pos.y;
+                    float cdz = zPos - camMatrix->pos.z;
+                    float clen = sqrtf(cdx * cdx + cdy * cdy + cdz * cdz);
+                    if (clen < 0.001f) clen = 0.001f;
+                    cdx /= clen; cdy /= clen; cdz /= clen;
+
+                    // --- width axis = cross(fallDir, viewDir), gives a vector perpendicular
+                    //     to the streak that always faces the camera ---
+                    float wx = fdy * cdz - fdz * cdy;
+                    float wy = fdz * cdx - fdx * cdz;
+                    float wz = fdx * cdy - fdy * cdx;
+                    float wlen = sqrtf(wx * wx + wy * wy + wz * wz);
+                    if (wlen < 0.001f)
+                    {
+                        // fallDir nearly parallel to viewDir (drop falling straight at us):
+                        // use camera right as width axis instead
+                        wx = camMatrix->right.x; wy = camMatrix->right.y; wz = camMatrix->right.z;
+                        wlen = 1.0f;
+                    }
+                    wx /= wlen; wy /= wlen; wz /= wlen;
+
+                    // --- project both axes into camera local space so im3DTransform
+                    //     (which applies the camera matrix as World) positions them correctly.
+                    //     cam axes: right, up, at  (row vectors of the view basis) ---
+
+                    // fall axis in camera local
+                    float fl_r = fdx * camMatrix->right.x + fdy * camMatrix->right.y + fdz * camMatrix->right.z;
+                    float fl_u = fdx * camMatrix->up.x + fdy * camMatrix->up.y + fdz * camMatrix->up.z;
+                    float fl_a = fdx * camMatrix->at.x + fdy * camMatrix->at.y + fdz * camMatrix->at.z;
+
+                    // width axis in camera local
+                    float wl_r = wx * camMatrix->right.x + wy * camMatrix->right.y + wz * camMatrix->right.z;
+                    float wl_u = wx * camMatrix->up.x + wy * camMatrix->up.y + wz * camMatrix->up.z;
+                    float wl_a = wx * camMatrix->at.x + wy * camMatrix->at.y + wz * camMatrix->at.z;
 
                     Im3DVertex v[6];
                     const uint32_t col = snowArray[i].color;
 
-                    // top
-                    v[0] = { RwV3d(+halfWidth, +halfLen, 0.0f), RwV3d(), col, 1.0f, 0.0f };
-                    v[1] = { RwV3d(-halfWidth, +halfLen, 0.0f), RwV3d(), col, 0.0f, 0.0f };
-                    // bottom (slanted)
-                    v[2] = { RwV3d(-halfWidth + slant, -halfLen, 0.0f), RwV3d(), col, 0.0f, 1.0f };
-                    // re-emit for tri list
-                    v[3] = { RwV3d(+halfWidth, +halfLen, 0.0f), RwV3d(), col, 1.0f, 0.0f };
-                    v[4] = { RwV3d(+halfWidth + slant, -halfLen, 0.0f), RwV3d(), col, 1.0f, 1.0f };
-                    v[5] = { RwV3d(-halfWidth + slant, -halfLen, 0.0f), RwV3d(), col, 0.0f, 1.0f };
+                    // top-right, top-left, bot-left, top-right, bot-right, bot-left
+                    v[0] = { RwV3d(wl_r * halfWidth + fl_r * halfLen,  wl_u * halfWidth + fl_u * halfLen,  wl_a * halfWidth + fl_a * halfLen), RwV3d(), col, 1.0f, 0.0f };
+                    v[1] = { RwV3d(-wl_r * halfWidth + fl_r * halfLen, -wl_u * halfWidth + fl_u * halfLen, -wl_a * halfWidth + fl_a * halfLen), RwV3d(), col, 0.0f, 0.0f };
+                    v[2] = { RwV3d(-wl_r * halfWidth - fl_r * halfLen, -wl_u * halfWidth - fl_u * halfLen, -wl_a * halfWidth - fl_a * halfLen), RwV3d(), col, 0.0f, 1.0f };
+                    v[3] = { RwV3d(wl_r * halfWidth + fl_r * halfLen,  wl_u * halfWidth + fl_u * halfLen,  wl_a * halfWidth + fl_a * halfLen), RwV3d(), col, 1.0f, 0.0f };
+                    v[4] = { RwV3d(wl_r * halfWidth - fl_r * halfLen,  wl_u * halfWidth - fl_u * halfLen,  wl_a * halfWidth - fl_a * halfLen), RwV3d(), col, 1.0f, 1.0f };
+                    v[5] = { RwV3d(-wl_r * halfWidth - fl_r * halfLen, -wl_u * halfWidth - fl_u * halfLen, -wl_a * halfWidth - fl_a * halfLen), RwV3d(), col, 0.0f, 1.0f };
 
                     im3DTransform(pDev, viewMatrix, (void*)v, ARRAY_SIZE(v), (RwMatrix*)&mat, 1);
                     im3DRenderIndexedPrimitive(pDev, D3DPT_TRIANGLELIST, (void*)snowRenderOrder, ARRAY_SIZE(snowRenderOrder));
