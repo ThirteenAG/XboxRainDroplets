@@ -66,9 +66,38 @@ jobs:
     - name: Update Tags
       continue-on-error: true
       if: ${{ github.event_name == 'push' && github.ref_name == 'master' }}
-      uses: ThirteenAG/update-tags@v3
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: actions/github-script@v9
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const sha = process.env.GITHUB_SHA
+          if (!sha) {
+            core.setFailed('Missing GITHUB_SHA')
+            return
+          }
+
+          const tags = await github.paginate(github.rest.repos.listTags, {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            per_page: 100
+          })
+
+          if (!tags.length) {
+            core.info('No tags found to update.')
+            return
+          }
+
+          for (const tag of tags) {
+            const tagName = tag.name
+            core.info(`Updating ${tagName} -> ${sha}`)
+            await github.rest.git.updateRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `tags/${tagName}`,
+              sha,
+              force: true
+            })
+          }
     - name: GTAIV.XboxRainDroplets
       uses: ./.github/workflows/release_tag
       if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
