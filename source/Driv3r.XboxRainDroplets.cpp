@@ -15,20 +15,20 @@ void Init()
     WaterDrops::ReadIniSettings();
 
     RegisterFountains();
-    
+
     WaterDrops::ms_rainIntensity = 0.0f;
 
     static auto ppDevice = *hook::get_pattern<uint32_t>("B8 ? ? ? ? 89 9F", 1);
     static auto pCamMatrix = *hook::get_pattern<uint32_t>("BF ? ? ? ? F3 A5 89 1D ? ? ? ? 8B 4D B8", 1);
     static uint32_t* bRainCheck = nullptr;
-    
+
     auto pattern = hook::pattern("A1 ? ? ? ? 8B 10 50");
     static auto dword_8AFA60 = *pattern.get_first<uint32_t*>(1);
     struct EndSceneHook
     {
         void operator()(injector::reg_pack& regs)
         {
-            regs.eax = *(uint32_t*)(dword_8AFA60) ;
+            regs.eax = *(uint32_t*)(dword_8AFA60);
             //WaterDrops::ms_rainIntensity = 0.0f;            
         }
     }; injector::MakeInline<EndSceneHook>(pattern.get_first(0));
@@ -102,20 +102,20 @@ void Init()
                 (*(void(__stdcall**)(int, int, int))(*(int*)*(int*)dw8AFA60 + 260))(*(int*)dw8AFA60, 3, 0);
 
                 auto pDevice = *(LPDIRECT3DDEVICE9*)(ppDevice + 0x158);
-                
+
                 auto right = *(RwV3d*)(pCamMatrix + 0x00);
                 auto up = *(RwV3d*)(pCamMatrix + 0x10);
                 auto at = *(RwV3d*)(pCamMatrix + 0x20);
                 auto pos = *(RwV3d*)(pCamMatrix + 0x30);
-                
+
                 WaterDrops::right = { -right.x, -right.z, -right.y };
                 WaterDrops::up = { up.x, up.z, up.y };
                 WaterDrops::at = { at.x, at.z, at.y };
                 WaterDrops::pos = { pos.x, pos.z, pos.y };
-                
+
                 WaterDrops::Process(pDevice);
                 WaterDrops::Render(pDevice);
-                
+
                 {
                     static RwMatrix camMatrix;
                     camMatrix.right.x = -WaterDrops::right.x;
