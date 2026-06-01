@@ -139,6 +139,15 @@ void Init()
         WaterDrops::Render(pDevice);
         WaterDrops::ms_rainIntensity = 0.0f;
     });
+
+    pattern = hook::pattern("8B 10 6A ? 50 FF 92 ? ? ? ? 8B 86 ? ? ? ? 39 A8 ? ? ? ? 74 ? 55 89 A8 ? ? ? ? 8B 80 ? ? ? ? ? ? 6A 04");
+    static auto RenderHookHDR = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
+    {
+        IDirect3DDevice9* pDevice = (IDirect3DDevice9*)(regs.eax);
+        WaterDrops::Process(pDevice);
+        WaterDrops::Render(pDevice);
+        WaterDrops::ms_rainIntensity = 0.0f;
+    });
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()
