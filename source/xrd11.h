@@ -18,6 +18,7 @@
 #include "includes/ModuleList.hpp"
 #include "includes/FileWatch.hpp"
 #include "includes/callbacks.h"
+#include "includes/gameref.hpp"
 
 #define SIRE_INCLUDE_MINIMAL_DEPENDECIES
 #define SIRE_DX9
@@ -30,25 +31,6 @@
 #define SIRE_INCLUDE_DX11ON12
 #include "sire.h"
 #include "dropmask.h"
-
-template<typename T>
-class GameRef
-{
-private:
-    static inline T placeholder{};
-    std::reference_wrapper<T> ref;
-
-public:
-    GameRef() : ref(std::ref(placeholder)) {}
-
-    void SetAddress(auto addr)
-    {
-        ref = std::ref(*reinterpret_cast<T*>(addr));
-    }
-
-    T& get() { return ref.get(); }
-    operator T& () { return ref.get(); }
-};
 
 struct RwV3d
 {
