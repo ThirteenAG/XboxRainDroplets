@@ -649,7 +649,7 @@ public:
     static inline int32_t ms_numBatchedDrops;
     static inline int32_t ms_initialised;
     static inline bool ms_atlasUsed = true;
-
+#if(DIRECT3D_VERSION >= 0x0900)
     static inline bool TryGetBackBuffer(LPDIRECT3DDEVICE pDevice, D3DSURFACE_DESC* desc)
     {
         HRESULT hr;
@@ -704,7 +704,7 @@ public:
         OutputDebugStringA("Error: All methods failed to get backbuffer\n");
         return false;
     }
-
+#endif
     static inline void InitialiseRender(LPDIRECT3DDEVICE pDevice)
     {
         ms_drops.resize(MaxDrops);
@@ -742,10 +742,15 @@ public:
         ibuf->Unlock();
 
         D3DSURFACE_DESC d3dsDesc;
+#if(DIRECT3D_VERSION >= 0x0900)
         if (!TryGetBackBuffer(pDevice, &d3dsDesc)) {
             OutputDebugStringA("Error: Failed to get backbuffer description\n");
             return;
         }
+#else
+        pDevice->GetBackBuffer(0, D3DBACKBUFFER_TYPE_MONO, &ms_bbuf);
+        ms_bbuf->GetDesc(&d3dsDesc);
+#endif
 #if(DIRECT3D_VERSION < 0x0900)
         pDevice->CreateTexture(d3dsDesc.Width, d3dsDesc.Height, 1, D3DUSAGE_RENDERTARGET, d3dsDesc.Format, D3DPOOL_DEFAULT, &ms_tex);
         #else
