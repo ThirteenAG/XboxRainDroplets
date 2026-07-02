@@ -664,7 +664,7 @@ public:
         if (SUCCEEDED(hr) && ms_bbuf) {
             hr = ms_bbuf->GetDesc(desc);
             if (SUCCEEDED(hr)) {
-                printf("Debug: Method 1 succeeded\n");
+                OutputDebugStringA("Debug: Method 1 succeeded\n");
                 return true;
             }
             ms_bbuf->Release();
@@ -680,7 +680,7 @@ public:
                 hr = ms_bbuf->GetDesc(desc);
                 if (SUCCEEDED(hr)) {
                     swapChain->Release();
-                    printf("Debug: Method 2 succeeded\n");
+                    OutputDebugStringA("Debug: Method 2 succeeded\n");
                     return true;
                 }
                 ms_bbuf->Release();
@@ -694,14 +694,14 @@ public:
         if (SUCCEEDED(hr) && ms_bbuf) {
             hr = ms_bbuf->GetDesc(desc);
             if (SUCCEEDED(hr)) {
-                printf("Debug: Method 3 succeeded\n");
+                OutputDebugStringA("Debug: Method 3 succeeded\n");
                 return true;
             }
             ms_bbuf->Release();
             ms_bbuf = nullptr;
         }
 
-        printf("Error: All methods failed to get backbuffer\n");
+        OutputDebugStringA("Error: All methods failed to get backbuffer\n");
         return false;
     }
 
@@ -743,12 +743,9 @@ public:
 
         D3DSURFACE_DESC d3dsDesc;
         if (!TryGetBackBuffer(pDevice, &d3dsDesc)) {
-            printf("Error: Failed to get backbuffer description\n");
+            OutputDebugStringA("Error: Failed to get backbuffer description\n");
             return;
         }
-
-        printf("Debug: Got backbuffer - Width=%d, Height=%d, Format=%d\n",
-            d3dsDesc.Width, d3dsDesc.Height, d3dsDesc.Format);
 #if(DIRECT3D_VERSION < 0x0900)
         pDevice->CreateTexture(d3dsDesc.Width, d3dsDesc.Height, 1, D3DUSAGE_RENDERTARGET, d3dsDesc.Format, D3DPOOL_DEFAULT, &ms_tex);
         #else
