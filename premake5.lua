@@ -146,6 +146,8 @@ project "TrueCrimeNewYorkCity.XboxRainDroplets"
    setpaths("Z:/WFP/Games/True Crime New York City/", "True Crime New York City.exe", "scripts/")
 project "KingKongGamersEdition.XboxRainDroplets"
    setpaths("Z:/WFP/Games/King Kong Gamers Edition/", "KingKong8.exe", "scripts/")
+project "SR2.XboxRainDroplets"
+   setpaths("Z:/WFP/Games/Saints Row 2", "SR2_pc.exe", "scripts/")
 --tests
 --project "GTA3.XboxRainDroplets"
 --   setpaths("Z:/WFP/Games/Grand Theft Auto/GTAIII/", "gta3.exe", "scripts/")
