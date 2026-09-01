@@ -533,6 +533,31 @@ public:
         }
     }
 
+    static inline void FillScreenMovingColor(float amount, int R = 0xFF, int G = 0xFF, int B = 0xFF)
+    {
+        if (ms_StaticRain)
+            amount = 1.0f;
+
+        int32_t n = int32_t((ms_vec.z <= 5.0f ? 1.0f : 1.5f) * amount * 20.0f);
+        WaterDrop* drop;
+
+        while (n--)
+        {
+            if (ms_numDrops < int32_t(ms_drops.capacity() - 1) && ms_numDropsMoving < int32_t(ms_dropsMoving.capacity() - 1))
+            {
+                float x = GetRandomFloat((float)ms_fbWidth);
+                float y = GetRandomFloat((float)ms_fbHeight);
+                float size = GetRandomFloat((float)(SC(MaxSize) - SC(MinSize)) + SC(MinSize));
+                float ttl = GetRandomFloat((float)(8000.0f));
+                if (ttl < 2000.0f)
+                    ttl = 2000.0f;
+                    drop = PlaceNew(x, y, size, ttl, 1, R,G,B);
+                if (drop)
+                    NewDropMoving(drop);
+            }
+        }
+    }
+
     static inline void FillScreen(int n)
     {
         if (!ms_initialised)

@@ -544,6 +544,31 @@ public:
         }
     }
 
+    static inline void FillScreenMovingColor(float amount, int R = 0xFF, int G = 0xFF, int B = 0xFF)
+    {
+        if (ms_StaticRain)
+            amount = 1.0f;
+
+        int32_t n = int32_t((ms_vec.z <= 5.0f ? 1.0f : 1.5f) * amount * 20.0f);
+        WaterDrop* drop;
+
+        while (n--)
+        {
+            if (ms_numDrops < int32_t(ms_drops.capacity() - 1) && ms_numDropsMoving < int32_t(ms_dropsMoving.capacity() - 1))
+            {
+                float x = GetRandomFloat((float)ms_fbWidth);
+                float y = GetRandomFloat((float)ms_fbHeight);
+                float size = GetRandomFloat((float)(SC(MaxSize) - SC(MinSize)) + SC(MinSize));
+                float ttl = GetRandomFloat((float)(8000.0f));
+                if (ttl < 2000.0f)
+                    ttl = 2000.0f;
+                    drop = PlaceNew(x, y, size, ttl, 1, 0xFF, 0x00, 0x00);
+                if (drop)
+                    NewDropMoving(drop);
+            }
+        }
+    }
+
     static inline void FillScreen(int n)
     {
         if (!ms_initialised)
@@ -624,7 +649,62 @@ public:
     static inline int32_t ms_numBatchedDrops;
     static inline int32_t ms_initialised;
     static inline bool ms_atlasUsed = true;
+#if(DIRECT3D_VERSION >= 0x0900)
+    static inline bool TryGetBackBuffer(LPDIRECT3DDEVICE pDevice, D3DSURFACE_DESC* desc)
+    {
+        HRESULT hr;
 
+        // Method 1: Direct GetBackBuffer
+#if(DIRECT3D_VERSION < 0x0900)
+        hr = pDevice->GetBackBuffer(0, D3DBACKBUFFER_TYPE_MONO, &ms_bbuf);
+#else
+        hr = pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &ms_bbuf);
+#endif
+
+        if (SUCCEEDED(hr) && ms_bbuf) {
+            hr = ms_bbuf->GetDesc(desc);
+            if (SUCCEEDED(hr)) {
+                OutputDebugStringA("Debug: Method 1 succeeded\n");
+                return true;
+            }
+            ms_bbuf->Release();
+            ms_bbuf = nullptr;
+        }
+
+        // Method 2: Through SwapChain
+        IDirect3DSwapChain9* swapChain = nullptr;
+        hr = pDevice->GetSwapChain(0, &swapChain);
+        if (SUCCEEDED(hr) && swapChain) {
+            hr = swapChain->GetBackBuffer(0, D3DBACKBUFFER_TYPE_MONO, &ms_bbuf);
+            if (SUCCEEDED(hr) && ms_bbuf) {
+                hr = ms_bbuf->GetDesc(desc);
+                if (SUCCEEDED(hr)) {
+                    swapChain->Release();
+                    OutputDebugStringA("Debug: Method 2 succeeded\n");
+                    return true;
+                }
+                ms_bbuf->Release();
+                ms_bbuf = nullptr;
+            }
+            swapChain->Release();
+        }
+
+        // Method 3: Get render target instead
+        hr = pDevice->GetRenderTarget(0, &ms_bbuf);
+        if (SUCCEEDED(hr) && ms_bbuf) {
+            hr = ms_bbuf->GetDesc(desc);
+            if (SUCCEEDED(hr)) {
+                OutputDebugStringA("Debug: Method 3 succeeded\n");
+                return true;
+            }
+            ms_bbuf->Release();
+            ms_bbuf = nullptr;
+        }
+
+        OutputDebugStringA("Error: All methods failed to get backbuffer\n");
+        return false;
+    }
+#endif
     static inline void InitialiseRender(LPDIRECT3DDEVICE pDevice)
     {
         ms_drops.resize(MaxDrops);
@@ -662,13 +742,16 @@ public:
         ibuf->Unlock();
 
         D3DSURFACE_DESC d3dsDesc;
-        #if(DIRECT3D_VERSION < 0x0900)
+#if(DIRECT3D_VERSION >= 0x0900)
+        if (!TryGetBackBuffer(pDevice, &d3dsDesc)) {
+            OutputDebugStringA("Error: Failed to get backbuffer description\n");
+            return;
+        }
+#else
         pDevice->GetBackBuffer(0, D3DBACKBUFFER_TYPE_MONO, &ms_bbuf);
-        #else
-        pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &ms_bbuf);
-        #endif
         ms_bbuf->GetDesc(&d3dsDesc);
-        #if(DIRECT3D_VERSION < 0x0900)
+#endif
+#if(DIRECT3D_VERSION < 0x0900)
         pDevice->CreateTexture(d3dsDesc.Width, d3dsDesc.Height, 1, D3DUSAGE_RENDERTARGET, d3dsDesc.Format, D3DPOOL_DEFAULT, &ms_tex);
         #else
         pDevice->CreateTexture(d3dsDesc.Width, d3dsDesc.Height, 1, D3DUSAGE_RENDERTARGET, d3dsDesc.Format, D3DPOOL_DEFAULT, &ms_tex, NULL);
