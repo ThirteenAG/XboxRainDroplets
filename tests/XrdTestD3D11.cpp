@@ -61,9 +61,26 @@ namespace
 
         D3D_FEATURE_LEVEL levels[] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_10_0 };
 
-        if (FAILED(D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, levels, ARRAYSIZE(levels),
-            D3D11_SDK_VERSION, &swapChainDesc, &pSwapChain, &pDevice, nullptr, &pContext)))
+        HRESULT hrDevice = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, levels, ARRAYSIZE(levels),
+            D3D11_SDK_VERSION, &swapChainDesc, &pSwapChain, &pDevice, nullptr, &pContext);
+
+        // A build server has no graphics card; the software rasterizer of the
+        // system draws the scene there instead.
+        if (FAILED(hrDevice))
+        {
+            printf("[d3d11] no hardware device (%08x), falling back to the WARP rasterizer\n", (unsigned)hrDevice);
+            fflush(stdout);
+
+            hrDevice = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, levels, ARRAYSIZE(levels),
+                D3D11_SDK_VERSION, &swapChainDesc, &pSwapChain, &pDevice, nullptr, &pContext);
+        }
+
+        if (FAILED(hrDevice))
+        {
+            printf("[d3d11] device and swap chain failed: %08x\n", (unsigned)hrDevice);
+            fflush(stdout);
             return false;
+        }
 
         ID3D11Texture2D* pBackBuffer = nullptr;
         if (FAILED(pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&pBackBuffer)))
@@ -296,11 +313,17 @@ namespace
 
 int main()
 {
+    // --headless: a run for a build server, see XrdTest::Headless
+    XrdTest::Headless::ParseCommandLine("d3d11");
+
+    if (XrdTest::Headless::Active())
+        camera.autoYawSpeed = 0.0f;	// the pictures of the check are compared to each other
+
     if (!window.Create(L"Xbox Rain Droplets - Direct3D 11", 1280, 720))
         return 1;
 
     if (!InitializeDevice())
-        return 1;
+        return XrdTest::Headless::DeviceFailed();
 
     Xrd::Init(Xrd::RENDERER_D3D11, pSwapChain);
         WaterDrops::fTimeStep = &deltaTime;
@@ -313,6 +336,7 @@ int main()
     auto previous = std::chrono::high_resolution_clock::now();
     auto lastReport = previous;
     int frames = 0;
+    int frameIndex = 0;		// headless: how many frames the run has drawn
     char extra[128]{};
 
     D3D11_VIEWPORT viewport{};
@@ -330,6 +354,9 @@ int main()
 
         if (deltaTime > 0.1f)
             deltaTime = 0.1f;
+
+        if (XrdTest::Headless::Active())
+            deltaTime = XrdTest::Headless::DeltaTime();
 
         camera.Update(window, deltaTime);
 
@@ -365,6 +392,8 @@ int main()
         DrawWorld();
 
         // the drops land on the scene, which is the same call as on Direct3D 9
+        XrdTest::Headless::PrepareDrops(frameIndex, window.width, window.height);
+
         WaterDrops::Process();
         WaterDrops::Render();
 
@@ -396,6 +425,11 @@ int main()
         if (frameTime < 1.0f / 60.0f)
             Sleep((DWORD)((1.0f / 60.0f - frameTime) * 1000.0f));
 
+        // a headless run takes the pictures of its last few frames and is over
+        if (XrdTest::Headless::AfterPresent(window.hwnd, frameIndex))
+            return XrdTest::Headless::Result();
+
+        frameIndex++;
         frames++;
 
         if (std::chrono::duration<float>(now - lastReport).count() >= 1.0f)

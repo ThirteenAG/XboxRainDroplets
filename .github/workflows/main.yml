@@ -30,6 +30,32 @@ jobs:
       run: |
           msbuild -m build/XboxRainDropletsWrapper.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
           msbuild -m build/XboxRainDropletsWrapper64.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=x64
+    - name: Build XboxRainDropletsTests
+      shell: cmd
+      run: msbuild -m build/XboxRainDropletsTests.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
+    - name: Test renderers
+      shell: cmd
+      run: |
+          rem The runner has no graphics card, so only the renderers that can use
+          rem the WARP software rasterizer are run here; the others need a real
+          rem driver and are run by hand on a machine that has one.
+          setlocal enabledelayedexpansion
+          if not exist bin\tests\headless mkdir bin\tests\headless
+          set FAILED=0
+          for %%t in (D3D10 D3D11) do (
+            echo ==================== %%t ====================
+            bin\tests\XrdTest%%t.exe --headless --frames 240 --screenshot bin\tests\headless\%%t
+            set CODE=!errorlevel!
+            if !CODE! equ 0 (echo %%t: passed) else if !CODE! equ 2 (echo %%t: skipped - no usable device or driver on this machine) else (echo %%t: FAILED ^(exit !CODE!^) & set FAILED=1)
+          )
+          if !FAILED! neq 0 (echo one or more renderer tests failed & exit /b 1)
+    - name: Upload test pictures
+      continue-on-error: true
+      if: always()
+      uses: actions/upload-artifact@v7.0.1
+      with:
+        name: renderer-tests
+        path: bin/tests/headless/*.png
     - name: Download Ultimate ASI Loader x86
       uses: robinraju/release-downloader@v1.13
       with:

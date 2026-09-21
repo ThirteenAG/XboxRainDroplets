@@ -200,11 +200,17 @@ namespace
 
 int main()
 {
+    // --headless: a run for a build server, see XrdTest::Headless
+    XrdTest::Headless::ParseCommandLine("d3d8");
+
+    if (XrdTest::Headless::Active())
+        camera.autoYawSpeed = 0.0f;	// the pictures of the check are compared to each other
+
     if (!window.Create(L"Xbox Rain Droplets - Direct3D 8", 1280, 720))
         return 1;
 
     if (!InitializeDevice())
-        return 1;
+        return XrdTest::Headless::DeviceFailed();
 
     printf("renderer: %d\n", Xrd::Init(Xrd::RENDERER_D3D8, pDevice) ? 1 : 0);
     fflush(stdout);
@@ -218,6 +224,7 @@ int main()
     auto previous = std::chrono::high_resolution_clock::now();
     auto lastReport = previous;
     int frames = 0;
+    int frameIndex = 0;		// headless: how many frames the run has drawn
     char extra[128]{};
 
     while (window.running)
@@ -230,6 +237,9 @@ int main()
 
         if (deltaTime > 0.1f)
             deltaTime = 0.1f;
+
+        if (XrdTest::Headless::Active())
+            deltaTime = XrdTest::Headless::DeltaTime();
 
         camera.Update(window, deltaTime);
 
@@ -265,6 +275,8 @@ int main()
         if (frames < 3) { printf("frame: world\n"); fflush(stdout); }
             DrawWorld();
 
+            XrdTest::Headless::PrepareDrops(frameIndex, window.width, window.height);
+
             WaterDrops::Process();
         if (frames < 3) { printf("frame: drops\n"); fflush(stdout); }
             WaterDrops::Render();
@@ -286,6 +298,11 @@ int main()
         if (frameTime < 1.0f / 60.0f)
             Sleep((DWORD)((1.0f / 60.0f - frameTime) * 1000.0f));
 
+        // a headless run takes the pictures of its last few frames and is over
+        if (XrdTest::Headless::AfterPresent(window.hwnd, frameIndex))
+            return XrdTest::Headless::Result();
+
+        frameIndex++;
         frames++;
 
         if (std::chrono::duration<float>(now - lastReport).count() >= 1.0f)

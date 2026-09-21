@@ -224,15 +224,28 @@ namespace
 
 int main()
 {
+    // --headless: a run for a build server, see XrdTest::Headless
+    XrdTest::Headless::ParseCommandLine("opengl");
+
+    if (XrdTest::Headless::Active())
+        camera.autoYawSpeed = 0.0f;	// the pictures of the check are compared to each other
+
     if (!window.Create(L"Xbox Rain Droplets - OpenGL", 1280, 720))
         return 1;
 
     if (!InitializeContext())
-        return 1;
+        return XrdTest::Headless::DeviceFailed();
 
     glViewport(0, 0, window.width, window.height);
 
     Xrd::Init(Xrd::RENDERER_OPENGL, hdc);
+
+    // The drops are laid out the way a game lays out its frame, with the y of it
+    // counting down from the top of it, and the framebuffer of OpenGL counts up
+    // from the bottom, so the backend has to turn them over - where they are drawn
+    // and what they sample. Without it a drop falls up the screen.
+    Xrd::SetPresentSceneFlipY(true);
+
     WaterDrops::fTimeStep = &deltaTime;
     // the games read this from the weather, a test wants a lot of rain
     WaterDrops::ms_rainIntensity = 4.0f;
@@ -243,6 +256,7 @@ int main()
     auto previous = std::chrono::high_resolution_clock::now();
     auto lastReport = previous;
     int frames = 0;
+    int frameIndex = 0;		// headless: how many frames the run has drawn
     char extra[128]{};
 
     while (window.running)
@@ -255,6 +269,9 @@ int main()
 
         if (deltaTime > 0.1f)
             deltaTime = 0.1f;
+
+        if (XrdTest::Headless::Active())
+            deltaTime = XrdTest::Headless::DeltaTime();
 
         camera.Update(window, deltaTime);
 
@@ -290,6 +307,8 @@ int main()
 
         // the drops land on the scene, which is the same call as on every other
         // API, and they stay under the UI drawn after them
+        XrdTest::Headless::PrepareDrops(frameIndex, window.width, window.height);
+
         WaterDrops::Process();
         WaterDrops::Render();
 
@@ -306,6 +325,11 @@ int main()
         if (frameTime < 1.0f / 60.0f)
             Sleep((DWORD)((1.0f / 60.0f - frameTime) * 1000.0f));
 
+        // a headless run takes the pictures of its last few frames and is over
+        if (XrdTest::Headless::AfterPresent(window.hwnd, frameIndex))
+            return XrdTest::Headless::Result();
+
+        frameIndex++;
         frames++;
 
         if (std::chrono::duration<float>(now - lastReport).count() >= 1.0f)
