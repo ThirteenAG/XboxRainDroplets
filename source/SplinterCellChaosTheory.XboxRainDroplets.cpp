@@ -1,4 +1,6 @@
-#include "xrd.h"
+// Direct3D 9, the API this game uses
+#define XRD_ENABLE_D3D9
+#include "xrd/xrd.h"
 
 struct FVector
 {
@@ -127,16 +129,15 @@ void Init()
             }
         };
 
-        SafeRelease(&WaterDrops::ms_vertexBuf);
-        SafeRelease(&WaterDrops::ms_indexBuf);
     });
 
     pattern = hook::pattern("8B 10 51 50 FF 92 ? ? ? ? 8B 86 ? ? ? ? 6A 04 8D 54 24 ? 52 C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? 8B 80 ? ? ? ? 8B 08 6A 00 50 FF 91 ? ? ? ? 8B CE E8 ? ? ? ? 8B 8E");
     static auto RenderHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
     {
         IDirect3DDevice9* pDevice = (IDirect3DDevice9*)(regs.eax);
-        WaterDrops::Process(pDevice);
-        WaterDrops::Render(pDevice);
+        Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+        WaterDrops::Process();
+        WaterDrops::Render();
         WaterDrops::ms_rainIntensity = 0.0f;
     });
 
@@ -144,8 +145,9 @@ void Init()
     static auto RenderHookHDR = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
     {
         IDirect3DDevice9* pDevice = (IDirect3DDevice9*)(regs.eax);
-        WaterDrops::Process(pDevice);
-        WaterDrops::Render(pDevice);
+        Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+        WaterDrops::Process();
+        WaterDrops::Render();
         WaterDrops::ms_rainIntensity = 0.0f;
     });
 }

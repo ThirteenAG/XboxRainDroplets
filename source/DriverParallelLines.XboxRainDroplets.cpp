@@ -1,5 +1,6 @@
-#include "xrd.h"
-#include "snow.h"
+// Direct3D 9, the API this game uses
+#define XRD_ENABLE_D3D9
+#include "xrd/xrd.h"
 
 static uint32_t crc32_tab[] = {
   0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
@@ -266,12 +267,13 @@ void Init()
                     CSnow::targetSnow = 1.0f;
             }
 
-            WaterDrops::Process(pDevice);
+            Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+            WaterDrops::Process();
             if (!bMenu && *dw6E8E18 != 256)
             {
                 if (WaterDrops::bEnableSnow)
                     WaterDrops::ms_rainIntensity = 0.0f;
-                WaterDrops::Render(pDevice);
+                WaterDrops::Render();
             }
             
             if (!bMenu && *dw6E8E18 != 256)
@@ -295,7 +297,7 @@ void Init()
                 CSnow::zn = 0.0f;
                 CSnow::zf = 1.0f;
 
-                CSnow::AddSnow(pDevice, WaterDrops::ms_fbWidth, WaterDrops::ms_fbHeight, &camMatrix, &viewMatrix, &ts, WaterDrops::bEnableSnow ? false : true);
+                CSnow::AddSnow(WaterDrops::ms_fbWidth, WaterDrops::ms_fbHeight, &camMatrix, &viewMatrix, &ts, WaterDrops::bEnableSnow ? false : true);
             }
         }
     }; injector::MakeInline<RenderHook>(pattern.get_first(0), pattern.get_first(6));

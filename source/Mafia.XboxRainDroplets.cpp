@@ -1,43 +1,12 @@
-//#define USE_D3D_HOOK
-//#define USE_D3D8TO9_HOOK
-
-#ifndef USE_D3D8TO9_HOOK
-#define DIRECT3D_VERSION         0x0800
-#endif
-
-#include "xrd.h"
+// Direct3D 8, the API this game uses
+#define XRD_ENABLE_D3D8
+#include "xrd/xrd.h"
 #include <set>
 
 void Init()
 {
     WaterDrops::ReadIniSettings();
 
-#ifdef USE_D3D_HOOK
-    //setting rain
-    WaterDrops::ProcessCallback1 = []()
-    {
-        WaterDrops::ms_rainIntensity = 1.0f;
-    };
-
-    //resetting rain
-    WaterDrops::ProcessCallback2 = []()
-    {
-        WaterDrops::ms_rainIntensity = 0.0f;
-    };
-
-    //hooking create to get EndScene and Reset
-    auto pattern = hook::pattern(GetModuleHandle(L"LS3DF.dll"), "E8 ? ? ? ? 85 C0 A3 ? ? ? ? 75 1F 68 ? ? ? ? E8 ? ? ? ? 83 C4 04");
-    static injector::hook_back<IDirect3D9*(WINAPI*)(UINT)> Direct3DCreate8;
-    auto Direct3DCreate8Hook = [](UINT SDKVersion) -> IDirect3D9*
-    {
-        auto pID3D8 = Direct3DCreate8.fun(SDKVersion);
-        auto pVTable = (UINT_PTR*)(*((UINT_PTR*)pID3D8));
-        if (!WaterDrops::RealD3D9CreateDevice)
-            WaterDrops::RealD3D9CreateDevice = (CreateDevice_t)pVTable[IDirect3D8VTBL::CreateDevice];
-        injector::WriteMemory(&pVTable[IDirect3D8VTBL::CreateDevice], &WaterDrops::d3d8CreateDevice, true);
-        return pID3D8;
-    }; Direct3DCreate8.fun = injector::MakeCALL(pattern.get_first(0), static_cast<IDirect3D9*(WINAPI*)(UINT)>(Direct3DCreate8Hook), true).get();
-#else
     WaterDrops::ms_StaticRain = true;
     WaterDrops::ms_rainIntensity = 0.0f;
     static std::set<uint32_t> m;
@@ -54,28 +23,10 @@ void Init()
         void operator()(injector::reg_pack& regs)
         {
             *byte_101C4D14 = 1;
-#if(DIRECT3D_VERSION < 0x0900)
             auto pDevice = **(LPDIRECT3DDEVICE8**)pDev;
-            WaterDrops::Process(pDevice);
-            WaterDrops::Render(pDevice);
-#else
-            auto pDevice = **(LPDIRECT3DDEVICE9**)pDev;
-            class Direct3DDevice8 : public IUnknown
-            {
-                //...
-            public:
-                void* ProxyAddressLookupTable;
-                void* const D3D;
-                IDirect3DDevice9 *const ProxyInterface;
-                //...
-            };
-            if (!((Direct3DDevice8*)pDevice)->ProxyInterface)
-                if (MessageBox(0, L"Xbox Rain Droplets requires d3d8to9. Enable it and restart.", L"Mafia", MB_OK) == IDOK)
-                    ExitProcess(0);
-
-            WaterDrops::Process(((Direct3DDevice8*)pDevice)->ProxyInterface);
-            WaterDrops::Render(((Direct3DDevice8*)pDevice)->ProxyInterface);
-#endif
+            Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+            WaterDrops::Process();
+            WaterDrops::Render();
             WaterDrops::ms_rainIntensity = 0.0f;
             WaterDrops::isPaused = false;
         }
@@ -175,7 +126,6 @@ void Init()
             WaterDrops::ms_splashDuration += 1;
         }
     }; injector::MakeInline<HydrantHook2>(pattern.get_first(0), pattern.get_first(6));
-#endif
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()

@@ -1,4 +1,6 @@
-#include "xrd.h"
+// Direct3D 9, the API this game uses
+#define XRD_ENABLE_D3D9
+#include "xrd/xrd.h"
 
 namespace rage
 {
@@ -752,98 +754,24 @@ rage::grcRenderTargetPC* ms_rainRT = nullptr;
 
 static inline void WaterDrops__InitialiseRender(LPDIRECT3DDEVICE pDevice)
 {
-    WaterDrops::ms_drops.resize(WaterDrops::MaxDrops);
-    WaterDrops::ms_dropsMoving.resize(WaterDrops::MaxDropsMoving);
+    // The renderer gets the device once. The copy of the frame, the atlas of the
+    // drop shapes and the vertex buffers all belong to it now, the game only
+    // keeps the size of the window and the scaling that goes with it.
+    Xrd::Init(Xrd::RENDERER_D3D9, pDevice);
+    WaterDrops::Init();
 
-    IDirect3DVertexBuffer* vbuf;
-    IDirect3DIndexBuffer* ibuf;
-
-    if (FAILED(pDevice->CreateVertexBuffer(WaterDrops::ms_drops.capacity() * 4 * sizeof(VertexTex2), D3DUSAGE_WRITEONLY, DROPFVF, D3DPOOL_MANAGED, &vbuf, nullptr)))
-        pDevice->CreateVertexBuffer(WaterDrops::ms_drops.capacity() * 4 * sizeof(VertexTex2), D3DUSAGE_DYNAMIC, DROPFVF, D3DPOOL_DEFAULT, &vbuf, nullptr);
-
-    if (FAILED(pDevice->CreateIndexBuffer(WaterDrops::ms_drops.capacity() * 6 * sizeof(short), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED, &ibuf, nullptr)))
-        pDevice->CreateIndexBuffer(WaterDrops::ms_drops.capacity() * 6 * sizeof(short), D3DUSAGE_DYNAMIC, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &ibuf, nullptr);
-
-    WaterDrops::ms_vertexBuf = vbuf;
-    WaterDrops::ms_indexBuf = ibuf;
-
-    uint16_t* idx;
-    ibuf->Lock(0, 0, (void**)&idx, 0);
-    for (auto i = 0; i < int32_t(WaterDrops::ms_drops.capacity()); i++)
+    IDirect3DSurface9* bbuf = nullptr;
+    if (SUCCEEDED(pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &bbuf)) && bbuf)
     {
-        idx[i * 6 + 0] = i * 4 + 0;
-        idx[i * 6 + 1] = i * 4 + 1;
-        idx[i * 6 + 2] = i * 4 + 2;
-        idx[i * 6 + 3] = i * 4 + 0;
-        idx[i * 6 + 4] = i * 4 + 2;
-        idx[i * 6 + 5] = i * 4 + 3;
+        D3DSURFACE_DESC d3dsDesc{};
+        bbuf->GetDesc(&d3dsDesc);
+
+        WaterDrops::ms_fbWidth = d3dsDesc.Width;
+        WaterDrops::ms_fbHeight = d3dsDesc.Height;
+        WaterDrops::ms_scaling = WaterDrops::ms_fbHeight / 480.0f;
+
+        bbuf->Release();
     }
-    ibuf->Unlock();
-
-    D3DSURFACE_DESC d3dsDesc;
-    pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &WaterDrops::ms_bbuf);
-    WaterDrops::ms_bbuf->GetDesc(&d3dsDesc);
-
-    rage::grcRenderTargetDesc desc{};
-    desc.mMultisampleCount = 0;
-    desc.field_0 = 1;
-    desc.field_12 = 1;
-    desc.mDepthRT = nullptr;
-    desc.field_8 = 1;
-    desc.field_10 = 1;
-    desc.field_11 = 1;
-    desc.field_24 = false;
-
-    auto CreateEmptyRT = [](const char* name, int32_t a2, uint32_t w, uint32_t h, uint32_t bpp, rage::grcRenderTargetDesc* d) -> rage::grcRenderTargetPC*
-    {
-        auto rt = rage::grcTextureFactory::GetInstance()->CreateRenderTarget(name, a2, w, h, bpp, d);
-        rage::grcDevice::grcResolveFlags resolveFlags{};
-        rage::grcTextureFactoryPC::GetInstance()->LockRenderTarget(0, rt, nullptr);
-        rage::grcTextureFactoryPC::GetInstance()->UnlockRenderTarget(0, &resolveFlags);
-        return rt;
-    };
-
-    desc.mFormat = rage::GRCFMT_A8R8G8B8;
-    auto rainRT = CreateEmptyRT("WaterDropsRT", 3, d3dsDesc.Width, d3dsDesc.Height, 32, &desc);
-    WaterDrops::ms_tex = rainRT ? rainRT->mD3DTexture : nullptr;
-
-    if (WaterDrops::ms_tex)
-        WaterDrops::ms_tex->GetSurfaceLevel(0, &WaterDrops::ms_surf);
-
-    WaterDrops::ms_fbWidth = d3dsDesc.Width;
-    WaterDrops::ms_fbHeight = d3dsDesc.Height;
-    WaterDrops::ms_scaling = WaterDrops::ms_fbHeight / 480.0f;
-
-    // Mask texture
-    HRESULT res = NULL;
-    HMODULE hm = NULL;
-    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)&WaterDrops__InitialiseRender, &hm);
-    res = D3DXCreateTextureFromResource(pDevice, hm, MAKEINTRESOURCE(IDR_DROPMASK), &WaterDrops::ms_maskTex);
-
-    if (FAILED(res) || WaterDrops::ms_maskTex == nullptr)
-    {
-        static constexpr auto MaskSize = 128;
-        if (FAILED(D3DXCreateTexture(pDevice, MaskSize, MaskSize, 1, D3DUSAGE_WRITEONLY, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &WaterDrops::ms_maskTex)))
-            D3DXCreateTexture(pDevice, MaskSize, MaskSize, 1, D3DUSAGE_WRITEONLY, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &WaterDrops::ms_maskTex);
-
-        D3DLOCKED_RECT LockedRect;
-        WaterDrops::ms_maskTex->LockRect(0, &LockedRect, NULL, 0);
-        uint8_t* pixels = (uint8_t*)LockedRect.pBits;
-        int32_t stride = LockedRect.Pitch;
-        for (int y = 0; y < MaskSize; y++)
-        {
-            float yf = ((y + 0.5f) / MaskSize - 0.5f) * 2.0f;
-            for (int x = 0; x < MaskSize; x++)
-            {
-                float xf = ((x + 0.5f) / MaskSize - 0.5f) * 2.0f;
-                memset(&pixels[y * stride + x * 4], xf * xf + yf * yf < 1.0f ? 0xFF : 0x00, 4);
-            }
-        }
-        WaterDrops::ms_maskTex->UnlockRect(0);
-        WaterDrops::ms_atlasUsed = false;
-    }
-
-    WaterDrops::ms_initialised = 1;
 }
 
 static inline void WaterDrops__Process(LPDIRECT3DDEVICE pDevice)
@@ -982,7 +910,17 @@ void Init()
             WaterDrops::pos = pos;
 
             WaterDrops__Process(pDevice);
-            WaterDrops::Render(pDevice);
+            // The drops are drawn while the game is still in the middle of its
+            // frame, so they land under everything that is drawn after them (the
+            // UI), and the backend copies the frame behind them for the
+            // refraction. Direct3D 9 finds the target of the game on its own, the
+            // state is what says that the frame is not finished yet.
+            Xrd::RenderTarget target{};
+            target.state = Xrd::TARGET_STATE_RENDER_TARGET;
+            Xrd::SetTarget(&target);
+            Xrd::SetTargetState(Xrd::TARGET_STATE_RENDER_TARGET);
+
+            WaterDrops::Render();
             WaterDrops::ms_rainIntensity = 0.0f;
         }
     }; injector::MakeInline<CPostFXHook>(pattern.get_first(19));

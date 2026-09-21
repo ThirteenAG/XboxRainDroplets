@@ -19,18 +19,97 @@
 #include "includes/FileWatch.hpp"
 #include "includes/callbacks.h"
 #include "includes/gameref.hpp"
+/// The games expect the hooking library from this header, the old one pulled it in
+/// as well.
+#include <injector\injector.hpp>
+#include <injector\hooking.hpp>
+#include <injector\calling.hpp>
+#include <injector\utility.hpp>
+#include <injector\assembly.hpp>
 
-#define SIRE_INCLUDE_MINIMAL_DEPENDECIES
-#define SIRE_DX9
-#define SIRE_INCLUDE_DX9
-#define SIRE_DX10
-#define SIRE_INCLUDE_DX10
-#define SIRE_DX11
-#define SIRE_INCLUDE_DX11
-#define SIRE_DX11ON12
-#define SIRE_INCLUDE_DX11ON12
-#include "sire.h"
-#include "dropmask.h"
+// ---------------------------------------------------------------------------
+// The drops are drawn by the renderer in source/xrd, one small backend per
+// graphics API: Direct3D 8, 9, 10, 10.1, 11 and 12, OpenGL and Vulkan. A
+// project defines the API the game is before including this header, only those
+// backends are compiled in.
+//
+// Direct3D 8 is the one API that cannot share a translation unit with Direct3D
+// 9, so a Direct3D 8 game says XRD_ENABLE_D3D8 and nothing else: the headers,
+// the device type and the renderer all follow from it. A binary that wants both
+// versions at once (the wrapper) leaves that define out and adds
+// source/xrd/xrdrender.d3d8.cpp to the project instead.
+// ---------------------------------------------------------------------------
+#include "xrd/xrdrender.h"
+
+#if defined(XRD_ENABLE_D3D8)
+#include "xrd/xrdrender.d3d8.h"
+#endif
+
+#if defined(XRD_ENABLE_D3D9)
+#include "xrd/xrdrender.d3d9.h"
+#endif
+
+#if defined(XRD_ENABLE_D3D10) || defined(XRD_ENABLE_D3D10_1)
+#include "xrd/xrdrender.d3d10.h"
+#endif
+
+#if defined(XRD_ENABLE_D3D11)
+#include "xrd/xrdrender.d3d11.h"
+#endif
+
+#if defined(XRD_ENABLE_D3D12)
+#include "xrd/xrdrender.d3d12.h"
+#endif
+
+#if defined(XRD_ENABLE_OPENGL)
+#include "xrd/xrdrender.gl.h"
+#endif
+
+#if defined(XRD_ENABLE_VULKAN)
+#include "xrd/xrdrender.vk.h"
+#endif
+
+// The drawing of an emulator that hands the frame of a game over where it is in
+// between its world and its UI, which serves whichever API the emulator runs.
+#if defined(XRD_ENABLE_THIN3D)
+#include "xrd/xrdrender.thin3d.h"
+#endif
+
+// ---------------------------------------------------------------------------
+// The device type and the renderer that go with the API the project named. A
+// game is one or the other, so XRD_ENABLE_D3D8 is all a Direct3D 8 project has
+// to say about it and everything else stays on Direct3D 9.
+// ---------------------------------------------------------------------------
+#if defined(XRD_ENABLE_D3D8)
+#include <d3d8.h>
+#include <d3dx8.h>
+#include <d3dx8tex.h>
+#pragma comment(lib, "legacy_stdio_definitions.lib")
+#pragma comment(lib, "d3d8.lib")
+#pragma comment(lib, "D3dx8.lib")
+typedef LPDIRECT3DDEVICE8 LPDIRECT3DDEVICE;
+#define XRD_DEVICE_RENDERER Xrd::RENDERER_D3D8
+#else
+#include <d3d9.h>
+#if !defined(XRD_NO_D3DX)
+// the Direct3D 9 helpers, the games use them for their matrices and textures
+#include <d3dx9.h>
+#include <d3dx9tex.h>
+#pragma comment(lib, "d3dx9.lib")
+#endif
+typedef LPDIRECT3DDEVICE9 LPDIRECT3DDEVICE;
+#define XRD_DEVICE_RENDERER Xrd::RENDERER_D3D9
+#endif
+
+// the masks of the drop shapes, embedded exactly like the original builds did
+#define IDR_DROPMASK 100
+#define IDR_SNOWDROPMASK 101
+#define IDR_BLURPS 103
+#define IDR_BLURVS 104
+
+// Windows decodes the PNG masks on its own, no library has to be shipped
+#include <gdiplus.h>
+#pragma comment(lib, "gdiplus.lib")
 
 struct RwV3d
 {
@@ -90,6 +169,11 @@ struct VertexTex2
 
 #define DROPFVF (D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX2)
 #define RAD2DEG(x) (180.0f*(x)/M_PI)
+
+// The world space snow and rain streaks of the consoles (the old snow.h). It
+// needs the engine vector and matrix types above and nothing else, so it comes
+// with this header everywhere.
+#include "xrd/xrdsnow.h"
 
 class WaterDrop
 {
@@ -161,9 +245,16 @@ public:
     static inline bool bGravity = true;
     static inline bool bBloodDrops = true;
     static inline bool bEnableSnow = false;
+
+    // A game that is not raining spawns no drops at all, which is what the effect is for and
+    // also what makes it impossible to look at while the weather of a game is being worked on.
+    // The ini can hold the rain on, whatever the game reports, which is what ForceRain is for.
+    static inline bool bForceRain = false;
     static inline float fSpeedAdjuster = 1.0f;
-    static inline int BackBufferMethod = 0;
-    static inline bool CreateRenderTargetFromBackBuffer = true;
+
+    // Kept because the games assign them, exactly like the original header did.
+    static inline void(*ProcessCallback1)();
+    static inline void(*ProcessCallback2)();
 
     static inline RwV3d right;
     static inline RwV3d up;
@@ -220,8 +311,7 @@ public:
                                             static_cast<float>(frequency.QuadPart)) / static_cast<float>(m_times.back() - m_times.front()));
         }
 
-        if (!ms_initialised)
-            Init();
+        EnsureDevice();
 
         ProcessGlobalEmitters();
         CalculateMovement();
@@ -245,7 +335,7 @@ public:
         fMoveStep = iniReader.ReadFloat("MAIN", "MoveStep", 0.1f);
         bBloodDrops = iniReader.ReadInteger("MAIN", "BloodDrops", 1) != 0;
         bEnableSnow = iniReader.ReadInteger("BONUS", "EnableSnow", 0) != 0;
-        BackBufferMethod = iniReader.ReadInteger("RENDER", "BackBufferMethod", 0);
+        bForceRain = iniReader.ReadInteger("MAIN", "ForceRain", 0) != 0;
 
         if (invertedRadial)
             bRadial = !bRadial;
@@ -359,11 +449,14 @@ public:
 
     static inline void SprayDrops()
     {
-        if (!NoRain() && ms_rainIntensity != 0.0f && ms_enabled)
+        // A rain intensity that is negative or not a number at all is not rain. The
+        // check for "not zero" is one that a not a number passes, and the branch
+        // below turns the intensity into a number of drops.
+        if (!NoRain() && (ms_rainIntensity > 0.0f || bForceRain) && ms_enabled)
         {
             auto tmp = (int32_t)(180.0f - ms_rainStrength);
             if (tmp < 40) tmp = 40;
-            FillScreenMoving((tmp - 40.0f) / 150.0f * ms_rainIntensity * 0.5f);
+            FillScreenMoving((tmp - 40.0f) / 150.0f * (bForceRain ? 1.0f : ms_rainIntensity) * 0.5f);
         }
         if (sprayWater)
             FillScreenMoving(0.5f, false);
@@ -505,15 +598,51 @@ public:
         }
     }
 
+    // How many drops the pools can still take. Everything that adds a batch of
+    // them goes through this, so a count that came from a game can never ask for
+    // more than the room there is.
+    static inline int32_t RoomForNewDrops()
+    {
+        int32_t room = int32_t(ms_drops.capacity()) - ms_numDrops;
+        const int32_t moving = int32_t(ms_dropsMoving.capacity()) - ms_numDropsMoving;
+
+        if (moving < room)
+            room = moving;
+
+        return room - 1;
+    }
+
     static inline void FillScreenMoving(float amount, bool isBlood = false)
     {
+        // A game can ask for drops before the effect has a screen: a hook of a
+        // plugin fires while a level is still loading, and a device that was just
+        // handed over reports no size until its first frame is presented. Nothing
+        // can be placed on a screen that is not there yet, and the pools are not
+        // the ones the ini asked for until the first frame either.
+        if (!ms_initialised || ms_fbWidth <= 0 || ms_fbHeight <= 0)
+            return;
+
         if (ms_StaticRain)
             amount = 1.0f;
 
+        // The amount comes from a game or from a patch of one, and a negative one,
+        // an enormous one or one that is not a number at all may not become a loop:
+        // a counter that is counted down never reaches zero again once it is below
+        // zero, and a loop of four billion drops per frame is what a hang looks
+        // like. It is capped at the room there is as well, the pools decide how
+        // many drops fit.
+        if (!(amount > 0.0f))
+            return;
+
         int32_t n = int32_t((ms_vec.z <= 5.0f ? 1.0f : 1.5f) * amount * 20.0f);
+        const int32_t room = RoomForNewDrops();
+
+        if (n > room)
+            n = room;
+
         WaterDrop* drop;
 
-        while (n--)
+        for (int32_t i = 0; i < n; i++)
         {
             if (ms_numDrops < int32_t(ms_drops.capacity() - 1) && ms_numDropsMoving < int32_t(ms_dropsMoving.capacity() - 1))
             {
@@ -535,13 +664,26 @@ public:
 
     static inline void FillScreenMovingColor(float amount, int R = 0xFF, int G = 0xFF, int B = 0xFF)
     {
+        // see FillScreenMoving: no screen, no drops
+        if (!ms_initialised || ms_fbWidth <= 0 || ms_fbHeight <= 0)
+            return;
+
         if (ms_StaticRain)
             amount = 1.0f;
 
+        // see FillScreenMoving: the amount is not trusted to be a sane count
+        if (!(amount > 0.0f))
+            return;
+
         int32_t n = int32_t((ms_vec.z <= 5.0f ? 1.0f : 1.5f) * amount * 20.0f);
+        const int32_t room = RoomForNewDrops();
+
+        if (n > room)
+            n = room;
+
         WaterDrop* drop;
 
-        while (n--)
+        for (int32_t i = 0; i < n; i++)
         {
             if (ms_numDrops < int32_t(ms_drops.capacity() - 1) && ms_numDropsMoving < int32_t(ms_dropsMoving.capacity() - 1))
             {
@@ -560,20 +702,39 @@ public:
 
     static inline void FillScreen(int n)
     {
-        if (!ms_initialised)
+        // A frame of zero pixels is what a device that was just handed over reports
+        // until its first frame is there, and a modulo or a division by it is a
+        // crash of the whole process. Nothing can be placed on it either.
+        if (!ms_initialised || ms_fbWidth <= 0 || ms_fbHeight <= 0)
             return;
 
+        // the count comes from a game, it may not reach past the pool. The count of
+        // the pool is one past its last drop, so the count is capped at the count of
+        // the pool and the drops are then taken by index: a walk that compares the
+        // address of a drop with the address of the drop at the count of the pool
+        // reads past the end of it, which is what an out of range error is.
+        if (n < 0)
+            n = 0;
+
+        if (n > int32_t(ms_drops.size()))
+            n = int32_t(ms_drops.size());
+
         ms_numDrops = 0;
+
         for (auto& drop : ms_drops)
-        {
             drop.active = 0;
-            if (&drop < &ms_drops[n])
-            {
-                float x = (float)(rand() % ms_fbWidth);
-                float y = (float)(rand() % ms_fbHeight);
-                float time = (float)(rand() % (SC(MaxSize) - SC(MinSize)) + SC(MinSize));
-                PlaceNew(x, y, time, 2000.0f, 1);
-            }
+
+        for (int32_t i = 0; i < n; i++)
+        {
+            float x = (float)(rand() % ms_fbWidth);
+            float y = (float)(rand() % ms_fbHeight);
+
+            // the range of the sizes is a modulo as well, and a scale of zero
+            // (a frame smaller than the drops) makes it one
+            const int32_t sizeRange = SC(MaxSize) - SC(MinSize);
+            float time = sizeRange > 0 ? (float)(rand() % sizeRange + SC(MinSize)) : (float)SC(MinSize);
+
+            PlaceNew(x, y, time, 2000.0f, 1);
         }
     }
 
@@ -591,18 +752,17 @@ public:
         ms_splashDistance = 0;
         ms_splashPoint = { 0 };
 
-        if (ms_tex)
-            ms_tex.Release();
-        if (ms_maskTex)
-            ms_maskTex.Release();
-        if (ms_renderTarget)
-            ms_renderTarget.Release();
+        ms_fbWidth = 0;
+        ms_fbHeight = 0;
+        ms_initialised = false;
+        ms_generation = 0;
+        ms_vertices.clear();
 
-        ms_renderTarget = nullptr;
-        ms_maskTex = nullptr;
-        ms_tex = nullptr;
+        // the mask belongs to the device that just went away, the next Init
+        // loads it again, which is what the original code did as well
+        ReleaseMask();
 
-        ms_initialised = 0;
+        Xrd::Reset();
     }
 
     static inline void RegisterSplash(RwV3d* point, float distance = 20.0f, int32_t duration = 14, float removaldistance = 0.0f)
@@ -623,23 +783,67 @@ public:
         return false; //CCullZones__CamNoRain() || CCullZones__PlayerNoRain() || *CGame__currArea != 0 || NoDrops();
     }
 
-    // Rendering static inline 
-    static inline Sire::SirePtr<Sire::tSireTexture2D> ms_tex = nullptr;
-    static inline Sire::SirePtr<Sire::tSireTexture2D> ms_maskTex = nullptr;
-    static inline Sire::SirePtr<Sire::tSireRenderTarget> ms_renderTarget = nullptr;
-
-    static inline std::vector<uint16_t> ms_indexBuf = {};
-
+    // -----------------------------------------------------------------------
+    // Rendering
+    //
+    // The renderer in source/xrd does everything that depends on the graphics
+    // API: it copies the frame the drops refract into a texture, sets the
+    // states and draws the batch. What is left here is building the quads,
+    // which is the same on every API.
+    // -----------------------------------------------------------------------
+    static inline Xrd::Texture* ms_maskTex = nullptr;
+    static inline std::vector<Xrd::Vertex> ms_vertices;
     static inline int32_t ms_fbWidth = 0;
     static inline int32_t ms_fbHeight = 0;
-    static inline int32_t ms_numBatchedDrops;
+
+    // The window the frame of the game is presented in. A frame the game draws into
+    // a buffer of its own is stretched to that window, so a drop drawn round into
+    // the buffer is an oval on screen: it is drawn with the inverse of that stretch
+    // in x, see ComputeXScale. Zero means the game draws into the window itself and
+    // nothing is stretched, which is what the games this effect comes from do.
+    static inline int32_t ms_screenWidth = 0;
+    static inline int32_t ms_screenHeight = 0;
+    static inline float ms_xScale = 1.0f;
+    static inline int32_t ms_numBatchedDrops = 0;
     static inline float ms_UVXOffset = 0.0f;
     static inline float ms_UVXScale = 1.0f;
     static inline float ms_UVYOffset = 0.0f;
     static inline float ms_UVYScale = 1.0f;
-
-    static inline int32_t ms_initialised = false;
+    static inline bool ms_initialised = false;
+    static inline uint32_t ms_generation = 0;
     static inline bool ms_atlasUsed = true;
+    static inline bool ms_iniRead = false;
+
+    // Switching the falling drops between rain and snow also switches the mask
+    // they are drawn with, the one loaded from the resources.
+    static inline void SetSnow(bool enabled)
+    {
+        if (bEnableSnow == enabled)
+            return;
+
+        bEnableSnow = enabled;
+        ReleaseMask();
+        ms_atlasUsed = true;
+        ms_initialised = false;
+    }
+
+    // The shape of a drop has to be round as it is seen, not as it is drawn: the
+    // frame of the game is stretched from its buffer to the window it is presented
+    // in, and a circle of the buffer is an oval of the window unless the quad is
+    // drawn narrower by the same ratio, see ms_xScale.
+    static inline void ComputeXScale()
+    {
+        ms_xScale = 1.0f;
+
+        if (ms_screenWidth <= 0 || ms_screenHeight <= 0 || ms_fbWidth <= 0 || ms_fbHeight <= 0)
+            return;
+
+        const float frame = (float)ms_fbWidth / (float)ms_fbHeight;
+        const float screen = (float)ms_screenWidth / (float)ms_screenHeight;
+
+        if (screen > 0.0f)
+            ms_xScale = frame / screen;
+    }
 
     static inline void SetXUVScale(float offset, float scale)
     {
@@ -653,69 +857,208 @@ public:
         ms_UVYScale = scale;
     }
 
-    static inline void Shutdown()
+    static inline void ReleaseMask()
     {
-        Reset();
+        if (ms_maskTex)
+        {
+            Xrd::DestroyTexture(ms_maskTex);
+            ms_maskTex = nullptr;
+        }
+    }
+
+    // The masks ship as PNG resources, the very same files the Direct3D 8 and 9
+    // builds always used, so the fallback shape is only needed when a resource
+    // cannot be read.
+    static inline bool LoadMask(int resourceId, std::vector<uint8_t>& pixels, int32_t& width, int32_t& height)
+    {
+        HMODULE hModule = nullptr;
+        GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)&LoadMask, &hModule);
+
+        HRSRC hResource = FindResource(hModule, MAKEINTRESOURCE(resourceId), RT_RCDATA);
+        if (!hResource)
+            return false;
+
+        HGLOBAL hLoaded = LoadResource(hModule, hResource);
+        if (!hLoaded)
+            return false;
+
+        const void* pData = LockResource(hLoaded);
+        const DWORD uSize = SizeofResource(hModule, hResource);
+        if (!pData || !uSize)
+            return false;
+
+        IStream* pStream = nullptr;
+        if (FAILED(CreateStreamOnHGlobal(nullptr, TRUE, &pStream)))
+            return false;
+
+        ULONG uWritten = 0;
+        pStream->Write(pData, uSize, &uWritten);
+
+        LARGE_INTEGER start{};
+        pStream->Seek(start, STREAM_SEEK_SET, nullptr);
+
+        Gdiplus::GdiplusStartupInput input;
+        ULONG_PTR token = 0;
+        if (Gdiplus::GdiplusStartup(&token, &input, nullptr) != Gdiplus::Ok)
+        {
+            pStream->Release();
+            return false;
+        }
+
+        bool bResult = false;
+
+        {
+            Gdiplus::Bitmap bitmap(pStream, FALSE);
+
+            if (bitmap.GetLastStatus() == Gdiplus::Ok)
+            {
+                width = (int32_t)bitmap.GetWidth();
+                height = (int32_t)bitmap.GetHeight();
+
+                Gdiplus::Rect rect(0, 0, width, height);
+                Gdiplus::BitmapData data{};
+
+                if (bitmap.LockBits(&rect, Gdiplus::ImageLockModeRead, PixelFormat32bppARGB, &data) == Gdiplus::Ok)
+                {
+                    pixels.resize((size_t)width * height * 4);
+
+                    const uint8_t* pSource = (const uint8_t*)data.Scan0;
+                    for (int32_t y = 0; y < height; y++)
+                    {
+                        const uint8_t* pRow = pSource + (size_t)y * data.Stride;
+                        uint8_t* pDestination = pixels.data() + (size_t)y * width * 4;
+
+                        for (int32_t x = 0; x < width; x++)
+                        {
+                            // Windows hands out BGRA, the renderers expect RGBA
+                            pDestination[x * 4 + 0] = pRow[x * 4 + 2];
+                            pDestination[x * 4 + 1] = pRow[x * 4 + 1];
+                            pDestination[x * 4 + 2] = pRow[x * 4 + 0];
+                            pDestination[x * 4 + 3] = pRow[x * 4 + 3];
+                        }
+                    }
+
+                    bitmap.UnlockBits(&data);
+                    bResult = true;
+                }
+            }
+        }
+
+        Gdiplus::GdiplusShutdown(token);
+        pStream->Release();
+
+        return bResult;
+    }
+
+    // The moving drops hold pointers into the drops, so the two pools can only be
+    // resized together, and the pointers can not survive it: growing a vector moves
+    // its storage, and every pointer the moving drops hold into the old storage is
+    // then a pointer into freed memory, which MoveDrop reads and writes through.
+    // That is what it looks like when the heap hands the freed block out again for
+    // the moving drops themselves: their entries turn into floats, and the next
+    // dereference of an entry crashes. Nothing is worth keeping across a resize
+    // either, the effect is built again from the ini right after this.
+    static inline void ResizePools()
+    {
+        if (ms_drops.size() == (size_t)MaxDrops && ms_dropsMoving.size() == (size_t)MaxDropsMoving)
+            return;
+
+        Clear();
+
+        for (auto& moving : ms_dropsMoving)
+            moving.drop = nullptr;
+
+        ms_numDropsMoving = 0;
+
+        ms_drops.resize(MaxDrops);
+        ms_dropsMoving.resize(MaxDropsMoving);
     }
 
     static inline void Init()
     {
-        if (!Sire::IsRendererActive())
+        if (!Xrd::IsActive())
             return;
 
-        ReadIniSettings(bInvertedRadial);
-
-        auto windowSize = Sire::GetWindowSize();
-        Sire::SetViewport(0.0f, 0.0f, static_cast<float>(windowSize.x), static_cast<float>(windowSize.y));
-
-        ms_drops.resize(MaxDrops);
-        ms_dropsMoving.resize(MaxDropsMoving);
-
-        ms_indexBuf.resize(MaxDrops * 6 * sizeof(uint16_t));
-
-        for (auto i = 0; i < MaxDrops; i++)
+        // the ini is read once, changes to it are picked up by the watcher that
+        // ReadIniSettings installs
+        if (!ms_iniRead)
         {
-            ms_indexBuf[i * 6 + 0] = i * 4 + 0;
-            ms_indexBuf[i * 6 + 1] = i * 4 + 1;
-            ms_indexBuf[i * 6 + 2] = i * 4 + 2;
-            ms_indexBuf[i * 6 + 3] = i * 4 + 0;
-            ms_indexBuf[i * 6 + 4] = i * 4 + 2;
-            ms_indexBuf[i * 6 + 5] = i * 4 + 3;
+            ReadIniSettings(bInvertedRadial);
+            ms_iniRead = true;
         }
 
-        ms_tex = Sire::CreateTexture(windowSize.x, windowSize.y, nullptr);
+        ResizePools();
+        ms_vertices.reserve((size_t)MaxDrops * 4);
 
-        ms_fbWidth = windowSize.x;
-        ms_fbHeight = windowSize.y;
+        Xrd::Size size = Xrd::GetSize();
+        ms_fbWidth = size.width;
+        ms_fbHeight = size.height;
         ms_scaling = ms_fbHeight / 480.0f;
-
-        ms_maskTex = Sire::CreateTexture(drop_mask.width, drop_mask.height, (uint8_t*)drop_mask.pixel_data);
 
         if (!ms_maskTex)
         {
-            static constexpr auto MaskSize = 128;
-            uint8_t* pixels = new uint8_t[MaskSize * MaskSize * 4];
+            std::vector<uint8_t> pixels;
+            int32_t width = 0;
+            int32_t height = 0;
 
-            int32_t stride = MaskSize * 4;
-            for (int y = 0; y < MaskSize; y++)
+            if (LoadMask(bEnableSnow ? IDR_SNOWDROPMASK : IDR_DROPMASK, pixels, width, height))
+                ms_maskTex = Xrd::CreateTexture(width, height, pixels.data());
+
+            if (!ms_maskTex)
             {
-                float yf = ((y + 0.5f) / MaskSize - 0.5f) * 2.0f;
-                for (int x = 0; x < MaskSize; x++)
-                {
-                    float xf = ((x + 0.5f) / MaskSize - 0.5f) * 2.0f;
-                    memset(&pixels[y * stride + x * 4], xf * xf + yf * yf < 1.0f ? 0xFF : 0x00, 4);
-                }
-            }
+                static constexpr auto MaskSize = 128;
+                pixels.resize(MaskSize * MaskSize * 4);
 
-            ms_maskTex = Sire::CreateTexture(MaskSize, MaskSize, pixels);
-            ms_atlasUsed = false;
-            delete[] pixels;
+                for (int32_t y = 0; y < MaskSize; y++)
+                {
+                    const float yf = ((y + 0.5f) / MaskSize - 0.5f) * 2.0f;
+
+                    for (int32_t x = 0; x < MaskSize; x++)
+                    {
+                        const float xf = ((x + 0.5f) / MaskSize - 0.5f) * 2.0f;
+                        memset(&pixels[((size_t)y * MaskSize + x) * 4], xf * xf + yf * yf < 1.0f ? 0xFF : 0x00, 4);
+                    }
+                }
+
+                ms_maskTex = Xrd::CreateTexture(MaskSize, MaskSize, pixels.data());
+                ms_atlasUsed = false;
+            }
         }
 
-        if (CreateRenderTargetFromBackBuffer)
-            ms_renderTarget = Sire::CreateRenderTargetView(Sire::GetBackBuffer(0));
+        ms_generation = Xrd::GetBackendGeneration();
 
-        ms_initialised = 1;
+        // The size is what everything of the effect is scaled, clipped and randomly
+        // placed with, so it has to be there: a device that was just handed over
+        // reports a size of zero until its first frame is presented, and with a
+        // size of zero a modulo or a division by it is a crash. The next frame
+        // tries again.
+        ms_initialised = ms_fbWidth > 0 && ms_fbHeight > 0;
+    }
+
+    // The renderer of the game can be switched while it runs, and the backend is
+    // built again when its device is replaced under it. Everything the effect
+    // created belongs to the device of that backend, and the one that is there now
+    // either does not know the handles (which is what a drop of solid black looks
+    // like) or traps on them (which is what a crash in the driver looks like).
+    // Everything is therefore dropped and built again with the device that is
+    // current, which is what this is called for before the drops are used.
+    static inline void EnsureDevice()
+    {
+        if (ms_initialised && ms_generation != Xrd::GetBackendGeneration())
+        {
+            ms_maskTex = nullptr;
+            ms_initialised = false;
+            ms_fbWidth = 0;
+            ms_fbHeight = 0;
+        }
+
+        if (!ms_initialised)
+            Init();
+    }
+
+    static inline void Shutdown()
+    {
+        Reset();
     }
 
     static inline void AddToRenderList(WaterDrop* drop)
@@ -732,33 +1075,38 @@ public:
             1.0f,  1.0f,  1.0f, -1.0f
         };
 
-        int i;
-        float scale;
-
         float u1_1, u1_2;
         float v1_1, v1_2;
         float tmp;
 
         tmp = drop->uvsize * (300.0f - 40.0f) + 40.0f;
-        u1_1 = drop->x + ms_xOff - tmp;
+        u1_1 = drop->x + ms_xOff - tmp * ms_xScale;
         v1_1 = drop->y + ms_yOff - tmp;
-        u1_2 = drop->x + ms_xOff + tmp;
+        u1_2 = drop->x + ms_xOff + tmp * ms_xScale;
         v1_2 = drop->y + ms_yOff + tmp;
-        u1_1 = ((u1_1 <= 0.0f ? 0.0f : u1_1) / ms_fbWidth) * ms_UVXScale + ms_UVXOffset;
-        v1_1 = ((v1_1 <= 0.0f ? 0.0f : v1_1) / ms_fbHeight) * ms_UVYScale + ms_UVYOffset;
-        u1_2 = min(((u1_2 >= ms_fbWidth ? ms_fbWidth : u1_2) / ms_fbWidth) * ms_UVXScale + ms_UVXOffset, 1.0f);
-        v1_2 = min(((v1_2 >= ms_fbHeight ? ms_fbHeight : v1_2) / ms_fbHeight) * ms_UVYScale + ms_UVYOffset, 1.0f);
+        u1_1 = (u1_1 <= 0.0f ? 0.0f : u1_1) / ms_fbWidth;
+        v1_1 = (v1_1 <= 0.0f ? 0.0f : v1_1) / ms_fbHeight;
+        u1_2 = (u1_2 >= ms_fbWidth ? ms_fbWidth : u1_2) / ms_fbWidth;
+        v1_2 = (v1_2 >= ms_fbHeight ? ms_fbHeight : v1_2) / ms_fbHeight;
 
-        scale = drop->size * 0.5f;
+        const float scale = drop->size * 0.5f;
+        const uint32_t color = Xrd::ColorARGB(drop->alpha, drop->r, drop->g, drop->b);
 
-        Sire::SetColor4f(drop->r / 255.0f, drop->g / 255.0f, drop->b / 255.0f, drop->alpha / 255.0f);
-
-        for (i = 0; i < 4; i++)
+        for (int i = 0; i < 4; i++)
         {
-            Sire::SetTexCoords4f(i >= 2 ? u1_2 : u1_1, i % 3 == 0 ? v1_2 : v1_1,
-                uv[drop->uv_index][i * 2], uv[drop->uv_index][i * 2 + 1]);
-            Sire::SetVertex2f(drop->x + xy[i * 2] * scale + ms_xOff, drop->y + xy[i * 2 + 1] * scale + ms_yOff);
+            Xrd::Vertex vertex{};
+            vertex.x = drop->x + xy[i * 2] * scale * ms_xScale + ms_xOff;
+            vertex.y = drop->y + xy[i * 2 + 1] * scale + ms_yOff;
+            vertex.z = 0.0f;
+            vertex.color = color;
+            vertex.u0 = uv[drop->uv_index][i * 2];
+            vertex.v0 = uv[drop->uv_index][i * 2 + 1];
+            vertex.u1 = i >= 2 ? u1_2 : u1_1;
+            vertex.v1 = i % 3 == 0 ? v1_2 : v1_1;
+
+            ms_vertices.push_back(vertex);
         }
+
         ms_numBatchedDrops++;
     }
 
@@ -767,51 +1115,39 @@ public:
         if (!ms_enabled || ms_numDrops <= 0)
             return;
 
-        if (!ms_initialised)
+        EnsureDevice();
+
+        if (!ms_initialised || !Xrd::IsActive())
             return;
 
-        if (!Sire::IsRendererActive())
-            return;
+        const Xrd::Size size = Xrd::GetSize();
 
-        auto windowSize = Sire::GetWindowSize();
-        if (windowSize.x != ms_fbWidth || windowSize.y != ms_fbHeight)
+        if (size.width != ms_fbWidth || size.height != ms_fbHeight || size.width <= 0 || size.height <= 0)
         {
+            // the window changed size, everything is measured again on the next
+            // frame, until then the drops would be in the wrong place
             Reset();
-            Sire::Shutdown();
             return;
         }
 
-        auto backBuffer = Sire::GetBackBuffer(BackBufferMethod);
-        Sire::CopyResource(ms_tex, backBuffer);
+        ComputeXScale();
 
-        Sire::SetRenderState(Sire::SIRE_BLEND_ALPHATESTENABLE, true);
-        Sire::SetRenderState(Sire::SIRE_BLEND_SRCBLEND, Sire::SIRE_BLEND_SRC_ALPHA);
-        Sire::SetRenderState(Sire::SIRE_BLEND_DESTBLEND, Sire::SIRE_BLEND_INV_SRC_ALPHA);
-        Sire::SetRenderState(Sire::SIRE_BLEND_BLENDOP, Sire::SIRE_BLEND_OP_ADD);
-        Sire::SetRenderState(Sire::SIRE_BLEND_SRCBLENDALPHA, Sire::SIRE_BLEND_ONE);
-        Sire::SetRenderState(Sire::SIRE_BLEND_DESTBLENDALPHA, Sire::SIRE_BLEND_ZERO);
-        Sire::SetRenderState(Sire::SIRE_BLEND_BLENDOPALPHA, Sire::SIRE_BLEND_OP_ADD);
-        Sire::SetRenderState(Sire::SIRE_BLEND_WRITEMASK, Sire::SIRE_COLOR_WRITE_ENABLE_ALL);
-        Sire::SetRenderState(Sire::SIRE_BLEND_CULLMODE, Sire::SIRE_CULL_NONE);
-        Sire::SetRenderState(Sire::SIRE_BLEND_FILLMODE, Sire::SIRE_FILL_SOLID);
-        Sire::SetRenderState(Sire::SIRE_BLEND_STENCILENABLE, FALSE);
-        Sire::SetRenderState(Sire::SIRE_BLEND_COLORWRITEENABLE, 0xFFFFFFFF);
-
-        Sire::SetProjectionMode(Sire::SIRE_PROJ_ORTHOGRAPHIC);
-        Sire::SetTexture(ms_tex, ms_maskTex);
-
-        if (ms_renderTarget)
-            Sire::SetRenderTarget(ms_renderTarget);
-
-        Sire::Begin(Sire::SIRE_TRIANGLE);
-
+        ms_vertices.clear();
         ms_numBatchedDrops = 0;
+
         for (auto& drop : ms_drops)
             if (drop.active)
                 AddToRenderList(&drop);
 
-        Sire::SetIndices(ms_indexBuf, ms_numBatchedDrops * 6);
-        Sire::End();
+        if (ms_numBatchedDrops <= 0)
+            return;
+
+        Xrd::SetMaskTexture(ms_maskTex);
+        Xrd::SetProjection(Xrd::PROJECTION_SCREEN);
+        Xrd::SetSceneUVScale(ms_UVXOffset, ms_UVXScale, ms_UVYOffset, ms_UVYScale);
+        Xrd::SetSceneSampling(true);
+        Xrd::SetSceneComplement(bEnableSnow);
+        Xrd::Render(ms_vertices.data(), (int32_t)ms_vertices.size(), Xrd::PRIMITIVE_TRIANGLES);
     }
 };
 

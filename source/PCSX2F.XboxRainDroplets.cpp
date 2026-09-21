@@ -1,12 +1,25 @@
-#include "xrd11.h"
+#define XRD_ENABLE_D3D9
+#define XRD_ENABLE_D3D10
+#define XRD_ENABLE_D3D10_1
+#define XRD_ENABLE_D3D11
+#define XRD_ENABLE_D3D12
+#define XRD_ENABLE_OPENGL
+#define XRD_ENABLE_VULKAN
+#ifndef VK_USE_PLATFORM_WIN32_KHR
+#define VK_USE_PLATFORM_WIN32_KHR
+#endif
+// the Vulkan declarations of the repository come first, the small set of the
+// hook library then stays out of the way (it is guarded by VULKAN_H_)
+#include <vulkan/vulkan.h>
+#include "xrd/xrd.h"
 #define FUSIONDXHOOK_INCLUDE_D3D8     0
 #define FUSIONDXHOOK_INCLUDE_D3D9     0
 #define FUSIONDXHOOK_INCLUDE_D3D10    0
 #define FUSIONDXHOOK_INCLUDE_D3D10_1  0
 #define FUSIONDXHOOK_INCLUDE_D3D11    1
 #define FUSIONDXHOOK_INCLUDE_D3D12    1
-#define FUSIONDXHOOK_INCLUDE_OPENGL   0
-#define FUSIONDXHOOK_INCLUDE_VULKAN   0
+#define FUSIONDXHOOK_INCLUDE_OPENGL   1
+#define FUSIONDXHOOK_INCLUDE_VULKAN   1
 #define FUSIONDXHOOK_USE_SAFETYHOOK   1
 #define DELAYED_BIND 10000ms
 #include "FusionDxHook.h"
@@ -155,7 +168,62 @@ struct XRData {
 };
 #pragma pack(pop)
 
-void RenderDroplets()
+// ---------------------------------------------------------------------------
+// Drawing into the frame of the game, before its UI
+//
+// Mirrored from source/API/pcsx2f_api.h of the plugin injector. A guest plugin
+// reports the point of its frame where the world is done and the UI is not drawn
+// yet, the emulator stops the guest there and calls the export below with the frame
+// the game is drawing into, and what is drawn into it is under the UI of the game
+// instead of on top of it the way the draw at the present call is.
+// ---------------------------------------------------------------------------
+enum PCSX2FRenderPhase
+{
+    // The frame of the game is handed over: the effect takes the state of the drops from
+    // the game at this point and draws nothing yet, see the handling below.
+    PCSX2FRenderPhase_PrepareFrame = 1,
+
+    // The drops are drawn into the frame that was handed over by the call before this one.
+    PCSX2FRenderPhase_DrawFrame = 2,
+};
+
+enum PCSX2FRenderer
+{
+    PCSX2FRenderer_Unknown = 0,
+    PCSX2FRenderer_D3D11,
+    PCSX2FRenderer_D3D12,
+    PCSX2FRenderer_OpenGL,
+    PCSX2FRenderer_Vulkan,
+};
+
+struct PCSX2FRenderTargetInfo
+{
+    uint32_t renderer;  // PCSX2FRenderer
+    void* resource;     // ID3D11Texture2D, ID3D12Resource, VkImage or the texture of OpenGL
+    uint32_t format;
+    uint32_t width;
+    uint32_t height;
+    uint32_t state;
+};
+
+// Latches on the first time the emulator asks for the phase, and from then on the
+// drops are drawn there and not at the present call any more. An emulator without
+// the support of it never asks and the drops keep being drawn at the present call.
+static bool gGuestRenderPhaseSupported = false;
+
+// Whether the report of the frame said there is anything to draw, see the phase handling
+// below: the call that prepares the frame only reads what the game says, the one that
+// draws the drops comes right after it.
+static bool gGuestRenderPhaseAsked = false;
+
+// The plugin of the guest the drops are read out of. A name is enough: the injector
+// resolves it against the plugins folder of the emulator, see GetPluginSymbolAddr there,
+// so nothing here has to know where the emulator or its working directory is.
+constexpr const char* GUEST_PLUGIN_PATH = "PCSX2F.XboxRainDroplets.elf";
+
+// Reads what the guest plugin reports into the effect. True when the effect has
+// something to draw this frame.
+bool UpdateDroplets()
 {
     static uintptr_t(*GetEEMainMemoryStart)();
     static size_t(*GetEEMainMemorySize)();
@@ -181,45 +249,179 @@ void RenderDroplets()
 
     static XRData* pXRData = nullptr;
 
-    if (VMStateIsRunning && VMStateIsRunning() && GetEEMainMemoryStart())
+    // The address of the memory of the guest is only given while a game is running,
+    // and only with it can the data of the plugin be reached: the symbol is an
+    // offset into that memory, not an address on its own.
+    const uintptr_t eeStart = (VMStateIsRunning && VMStateIsRunning() && GetEEMainMemoryStart) ? GetEEMainMemoryStart() : 0;
+
+    if (!eeStart)
     {
-        if (pXRData)
+        pXRData = nullptr;
+        return false;
+    }
+
+    if (!pXRData)
+    {
+        auto sym = GetPluginSymbolAddr ? GetPluginSymbolAddr(GUEST_PLUGIN_PATH, "XboxRainDropletsData") : 0;
+        if (sym)
+            pXRData = (XRData*)(eeStart + sym);
+
+        return false;
+    }
+
+    // the marker the plugin is compiled with, cleared once so that it fills its
+    // fields in from then on
+    if (std::string_view((char*)pXRData).starts_with("X"))
+    {
+        memset(pXRData, 0, 255);
+        return false;
+    }
+
+    if (!pXRData->Enabled(0))
+        return false;
+
+    WaterDrops::ms_rainIntensity = pXRData->GetRainIntensity(0);
+
+    WaterDrops::bRadial = false;
+
+    WaterDrops::up = pXRData->GetUp(0);
+    WaterDrops::at = pXRData->GetAt(0);
+    WaterDrops::right = pXRData->GetRight(0);
+    WaterDrops::pos = pXRData->GetPos(0);
+
+    pXRData->RegisterSplash();
+    pXRData->FillScreen();
+    pXRData->FillScreenMoving();
+
+    return true;
+}
+
+void DrawDroplets()
+{
+    WaterDrops::Process();
+    WaterDrops::Render();
+}
+
+// The present call: where the drops were always drawn, on top of everything the
+// game drew. It is only what happens now when the emulator has no phase to hand
+// the frame of the game over at, see PCSX2F_OnGuestRenderPhase.
+void RenderDroplets()
+{
+    if (gGuestRenderPhaseSupported)
+        return;
+
+    if (UpdateDroplets())
+        DrawDroplets();
+}
+
+// Direct3D 10 and 11 draw into a view of a resource and not into the resource
+// itself, which is what the emulator hands over, so a view of it is made here and
+// kept for as long as the target stays the same one.
+ID3D11RenderTargetView* GetRenderTargetView(ID3D11Texture2D* pTexture)
+{
+    static ID3D11Texture2D* pCachedTexture = nullptr;
+    static ID3D11RenderTargetView* pCachedView = nullptr;
+
+    if (pCachedTexture == pTexture && pCachedView)
+        return pCachedView;
+
+    if (pCachedView)
+    {
+        pCachedView->Release();
+        pCachedView = nullptr;
+    }
+
+    if (pCachedTexture)
+    {
+        pCachedTexture->Release();
+        pCachedTexture = nullptr;
+    }
+
+    ID3D11Device* pDevice = nullptr;
+    pTexture->GetDevice(&pDevice);
+    if (pDevice)
+    {
+        // a null description is the format of the resource itself
+        if (SUCCEEDED(pDevice->CreateRenderTargetView(pTexture, nullptr, &pCachedView)))
         {
-            std::string_view buf((char*)pXRData);
-            if (!buf.starts_with("X"))
-            {
-                if (pXRData->Enabled(0))
-                {
-                    WaterDrops::ms_rainIntensity = pXRData->GetRainIntensity(0);
-
-                    WaterDrops::bRadial = false;
-
-                    WaterDrops::up = pXRData->GetUp(0);
-                    WaterDrops::at = pXRData->GetAt(0);
-                    WaterDrops::right = pXRData->GetRight(0);
-                    WaterDrops::pos = pXRData->GetPos(0);
-
-                    pXRData->RegisterSplash();
-                    pXRData->FillScreen();
-                    pXRData->FillScreenMoving();
-
-                    WaterDrops::Process();
-                    WaterDrops::Render();
-                }
-            }
-            else
-                memset(pXRData, 0, 255);
+            pTexture->AddRef();
+            pCachedTexture = pTexture;
         }
         else
         {
-            auto sym = GetPluginSymbolAddr("PLUGINS/PCSX2F.XboxRainDroplets.elf", "XboxRainDropletsData");
-            if (sym)
-                pXRData = (XRData*)(GetEEMainMemoryStart() + sym);
+            pCachedView = nullptr;
         }
+
+        pDevice->Release();
     }
-    else
-        pXRData = nullptr;
+
+    return pCachedView;
 }
+
+// The frame of the game, between its world and its UI. The emulator stops the guest
+// where its plugin reported the phase and asks for this, on the thread that owns
+// the graphics API, so the draw is done with it right away and the UI the game
+// draws next lands on top of it. The name is what the plugin injector looks up in
+// a module it loaded, see its dllmain.cpp.
+extern "C" __declspec(dllexport) void PCSX2F_OnGuestRenderPhase(uint32_t phase, const PCSX2FRenderTargetInfo* target)
+{
+    // The emulator calls a plugin with the frame the game is drawing into, once to let it
+    // read what its game says and once to draw, and does so at the point of the frame where
+    // the world is done and the UI is not drawn yet, see source/API/pcsx2f_api.h of the
+    // plugin injector: what is drawn there is under the UI of the game instead of on top of
+    // it, which is what a draw at the present call can only be.
+    if (phase != PCSX2FRenderPhase_PrepareFrame && phase != PCSX2FRenderPhase_DrawFrame)
+        return;
+
+    if (!target || !target->resource)
+        return;
+
+    gGuestRenderPhaseSupported = true;
+
+    // Direct3D 8 and 9 need the size of the target, Vulkan the size and the format
+    // of the image, and Direct3D 12 and Vulkan also have to be told what the target
+    // is for, since nothing about a resource says it: this one is the frame that is
+    // being drawn, not the one that is being presented.
+    Xrd::RenderTarget rt{};
+    rt.resource = target->resource;
+    rt.size = { (int32_t)target->width, (int32_t)target->height };
+    rt.format = target->format;
+    rt.state = Xrd::TARGET_STATE_RENDER_TARGET;
+
+    if (target->renderer == PCSX2FRenderer_D3D11)
+        rt.resource = GetRenderTargetView((ID3D11Texture2D*)target->resource);
+
+    Xrd::SetTarget(&rt);
+    Xrd::SetTargetState(Xrd::TARGET_STATE_RENDER_TARGET);
+
+    if (phase == PCSX2FRenderPhase_PrepareFrame)
+        gGuestRenderPhaseAsked = UpdateDroplets();
+    else if (gGuestRenderPhaseAsked)
+        DrawDroplets();
+
+    Xrd::SetTarget(nullptr);
+    Xrd::SetTargetState(Xrd::TARGET_STATE_PRESENT);
+}
+
+// The window a frame is presented in, which is what the drops have to keep their shape
+// against: the frame of a game is drawn into a buffer of its own and stretched to that
+// window, so a drop drawn round into the buffer is an oval on screen, see
+// WaterDrops::ms_xScale. It is the present call that knows the window.
+#if FUSIONDXHOOK_INCLUDE_D3D11 || FUSIONDXHOOK_INCLUDE_D3D12
+static void SetScreenSize(IDXGISwapChain* pSwapChain)
+{
+    if (!pSwapChain)
+        return;
+
+    DXGI_SWAP_CHAIN_DESC desc = {};
+
+    if (SUCCEEDED(pSwapChain->GetDesc(&desc)))
+    {
+        WaterDrops::ms_screenWidth = (int32_t)desc.BufferDesc.Width;
+        WaterDrops::ms_screenHeight = (int32_t)desc.BufferDesc.Height;
+    }
+}
+#endif
 
 extern "C" __declspec(dllexport) void InitializeASI()
 {
@@ -236,25 +438,17 @@ extern "C" __declspec(dllexport) void InitializeASI()
         #if FUSIONDXHOOK_INCLUDE_D3D11
         FusionDxHook::D3D11::onPresentEvent += [](IDXGISwapChain* pSwapChain)
         {
-            #ifdef SIRE_INCLUDE_DX11ON12
-            d3d11on12::RetrieveD3DDeviceFromSwapChain(pSwapChain);
-            if (!d3d11on12::isD3D11on12)
-            #endif
-            {
-                Sire::Init(Sire::SIRE_RENDERER_DX11, pSwapChain);
-                RenderDroplets();
-            }
+            Xrd::Init(Xrd::RENDERER_D3D11, pSwapChain);
+
+            SetScreenSize(pSwapChain);
+
+            RenderDroplets();
         };
 
         FusionDxHook::D3D11::onBeforeResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
         {
-            #ifdef SIRE_INCLUDE_DX11ON12
-            if (!d3d11on12::isD3D11on12)
-            #endif
-            {
-                WaterDrops::Reset();
-                Sire::Shutdown();
-            }
+            WaterDrops::Reset();
+            Xrd::Shutdown();
         };
 
         FusionDxHook::D3D11::onAfterResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
@@ -264,13 +458,10 @@ extern "C" __declspec(dllexport) void InitializeASI()
 
         FusionDxHook::D3D11::onShutdownEvent += []()
         {
-            #ifdef SIRE_INCLUDE_DX11ON12
-            if (!d3d11on12::isD3D11on12)
-            #endif
-            {
-                WaterDrops::Shutdown();
-                Sire::Shutdown();
-            }
+            // the device is gone, nothing of the backend may be handed back to it
+            Xrd::Detach();
+            WaterDrops::Shutdown();
+            Xrd::Shutdown();
         };
         #endif // FUSIONDXHOOK_INCLUDE_D3D11
 
@@ -278,26 +469,27 @@ extern "C" __declspec(dllexport) void InitializeASI()
         #if FUSIONDXHOOK_INCLUDE_D3D12
         FusionDxHook::D3D12::onPresentEvent += [](IDXGISwapChain* pSwapChain)
         {
-            Sire::SetCommandQueue(FusionDxHook::D3D12::GetCommandQueueFromSwapChain(pSwapChain));
-            Sire::Init(Sire::SIRE_RENDERER_DX11, pSwapChain);
+            Xrd::SetCommandQueue(FusionDxHook::D3D12::GetCommandQueueFromSwapChain(pSwapChain));
+            Xrd::Init(Xrd::RENDERER_D3D12, pSwapChain);
+
+            SetScreenSize(pSwapChain);
+
             RenderDroplets();
         };
 
-        #ifdef SIRE_INCLUDE_DX11ON12
         FusionDxHook::D3D12::onExecuteCommandListsEvent += [](ID3D12CommandQueue* pCommandQueue, UINT NumCommandLists, const ID3D12CommandList** ppCommandLists)
         {
             //FusionDxHook::D3D12::GetCommandQueueFromSwapChain(pSwapChain) is more reliable
             //if (pCommandQueue->GetDesc().Type == D3D12_COMMAND_LIST_TYPE_DIRECT)
             //{
-            //    Sire::SetCommandQueue(pCommandQueue);
+            //    Xrd::SetCommandQueue(pCommandQueue);
             //}
         };
-        #endif
 
         FusionDxHook::D3D12::onBeforeResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
         {
             WaterDrops::Reset();
-            Sire::Shutdown();
+            Xrd::Shutdown();
         };
 
         FusionDxHook::D3D12::onAfterResizeEvent += [](IDXGISwapChain* pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
@@ -307,37 +499,88 @@ extern "C" __declspec(dllexport) void InitializeASI()
 
         FusionDxHook::D3D12::onShutdownEvent += []()
         {
+            // the device is gone, nothing of the backend may be handed back to it
+            Xrd::Detach();
             WaterDrops::Shutdown();
-            Sire::Shutdown();
+            Xrd::Shutdown();
         };
         #endif // FUSIONDXHOOK_INCLUDE_D3D12
 
+        // -------------------------------------------------------------------
+        // OpenGL
+        //
+        // The window is presented with its device context, the frame is whatever
+        // is in the framebuffer at that moment and it is read back from there.
+        // -------------------------------------------------------------------
         #if FUSIONDXHOOK_INCLUDE_OPENGL
         FusionDxHook::OPENGL::onSwapBuffersEvent += [](HDC hDC)
         {
+            Xrd::Init(Xrd::RENDERER_OPENGL, hDC);
 
+            RECT rect = {};
+            HWND window = WindowFromDC(hDC);
+
+            if (window && GetClientRect(window, &rect))
+            {
+                WaterDrops::ms_screenWidth = rect.right - rect.left;
+                WaterDrops::ms_screenHeight = rect.bottom - rect.top;
+            }
+
+            RenderDroplets();
         };
 
         FusionDxHook::OPENGL::onShutdownEvent += []() {
+            // the context is gone, nothing of the backend may be handed back to it
+            Xrd::Detach();
             WaterDrops::Shutdown();
-            Sire::Shutdown();
+            Xrd::Shutdown();
         };
         #endif // FUSIONDXHOOK_INCLUDE_OPENGL
 
+        // -------------------------------------------------------------------
+        // Vulkan
+        //
+        // Vulkan has the least implicit state of them all, so the hooks collect
+        // what the backend cannot find out on its own: the device and its queue
+        // family from the device creation, the format and the size of the images
+        // from the description of the swap chain, and the image of the moment
+        // from the present call. Xrd::VulkanPresent is where the three meet, see
+        // source/xrd/xrdrender.vk.h.
+        // -------------------------------------------------------------------
         #if FUSIONDXHOOK_INCLUDE_VULKAN
-        FusionDxHook::VULKAN::onvkCreateDeviceEvent += [](VkPhysicalDevice gpu, const VkDeviceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDevice* pDevice)
-        {
+        static Xrd::VulkanPresent gVulkanPresent;
 
+        FusionDxHook::VULKAN::onvkCreateDeviceEvent += [](VkPhysicalDevice gpu, const VkDeviceCreateInfo* pCreateInfo, const VkAllocationCallbacks*, VkDevice* pDevice)
+        {
+            gVulkanPresent.OnCreateDevice(gpu, pCreateInfo, pDevice);
+        };
+
+        FusionDxHook::VULKAN::onVkCreateSwapchainKHREvent += [](VkDevice device, const VkSwapchainCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks*, VkSwapchainKHR*)
+        {
+            if (pCreateInfo)
+            {
+                WaterDrops::ms_screenWidth = (int32_t)pCreateInfo->imageExtent.width;
+                WaterDrops::ms_screenHeight = (int32_t)pCreateInfo->imageExtent.height;
+            }
+
+            gVulkanPresent.OnCreateSwapchain(device, pCreateInfo);
         };
 
         FusionDxHook::VULKAN::onVkQueuePresentKHREvent += [](VkQueue queue, const VkPresentInfoKHR* pPresentInfo)
         {
+            if (!gVulkanPresent.Prepare(queue, pPresentInfo))
+                return;
 
+            RenderDroplets();
         };
 
         FusionDxHook::VULKAN::onShutdownEvent += []() {
+            // The loader is unloaded after the device was destroyed, so nothing
+            // of the backend may be handed back to the driver any more.
+            Xrd::Detach();
             WaterDrops::Shutdown();
-            Sire::Shutdown();
+            Xrd::Shutdown();
+            gVulkanPresent.Clear();
         };
         #endif // FUSIONDXHOOK_INCLUDE_VULKAN
 

@@ -3,13 +3,17 @@
 #include <injector\calling.hpp>
 #include <injector\utility.hpp>
 #include <injector\assembly.hpp>
-#include "xrd11.h"
+#define XRD_ENABLE_D3D9
+#define XRD_ENABLE_D3D10
+#define XRD_ENABLE_D3D10_1
+#define XRD_ENABLE_D3D11
+#define XRD_ENABLE_D3D12
+#include "xrd/xrd.h"
 
 void Init()
 {
     WaterDrops::ReadIniSettings();
 
-    WaterDrops::CreateRenderTargetFromBackBuffer = false;
     WaterDrops::ms_rainIntensity = 0.0f;
 
     auto pattern = hook::pattern("F3 0F 7E 86 ? ? ? ? 8D 4C 40 ? 66 0F D6 04 8E 8B 96 ? ? ? ? 8D 04 8E 89 50 ? 8B 86 ? ? ? ? 40 99 B9 ? ? ? ? F7 F9 8B 4E ? 81 C1 ? ? ? ? 89 96 ? ? ? ? 8B 11 F2 0F 10 82 ? ? ? ? 66 0F 5A C0 F3 0F 11 86 ? ? ? ? F3 0F 10 86 ? ? ? ? 0F 2E C1 9F F6 C4 ? 7B ? 8B 01 F2 0F 10 88 ? ? ? ? 0F 5A C0 F2 0F 5C CA 66 0F 2F C8 76 ? 8B 46 ? 83 B8 ? ? ? ? ? 8D 88 ? ? ? ? 75 ? 8D 8E ? ? ? ? 8B 86 ? ? ? ? F3 0F 7E 01 8D 14 40 66 0F D6 84 96 ? ? ? ? 8B 49 ? 8D 84 96 ? ? ? ? 89 48 ? 8B 86 ? ? ? ? 40 99 B9 ? ? ? ? F7 F9 89 96 ? ? ? ? 8B 56 ? 8B 82 ? ? ? ? F2 0F 10 80 ? ? ? ? 66 0F 5A C0 F3 0F 11 86 ? ? ? ? 8B CE E8 ? ? ? ? 32 C0 88 46 ? 88 86 ? ? ? ? E9");
@@ -105,8 +109,8 @@ void Init()
     {
         auto pSwapChain = *(IDXGISwapChain**)(regs.esi + 0x58);
         WaterDrops::Reset();
-        Sire::Shutdown();
-        Sire::Init(Sire::SIRE_RENDERER_DX11, pSwapChain);
+        Xrd::Shutdown();
+        Xrd::Init(Xrd::RENDERER_D3D11, pSwapChain);
     });
 
     pattern = hook::pattern("89 85 ? ? ? ? 85 C0 79 07");
@@ -128,7 +132,7 @@ void Init()
         //    pDevice->Release();
         //}
 
-        Sire::Init(Sire::SIRE_RENDERER_DX11, pSwapChain);
+        Xrd::Init(Xrd::RENDERER_D3D11, pSwapChain);
     });
 }
 

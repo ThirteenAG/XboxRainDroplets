@@ -1,5 +1,6 @@
-#define DIRECT3D_VERSION         0x0800
-#include "xrd.h"
+// Direct3D 8, the API this game uses
+#define XRD_ENABLE_D3D8
+#include "xrd/xrd.h"
 
 injector::hook_back<void*(__fastcall*)(void* _this, void* edx, char* name, RwMatrix* pos, int a3, int a4)> hb_CreateFxSystem;
 void* __fastcall CreateFxSystem(void* _this, void* edx, char* name, RwMatrix* pos, int a3, int a4)
@@ -7,7 +8,7 @@ void* __fastcall CreateFxSystem(void* _this, void* edx, char* name, RwMatrix* po
     if (WaterDrops::bBloodDrops)
     {
         std::string_view name_view(name);
-        if (name_view == "FXP001" || name_view == "FXP002" || name_view == "FXP003" || name == "FXBTMET" || name_view == "FXBTMET2" || name_view == "FXRAT1")
+        if (name_view == "FXP001" || name_view == "FXP002" || name_view == "FXP003" || name_view == "FXBTMET" || name_view == "FXBTMET2" || name_view == "FXRAT1")
         {
             RwV3d prt_pos = { pos->pos.x, pos->pos.y, pos->pos.z };
             auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(prt_pos);
@@ -43,8 +44,9 @@ void Init()
                 WaterDrops::at = matrix->at;
                 WaterDrops::pos = matrix->pos;
                 auto pDevice = *(LPDIRECT3DDEVICE8*)pDev;
-                WaterDrops::Process(pDevice);
-                WaterDrops::Render(pDevice);
+                Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+                WaterDrops::Process();
+                WaterDrops::Render();
                 WaterDrops::ms_rainIntensity = 0.0f;
             }
         }

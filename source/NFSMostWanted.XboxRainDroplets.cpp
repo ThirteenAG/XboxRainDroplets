@@ -1,6 +1,6 @@
-#include "xrd.h"
-
-//#define USE_D3D_HOOK
+// Direct3D 9, the API this game uses
+#define XRD_ENABLE_D3D9
+#include "xrd/xrd.h"
 
 static LPDIRECT3DDEVICE9* pDev;
 uint32_t* TheGameFlowManagerStatus = (uint32_t*)0x00925E90;
@@ -162,7 +162,8 @@ void __stdcall OnScreenRain_Update_Hook(void* View)
         WaterDrops::pos.y = (*cam).CurrentKey.Position.y;
         WaterDrops::pos.z = (*cam).CurrentKey.Position.z;
 
-        WaterDrops::Process(*pDev);
+        Xrd::Init(XRD_DEVICE_RENDERER, *pDev);
+        WaterDrops::Process();
         WaterDrops::ms_rainIntensity = 0.0f;
     }
 }
@@ -173,7 +174,7 @@ void __cdecl PreRVMHook(int unk1, int unk2)
 
     if ((*TheGameFlowManagerStatus == 6))
     {
-        WaterDrops::Render(*pDev);
+        WaterDrops::Render();
     }
 
     return hb_PreRVM.fun(unk1, unk2);
@@ -184,48 +185,6 @@ void Init()
     CIniReader iniReader("");
     WaterDrops::ReadIniSettings(true);
     
-#ifdef USE_D3D_HOOK
-    //vtable gets overwritten at startup, so no point in patching it right away
-    WaterDrops::bPatchD3D = false;
-
-    //resetting rain
-    WaterDrops::ProcessCallback2 = []()
-    {
-        WaterDrops::ms_rainIntensity = 0.0f;
-    };
-
-    //hooking create to get EndScene and Reset
-    auto pattern = hook::pattern("E8 ? ? ? ? 6A 2B 6A 2B A3");
-    static injector::hook_back<IDirect3D9*(WINAPI*)(UINT)> Direct3DCreate9;
-    auto Direct3DCreate9Hook = [](UINT SDKVersion) -> IDirect3D9*
-    {
-        auto pID3D9 = Direct3DCreate9.fun(SDKVersion);
-        auto pVTable = (UINT_PTR*)(*((UINT_PTR*)pID3D9));
-        if (!WaterDrops::RealD3D9CreateDevice)
-            WaterDrops::RealD3D9CreateDevice = (CreateDevice_t)pVTable[IDirect3D9VTBL::CreateDevice];
-        injector::WriteMemory(&pVTable[IDirect3D9VTBL::CreateDevice], &WaterDrops::d3dCreateDevice, true);
-        return pID3D9;
-    }; Direct3DCreate9.fun = injector::MakeCALL(pattern.get_first(0), static_cast<IDirect3D9*(WINAPI*)(UINT)>(Direct3DCreate9Hook), true).get();
-
-    //Patching after vtable is overwritten, using rain function. Also setting the rain intensity here.
-    static auto dword_9196B8 = *hook::get_pattern<uint32_t**>("8B 15 ? ? ? ? D9 82 A0 36 00 00", 2);
-    pattern = hook::pattern("C7 05 ? ? ? ? ? ? ? ? 5E 81 C4 8C 00 00 00 C3");
-    static auto dword_982C80 = *pattern.get_first<uint32_t*>(2);
-    struct RainDropletsHook
-    {
-        void operator()(injector::reg_pack& regs)
-        {
-            *dword_982C80 = 0;
-            if (*WaterDrops::pEndScene == (uint32_t)WaterDrops::RealD3D9EndScene)
-                injector::WriteMemory(WaterDrops::pEndScene, &WaterDrops::d3dEndScene, true);
-
-            if (*WaterDrops::pReset == (uint32_t)WaterDrops::RealD3D9Reset)
-                injector::WriteMemory(WaterDrops::pReset, &WaterDrops::d3dReset, true);
-
-            WaterDrops::ms_rainIntensity = float(**dword_9196B8 / 20);
-        }
-    }; injector::MakeInline<RainDropletsHook>(pattern.get_first(0), pattern.get_first(10));
-#else
     auto pattern = hook::pattern("A1 ? ? ? ? 8B 10 68 ? ? ? ? 50 FF 52 40");
     pDev = *pattern.get_first<LPDIRECT3DDEVICE9*>(1);
     struct ResetHook
@@ -261,7 +220,6 @@ void Init()
     injector::MakeJMP(pattern.get_first(0), OnScreenRain_Update_Hook);
     pattern = hook::pattern("55 8B EC 83 E4 F0 81 EC D4 00 00 00 83 3D"); // 0x00757770
     TheGameFlowManagerStatus = *pattern.count(1).get(0).get<uint32_t*>(0xE);
-#endif
 
     //hiding original droplets
     static int32_t ogDrops = 0;

@@ -1,7 +1,23 @@
 copy ".\source\resources\inis\*.ini" ".\bin\" /Y
 
+rem Embedding PDBs, the tool embeds the .pdb that sits next to every plugin
+pushd bin
+call ..\tools\EmbedPDB\EmbedPDB.bat
+popd
+
+rem Signing
+powershell -NoProfile -ExecutionPolicy Bypass -File "sign.ps1" -SearchPaths ".\bin\*.asi" -MaxParallel 8
+
+if %errorlevel% neq 0 (
+    echo ERROR: Signing failed!
+    exit /b 1
+)
+
 for %%x in (
 GTAIV.XboxRainDroplets
+GTA3.XboxRainDroplets
+GTAVC.XboxRainDroplets
+GTASA.XboxRainDroplets
 Mafia.XboxRainDroplets
 NFSCarbon.XboxRainDroplets
 NFSMostWanted.XboxRainDroplets

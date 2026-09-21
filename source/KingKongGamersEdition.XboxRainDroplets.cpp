@@ -1,4 +1,6 @@
-#include "xrd.h"
+// Direct3D 9, the API this game uses
+#define XRD_ENABLE_D3D9
+#include "xrd/xrd.h"
 
 typedef struct MATH_tdst_Vector_
 {
@@ -51,8 +53,9 @@ void Init()
     {
         IDirect3DDevice9* pDevice = *(IDirect3DDevice9**)(regs.esi + 4);
         UpdateCameraFromJadeMatrix((MATH_tdst_Matrix*)(*GDI_gpst_CurDD + 0x158));
-        WaterDrops::Process(pDevice);
-        WaterDrops::Render(pDevice);
+        Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+        WaterDrops::Process();
+        WaterDrops::Render();
         WaterDrops::ms_rainIntensity = 0.0f;
     });
 

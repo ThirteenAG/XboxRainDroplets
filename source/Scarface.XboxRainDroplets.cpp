@@ -1,12 +1,19 @@
-#include "xrd.h"
+// Direct3D 9, the API this game uses
+#define XRD_ENABLE_D3D9
+#include "xrd/xrd.h"
 
-class MenuBlur: WaterDrops
+class MenuBlur
 {
 private:
     static inline int32_t ms_initialised;
     static inline IDirect3DVertexDeclaration9* ms_quadVertexDecl = nullptr;
     static inline IDirect3DPixelShader9* ms_blurps = nullptr;
     static inline IDirect3DVertexShader9* ms_blurvs = nullptr;
+    // the copy of the frame the drops are blended against, this pass keeps its
+    // own because it blurs it as well
+    static inline IDirect3DTexture9* ms_tex = nullptr;
+    static inline IDirect3DSurface9* ms_bbuf = nullptr;
+    static inline IDirect3DSurface9* ms_surf = nullptr;
 public:
     static inline void InitialiseRender(LPDIRECT3DDEVICE9 pDevice)
     {
@@ -31,6 +38,20 @@ public:
             D3DDECL_END()
         };
         pDevice->CreateVertexDeclaration(vertexElements, &ms_quadVertexDecl);
+
+        D3DSURFACE_DESC desc{};
+        if (SUCCEEDED(pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &ms_bbuf)) && ms_bbuf)
+        {
+            ms_bbuf->GetDesc(&desc);
+
+            pDevice->CreateTexture(desc.Width, desc.Height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &ms_tex, nullptr);
+            if (ms_tex)
+                ms_tex->GetSurfaceLevel(0, &ms_surf);
+
+            WaterDrops::ms_fbWidth = desc.Width;
+            WaterDrops::ms_fbHeight = desc.Height;
+        }
+
         ms_initialised = 1;
     }
 
@@ -48,8 +69,8 @@ public:
 
         pDevice->StretchRect(ms_bbuf, NULL, ms_surf, NULL, D3DTEXF_LINEAR);
 
-        float rasterWidth = (float)ms_fbWidth;
-        float rasterHeight = (float)ms_fbHeight;
+        float rasterWidth = (float)WaterDrops::ms_fbWidth;
+        float rasterHeight = (float)WaterDrops::ms_fbHeight;
         float halfU = 0.5f / rasterWidth;
         float halfV = 0.5f / rasterHeight;
         float uMax = 1.0f;
@@ -386,8 +407,9 @@ void Init()
                 };
                 
                 if (!WaterDrops::ms_initialised || !InMenu())
-                    WaterDrops::Process(*pDev);
-                WaterDrops::Render(*pDev);
+                    Xrd::Init(XRD_DEVICE_RENDERER, *pDev);
+                    WaterDrops::Process();
+                WaterDrops::Render();
 
                 if (InMenu())
                 {

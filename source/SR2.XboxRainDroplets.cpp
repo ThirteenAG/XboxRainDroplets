@@ -3,7 +3,9 @@
 #include <injector\calling.hpp>
 #include <injector\utility.hpp>
 #include <injector\assembly.hpp>
-#include "xrd.h"
+// Direct3D 9, the API this game uses
+#define XRD_ENABLE_D3D9
+#include "xrd/xrd.h"
 
 static auto HandleDynAddress = GetModuleHandle(nullptr);
 template<typename AT>
@@ -123,8 +125,9 @@ static void rain_render_hook() {
     else
         WaterDrops::ms_rainIntensity = 0.f;
     if(!is_game_paused())
-    WaterDrops::Process(pDevice);
-    WaterDrops::Render(pDevice);
+    Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+    WaterDrops::Process();
+    WaterDrops::Render();
 
     rendered = true;
     
@@ -286,9 +289,7 @@ void Init()
     static auto D3D9CreateDevice = safetyhook::create_mid(pattern.get_first(0), [](SafetyHookContext& ctx)
     {
         auto pDevice = *ppDevice;
-#ifdef SIRE_INCLUDE_DX9
-        Sire::Init(Sire::SIRE_RENDERER_DX9, pDevice);
-#endif
+        Xrd::Init(Xrd::RENDERER_D3D9, pDevice);
     });
 
     static auto chainsaw_blood = safetyhook::create_mid(0x971550_g, [](SafetyHookContext& ctx) {

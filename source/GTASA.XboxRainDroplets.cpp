@@ -1,6 +1,18 @@
-#include "xrd.h"
+// Direct3D 9, the API this game uses
+#define XRD_ENABLE_D3D9
+#include "xrd/xrd.h"
+
+// one of the two functions that add a particle takes the colour of the particle
+struct RwRGBA
+{
+    uint8_t r, g, b, a;
+};
 
 float& CTimer__ms_fTimeStep = *(float*)0xB7CB5C;
+
+// The game counts a frame in frames of 50 Hz, the effect wants seconds per
+// frame, which is what this holds, see where it is set.
+static float timeStepSeconds = 0.0f;
 //CCamera& TheCamera = *(CCamera*)0xB6F028;
 float& CWeather__Rain = *(float*)(0xC81324);
 float& CWeather__UnderWaterness = *(float*)(0xC8132C);
@@ -9,6 +21,16 @@ int* CGame__currArea = (int*)0xB72914;
 int* CEntryExitManager__ms_exitEnterState = (int*)0x96A7CC;
 auto CCullZones__CamNoRain = (bool(__cdecl*)())0x72DDB0;
 auto CCullZones__PlayerNoRain = (bool(__cdecl*)())0x72DDC0;
+auto FindPlayerVehicle = (bool(__cdecl*)(uint32_t, uint8_t))0x56E0D0;
+uint8_t* TheCamera = (uint8_t*)0xB6F028;
+
+// the camera modes the drops are not visible in
+enum
+{
+    CAM_TOPDOWN = 1,
+    CAM_FIRSTPERSON = 16,
+    CAM_TWOPLAYER_TOPDOWN = 54
+};
 
 bool NoDrops()
 {
@@ -20,9 +42,37 @@ bool NoRain()
     return CCullZones__CamNoRain() || CCullZones__PlayerNoRain() || *CGame__currArea != 0 || NoDrops();
 }
 
+// the mode of the camera that is in use
+static short GetCamMode()
+{
+    const uint8_t active = *(TheCamera + 0x59);
+    const uint8_t* cam = TheCamera + 0x174 + active * 0x238;
+
+    return *(short*)(cam + 0xC);
+}
+
+// A camera the drops are not visible in: looking straight down, or the first
+// person camera of a pedestrian, is one where they would sit in the middle of
+// the view, so the original effect stops them there.
+static bool CameraSeesDrops()
+{
+    const short mode = GetCamMode();
+
+    if (mode == CAM_TOPDOWN || mode == CAM_TWOPLAYER_TOPDOWN)
+        return false;
+
+    if (mode == CAM_FIRSTPERSON && FindPlayerVehicle(-1, 0) == 0)
+        return false;
+
+    return true;
+}
+
 void Init()
 {
     WaterDrops::ReadIniSettings();
+    // the effect moves with the time of the game, which is a value of its own,
+    // see timeStepSeconds
+    WaterDrops::fTimeStep = &timeStepSeconds;
     
     static LPDIRECT3DDEVICE9* pDev = (LPDIRECT3DDEVICE9*)0xC97C28;
     static auto matrix = (RwMatrix*)((0xB6F97C + 0x20));
@@ -42,21 +92,26 @@ void Init()
             return;
         }
 
-        if (NoRain())
+        if (NoRain() || !CameraSeesDrops())
             WaterDrops::ms_rainIntensity = 0.0f;
         else
             WaterDrops::ms_rainIntensity = CWeather__Rain;
 
 
-        WaterDrops::Process(*pDev);
+        // CTimer::ms_fTimeStep counts in frames of 50 Hz, a second is 50 of
+        // them, and the effect wants seconds per frame
+        timeStepSeconds = CTimer__ms_fTimeStep / 50.0f;
 
-        if (WaterDrops::ms_numDrops <= 0 || CCutsceneMgr__ms_running)
+        Xrd::Init(XRD_DEVICE_RENDERER, *pDev);
+        WaterDrops::Process();
+
+        if (WaterDrops::ms_numDrops <= 0 || CCutsceneMgr__ms_running || !CameraSeesDrops())
         {
 
         }
         else
         {
-            WaterDrops::Render(*pDev);
+            WaterDrops::Render();
         }
 
     }; CMotionBlurStreaksRender.fun = injector::MakeCALL(0x726AD0, static_cast<void(*)()>(CMotionBlurStreaksRenderHook), true).get();

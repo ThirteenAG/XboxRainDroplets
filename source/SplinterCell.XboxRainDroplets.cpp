@@ -1,5 +1,6 @@
-#define DIRECT3D_VERSION 0x0800
-#include "xrd.h"
+// Direct3D 8, the API this game uses
+#define XRD_ENABLE_D3D8
+#include "xrd/xrd.h"
 
 struct FVector
 {
@@ -116,8 +117,9 @@ void InitD3DDrv()
     static auto RenderHook = safetyhook::create_mid(pattern.get(0).get<void*>(), [](SafetyHookContext& regs)
     {
         auto pDevice = *(LPDIRECT3DDEVICE8*)(*(uintptr_t*)(regs.esi + 4) + 0x4684);
-        WaterDrops::Process(pDevice);
-        WaterDrops::Render(pDevice);
+        Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+        WaterDrops::Process();
+        WaterDrops::Render();
         WaterDrops::ms_rainIntensity = 0.0f;
     });
 
@@ -135,8 +137,6 @@ void InitD3DDrv()
             }
         };
 
-        SafeRelease(&WaterDrops::ms_vertexBuf);
-        SafeRelease(&WaterDrops::ms_indexBuf);
     });
 }
 

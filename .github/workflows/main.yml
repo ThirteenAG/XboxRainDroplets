@@ -6,14 +6,14 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2022
+    runs-on: windows-2025-vs2026
     strategy:
       matrix:
         buildtype: [Release]
 
     steps:
     - name: setup-msbuild
-      uses: microsoft/setup-msbuild@v3
+      uses: microsoft/setup-msbuild@main
     - uses: actions/checkout@v7
       with:
         submodules: recursive
@@ -22,12 +22,14 @@ jobs:
       run: ./premake5.bat
     - name: Build XboxRainDroplets
       shell: cmd
-      run: msbuild -m build/${{github.event.repository.name}}.sln /property:Configuration=${{matrix.buildtype}}
+      run: |
+          msbuild -m build/${{github.event.repository.name}}.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
+          msbuild -m build/${{github.event.repository.name}}64.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=x64
     - name: Build XboxRainDropletsWrapper
       shell: cmd
       run: |
-          msbuild -m build/XboxRainDropletsWrapper.sln /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
-          msbuild -m build/XboxRainDropletsWrapper.sln /property:Configuration=${{matrix.buildtype}} /property:Platform=x64
+          msbuild -m build/XboxRainDropletsWrapper.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
+          msbuild -m build/XboxRainDropletsWrapper64.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=x64
     - name: Download Ultimate ASI Loader x86
       uses: robinraju/release-downloader@v1.13
       with:
@@ -59,6 +61,9 @@ jobs:
     - name: Pack binaries
       shell: cmd
       run: release.bat
+      env:
+        CODE_SIGNING_PFX: ${{ github.event_name == 'push' && github.ref_name == 'master' && secrets.CODE_SIGNING_PFX || '' }}
+        CODE_SIGNING_PASSWORD: ${{ github.event_name == 'push' && github.ref_name == 'master' && secrets.CODE_SIGNING_PASSWORD || '' }}
     - name: Upload artifacts to actions
       uses: actions/upload-artifact@v7.0.1
       with:

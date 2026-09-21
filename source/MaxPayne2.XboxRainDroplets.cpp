@@ -1,5 +1,6 @@
-#define DIRECT3D_VERSION         0x0800
-#include "xrd.h"
+// Direct3D 8, the API this game uses
+#define XRD_ENABLE_D3D8
+#include "xrd/xrd.h"
 
 IDirect3DDevice8* pDevice = nullptr;
 
@@ -54,8 +55,9 @@ void Init()
         {
             *(uint32_t*)(regs.esp + 0x18) = 0;
 
-            WaterDrops::Process(pDevice);
-            WaterDrops::Render(pDevice);
+            Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+            WaterDrops::Process();
+            WaterDrops::Render();
             WaterDrops::ms_rainIntensity = 0.0f;
         }
     }; injector::MakeInline<RenderHook>(pattern.get_first(0), pattern.get_first(8));
