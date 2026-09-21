@@ -529,17 +529,23 @@ namespace
 
 int main()
 {
+    // --headless: a run for a build server, see XrdTest::Headless
+    XrdTest::Headless::ParseCommandLine("vulkan");
+
+    if (XrdTest::Headless::Active())
+        camera.autoYawSpeed = 0.0f;	// the pictures of the check are compared to each other
+
     if (!window.Create(L"Xbox Rain Droplets - Vulkan", 1280, 720))
         return 1;
 
     if (!LoadGlobalFunctions() || !InitializeDevice())
-        return 1;
+        return XrdTest::Headless::DeviceFailed();
 
     if (!CreateSwapChain() || !CreateFrameObjects())
     {
         printf("[vulkan] the swap chain could not be created\n");
         fflush(stdout);
-        return 1;
+        return XrdTest::Headless::DeviceFailed();
     }
 
     Xrd::VulkanInitInfo initInfo{};
@@ -562,6 +568,7 @@ int main()
     auto previous = std::chrono::high_resolution_clock::now();
     auto lastReport = previous;
     int frames = 0;
+    int frameIndex = 0;		// headless: how many frames the run has drawn
     char extra[128]{};
 
     std::vector<Rect> scene;
@@ -577,6 +584,9 @@ int main()
 
         if (deltaTime > 0.1f)
             deltaTime = 0.1f;
+
+        if (XrdTest::Headless::Active())
+            deltaTime = XrdTest::Headless::DeltaTime();
 
         camera.Update(window, deltaTime);
 
@@ -660,6 +670,8 @@ int main()
         target.state = Xrd::TARGET_STATE_RENDER_TARGET;
         Xrd::SetTarget(&target);
 
+        XrdTest::Headless::PrepareDrops(frameIndex, window.width, window.height);
+
         WaterDrops::Process();
         WaterDrops::Render();
 
@@ -705,6 +717,11 @@ int main()
         if (frameTime < 1.0f / 60.0f)
             Sleep((DWORD)((1.0f / 60.0f - frameTime) * 1000.0f));
 
+        // a headless run takes the pictures of its last few frames and is over
+        if (XrdTest::Headless::AfterPresent(window.hwnd, frameIndex))
+            return XrdTest::Headless::Result();
+
+        frameIndex++;
         frames++;
 
         if (std::chrono::duration<float>(now - lastReport).count() >= 1.0f)

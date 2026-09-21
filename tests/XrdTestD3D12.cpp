@@ -496,6 +496,11 @@ namespace
 
 int main()
 {
+    // --headless: a run for a build server, see XrdTest::Headless
+    XrdTest::Headless::ParseCommandLine("d3d12");
+
+    if (XrdTest::Headless::Active())
+        camera.autoYawSpeed = 0.0f;	// the pictures of the check are compared to each other
 
     if (!window.Create(L"Xbox Rain Droplets - Direct3D 12", 1280, 720))
     {
@@ -503,7 +508,7 @@ int main()
     }
 
     if (!InitializeDevice())
-        return 1;
+        return XrdTest::Headless::DeviceFailed();
 
 
     // the swap chain is all the effect needs, exactly like on Direct3D 11, but
@@ -528,6 +533,7 @@ int main()
     auto previous = std::chrono::high_resolution_clock::now();
     auto lastReport = previous;
     int frames = 0;
+    int frameIndex = 0;		// headless: how many frames the run has drawn
     char extra[128]{};
 
     while (window.running)
@@ -540,6 +546,9 @@ int main()
 
         if (deltaTime > 0.1f)
             deltaTime = 0.1f;
+
+        if (XrdTest::Headless::Active())
+            deltaTime = XrdTest::Headless::DeltaTime();
 
         camera.Update(window, deltaTime);
 
@@ -600,6 +609,8 @@ int main()
         DrawRects(rects.data(), (int)rects.size(), pAllocator, pTarget);
 
         // the drops, into the back buffer of the moment
+        XrdTest::Headless::PrepareDrops(frameIndex, window.width, window.height);
+
         WaterDrops::Process();
         WaterDrops::Render();
 
@@ -622,6 +633,11 @@ int main()
         if (frameTime < 1.0f / 60.0f)
             Sleep((DWORD)((1.0f / 60.0f - frameTime) * 1000.0f));
 
+        // a headless run takes the pictures of its last few frames and is over
+        if (XrdTest::Headless::AfterPresent(window.hwnd, frameIndex))
+            return XrdTest::Headless::Result();
+
+        frameIndex++;
         frames++;
 
         if (std::chrono::duration<float>(now - lastReport).count() >= 1.0f)
