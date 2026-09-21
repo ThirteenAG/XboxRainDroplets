@@ -292,6 +292,16 @@ public:
         return GetTimeStep() / 50.0f * 1000.0f;
     }
 
+    // The length of a frame in seconds, whichever way the game gives it: a game that
+    // hands WaterDrops::fTimeStep over counts its frames in those of 50 Hz (about 1.5
+    // per frame), a game that does not lets the effect measure the frame rate itself,
+    // and what is left there is in seconds already. Everything the effect moves and
+    // ages is in that unit, and the snow module is handed it in milliseconds.
+    static inline float GetFrameTimeSeconds()
+    {
+        return fTimeStep ? *fTimeStep / 50.0f : GetTimeStep();
+    }
+
     static inline void Process()
     {
         if (!fTimeStep)

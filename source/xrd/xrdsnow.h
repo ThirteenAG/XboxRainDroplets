@@ -188,13 +188,19 @@ private:
         return r;
     }
 
+    // The whole of the frame is converted into the world of the game here, the position
+    // included: the original did the same when it built the world matrix it handed to the
+    // device (right.x, right.z, right.y and so on, and the same for pos), and the view
+    // matrix of the game is what it is drawn with. Converting only the axes leaves the
+    // position in the other world, and the two mixed together slide, rotate and swing
+    // around the camera.
     static inline Xrd::Matrix MakeWorld(const RwMatrix* cam, const CVector& pos)
     {
         Xrd::Matrix r{};
         r.m[0][0] = cam->right.x; r.m[0][1] = cam->right.z; r.m[0][2] = cam->right.y; r.m[0][3] = 0.0f;
         r.m[1][0] = cam->up.x;    r.m[1][1] = cam->up.z;    r.m[1][2] = cam->up.y;    r.m[1][3] = 0.0f;
         r.m[2][0] = cam->at.x;    r.m[2][1] = cam->at.z;    r.m[2][2] = cam->at.y;    r.m[2][3] = 0.0f;
-        r.m[3][0] = pos.x;        r.m[3][1] = pos.y;        r.m[3][2] = pos.z;        r.m[3][3] = 1.0f;
+        r.m[3][0] = pos.x;        r.m[3][1] = pos.z;        r.m[3][2] = pos.y;        r.m[3][3] = 1.0f;
         return r;
     }
 
@@ -270,6 +276,20 @@ public:
 
         const float dt = *fTimeStep;
 
+        // The value handed over is the frame time of the game in milliseconds (the
+        // games pass WaterDrops::GetFrameTimeSeconds() * 1000). The rain falls,
+        // gusts and shimmers in units per second, so it converts once here instead
+        // of in every game.
+        const float dtSeconds = dt * 0.001f;
+
+        // The drift of the snow is the one thing that was never in seconds: it was
+        // tuned against WaterDrops::GetTimeStepInMilliseconds(), which is the frame
+        // time of a game divided by fifty, and it is kept there, so the flakes fall
+        // at the speed they always did (asked for twice with a handover of the real
+        // frame time, when a blizzard crossed the whole volume in a quarter of a
+        // second).
+        const float dtSnow = dt * 0.02f;
+
         if (!Xrd::IsActive())
             return;
 
@@ -320,20 +340,20 @@ public:
             return;
         }
 
-        ms_rainTime += dt;
+        ms_rainTime += dtSeconds;
 
         const auto snowAmount = (int)min(snowFlakes, Snow * snowFlakes);
         if (snowAmount <= 0)
             return;
 
-        snowBox.Set(CVector(camMatrix->pos.x, camMatrix->pos.y, camMatrix->pos.z), CVector(camMatrix->pos.x, camMatrix->pos.y, camMatrix->pos.z));
         // Spawn volume around camera
+        snowBox.Set(CVector(camMatrix->pos.x, camMatrix->pos.y, camMatrix->pos.z), CVector(camMatrix->pos.x, camMatrix->pos.y, camMatrix->pos.z));
         snowBox.min.x -= 40.0f;
         snowBox.min.y -= 40.0f;
         snowBox.max.x += 40.0f;
+        snowBox.max.y += 40.0f;
         snowBox.min.z -= 15.0f; // vertical span (z acts as "height" here)
         snowBox.max.z += 15.0f;
-        snowBox.max.y += 40.0f;
 
         if (!snowArrayInitialized)
         {
@@ -394,7 +414,7 @@ public:
             if (!swapWithRain)
             {
                 // Original snow drift and fall (z acts as vertical here)
-                float minChange = -dt / 10.0f;
+                float minChange = -dtSnow / 10.0f;
                 float maxChange = -minChange;
 
                 zPos -= maxChange;
@@ -425,10 +445,10 @@ public:
 
                 const float shimmer = 0.90f + 0.18f * sinf(rainTime * snowArray[i].shimmerFreq + snowArray[i].shimmerPhase);
                 float speed = snowArray[i].fallSpeed * shimmer; // units/sec
-                zPos -= speed * dt; // fall along -Z
+                zPos -= speed * dtSeconds; // fall along -Z
 
-                xPos += xChangeRate * dt;
-                yPos += yChangeRate * dt;
+                xPos += xChangeRate * dtSeconds;
+                yPos += yChangeRate * dtSeconds;
             }
 
             // Wrap/respawn in the local volume
@@ -436,12 +456,11 @@ public:
             {
                 if (swapWithRain)
                 {
-                    // Respawn at top with forward-biased placement and new attributes.
+                    // Respawn at top with new attributes.
                     zPos = snowBox.max.z;
                     xPos = snowBox.min.x + ((snowBox.max.x - snowBox.min.x) * (GetRandomFloat() / (float)RAND_MAX));
                     yPos = snowBox.min.y + ((snowBox.max.y - snowBox.min.y) * (GetRandomFloat() / (float)RAND_MAX));
 
-                    // Frustum-ish bias: keep more particles in front of camera.
                     xPos += cam.at.x * 10.0f;
                     yPos += cam.at.y * 10.0f;
 
@@ -551,6 +570,10 @@ public:
                 if (clen < 0.001f) clen = 0.001f;
                 cdx /= clen; cdy /= clen; cdz /= clen;
 
+                // How much of the fall points at the camera, signed - the shaping below
+                // wants the amount of it.
+                float facing = fabsf(fdx * cdx + fdy * cdy + fdz * cdz);
+
                 // --- width axis = cross(fallDir, viewDir), gives a vector perpendicular
                 //     to the streak that always faces the camera ---
                 float wx = fdy * cdz - fdz * cdy;
@@ -570,17 +593,17 @@ public:
                 //     which is built from the camera matrix, positions them correctly ---
 
                 // fall axis in camera local
-                float fl_r = fdx * cam.right.x + fdy * cam.right.y + fdz * cam.right.z;
-                float fl_u = fdx * cam.up.x + fdy * cam.up.y + fdz * cam.up.z;
-                float fl_a = fdx * cam.at.x + fdy * cam.at.y + fdz * cam.at.z;
+                const float fl_r = fdx * cam.right.x + fdy * cam.right.y + fdz * cam.right.z;
+                const float fl_u = fdx * cam.up.x + fdy * cam.up.y + fdz * cam.up.z;
+                const float fl_a = fdx * cam.at.x + fdy * cam.at.y + fdz * cam.at.z;
 
                 // width axis in camera local
-                float wl_r = wx * cam.right.x + wy * cam.right.y + wz * cam.right.z;
-                float wl_u = wx * cam.up.x + wy * cam.up.y + wz * cam.up.z;
-                float wl_a = wx * cam.at.x + wy * cam.at.y + wz * cam.at.z;
+                const float wl_r = wx * cam.right.x + wy * cam.right.y + wz * cam.right.z;
+                const float wl_u = wx * cam.up.x + wy * cam.up.y + wz * cam.up.z;
+                const float wl_a = wx * cam.at.x + wy * cam.at.y + wz * cam.at.z;
 
-                // Subtle brightness/alpha shaping by distance and view angle.
-                float facing = fabsf(fdx * cdx + fdy * cdy + fdz * cdz);
+                // Subtle brightness/alpha shaping by distance and view angle: facing is how
+                // much of the fall points at the camera, taken before it was projected out.
                 float nearFade = 1.0f - lodT * 0.55f;
                 const float shimmer = 0.88f + 0.22f * sinf(rainTime * snowArray[i].shimmerFreq + snowArray[i].shimmerPhase);
                 float sparkle = (0.84f + (1.0f - facing) * 0.20f) * shimmer;

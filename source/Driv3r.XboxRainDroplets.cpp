@@ -71,15 +71,10 @@ void Init()
                         WaterDrops::ms_rainIntensity = 0.0f;
                     else
                         WaterDrops::ms_rainIntensity = 1.0f;
-                    CSnow::targetSnow = 0.0f;
                 }
                 else
                 {
                     WaterDrops::ms_rainIntensity = 0.0f;
-                    if (WaterDrops::bEnableSnow)
-                        CSnow::targetSnow = 1.0f;
-                    else
-                        CSnow::targetSnow = 0.0f;
                 }
             }
         }
@@ -116,6 +111,24 @@ void Init()
 
                 Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
                 WaterDrops::Process();
+
+                // The snow of this effect is a bonus and has nothing to do with the
+                // weather of the game: with it switched on it falls always, and the
+                // droplets of the rain step aside for it. This used to force
+                // targetSnow to zero whenever the game owned its rain object (the
+                // ordinary case), so snow could never be seen in this game no matter
+                // what the ini said, while the droplets kept raining. Same rule as in
+                // the Parallel Lines plugin.
+                if (WaterDrops::bEnableSnow)
+                {
+                    WaterDrops::ms_rainIntensity = 0.0f;
+                    CSnow::targetSnow = 1.0f;
+                }
+                else
+                {
+                    CSnow::targetSnow = 0.0f;
+                }
+
                 WaterDrops::Render();
 
                 {
@@ -127,26 +140,39 @@ void Init()
                     camMatrix.at = WaterDrops::at;
                     camMatrix.pos = WaterDrops::pos;
 
+                    // The view matrix of this build of the game never reaches the hook
+                    // that used to capture it, and an empty one puts every flake on the
+                    // origin of the frame: that alone is why the snow of this game was
+                    // invisible while its droplets were fine. What the module wants is
+                    // the inverse of the camera matrix it builds the world matrix from -
+                    // the very matrix the game itself would hand over. Row vector maths:
+                    // the rotation is the transpose and the translation is turned around
+                    // with it.
+                    //
+                    // The game of the Parallel Lines plugin hands over such a matrix,
+                    // and measuring the two against each other says what it is exactly:
+                    // world * view comes out as the camera axes with a scale on x and y
+                    // (the view window of that camera) and a minus on z. The minus is the
+                    // whole reason the flakes of this game flew towards the eye instead
+                    // of away from it, so the z axis of the effect is turned around here
+                    // as the game's own matrix turns it (the third component of every
+                    // row, which is the column of that axis).
+                    GviewMatrix.right = { camMatrix.right.x, camMatrix.up.x, -camMatrix.at.x };
+                    GviewMatrix.up = { camMatrix.right.z, camMatrix.up.z, -camMatrix.at.z };
+                    GviewMatrix.at = { camMatrix.right.y, camMatrix.up.y, -camMatrix.at.y };
+                    GviewMatrix.pos = {
+                        -(camMatrix.pos.x * camMatrix.right.x + camMatrix.pos.z * camMatrix.right.z + camMatrix.pos.y * camMatrix.right.y),
+                        -(camMatrix.pos.x * camMatrix.up.x + camMatrix.pos.z * camMatrix.up.z + camMatrix.pos.y * camMatrix.up.y),
+                        (camMatrix.pos.x * camMatrix.at.x + camMatrix.pos.z * camMatrix.at.z + camMatrix.pos.y * camMatrix.at.y),
+                    };
+
                     static float ts = 0.0f;
-                    ts = WaterDrops::GetTimeStepInMilliseconds();
+                    ts = WaterDrops::GetFrameTimeSeconds() * 1000.0f;
                     CSnow::AddSnow(WaterDrops::ms_fbWidth, WaterDrops::ms_fbHeight, &camMatrix, &GviewMatrix, &ts, false);
                 }
             }
         }
     }; injector::MakeInline<Render>(pattern.get_first(0), pattern.get_first(7));
-
-    pattern = hook::pattern("0F B7 53 50 8B 43 40");
-    struct MatrixCheck
-    {
-        void operator()(injector::reg_pack& regs)
-        {
-            regs.edx = *(uint16_t*)(regs.ebx + 0x50);
-            regs.eax = *(uint32_t*)(regs.ebx + 0x40);
-
-            if (regs.edx == 0x00000011)
-                GviewMatrix = *(RwMatrix*)(regs.eax + *(uint32_t*)(regs.ebx));
-        }
-    }; injector::MakeInline<MatrixCheck>(pattern.get_first(0), pattern.get_first(7));
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()

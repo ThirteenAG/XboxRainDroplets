@@ -239,10 +239,19 @@ void Init()
 
                 static auto randomRainIntensity = 0.0f;
                 static bool once = false;
+
+                // How much rain falls was picked when the hour of the game was 0, and the
+                // hours it rains in were shuffled at the same moment. A session that
+                // starts before that midnight therefore never has any rain at all - not a
+                // drop of this effect, and not one of the snow module either, which is fed
+                // the same number, which is what "the rain is gone" looks like. The amount
+                // is picked as soon as the clock of the game is there instead, midnight
+                // only reshuffles the hours.
+                if (randomRainIntensity == 0.0f && timer > 1000)
+                    randomRainIntensity = (1.0f - 0.65f) + WaterDrops::GetRandomFloat(0.65f);
+
                 if (timer > 1000 && hrs == 0 && !once)
                 {
-                    randomRainIntensity = (1.0f - 0.65f) + WaterDrops::GetRandomFloat(0.65f);
-                    
                     std::random_device rd;
                     std::mt19937 g(rd());
                     std::shuffle(chanceofRain.begin(), chanceofRain.end(), g);
@@ -286,16 +295,23 @@ void Init()
                 camMatrix.at = { at.x, at.z, at.y };
                 camMatrix.pos = { pos.x, pos.z, pos.y };
 
+                // The view matrix of the game(?)
                 static RwMatrix viewMatrix;
                 viewMatrix.right = *(RwV3d*)(dw9804F0 + 0x100 + 0x00);
                 viewMatrix.up = *(RwV3d*)(dw9804F0 + 0x100 + 0x10);
                 viewMatrix.at = *(RwV3d*)(dw9804F0 + 0x100 + 0x20);
                 viewMatrix.pos = *(RwV3d*)(dw9804F0 + 0x100 + 0x30);
 
-                ts = WaterDrops::GetTimeStepInMilliseconds();
+                // the snow module wants the frame time in milliseconds, and this is it
+                // whichever way this game counts its frames, see GetFrameTimeSeconds
+                ts = WaterDrops::GetFrameTimeSeconds() * 1000.0f;
 
-                CSnow::zn = 0.0f;
-                CSnow::zf = 1.0f;
+                // The near and far plane of the fixed function pipeline the original
+                // snow was drawn through. The particles are projected here instead and
+                // live tens of units around the camera, so a far plane of one unit
+                // clips the whole volume away: the effect has its own defaults now.
+                //CSnow::zn = 0.0f;
+                //CSnow::zf = 1.0f;
 
                 CSnow::AddSnow(WaterDrops::ms_fbWidth, WaterDrops::ms_fbHeight, &camMatrix, &viewMatrix, &ts, WaterDrops::bEnableSnow ? false : true);
             }
