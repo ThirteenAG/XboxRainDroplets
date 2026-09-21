@@ -1,6 +1,6 @@
 version: 1.{build}
 skip_tags: true
-image: Visual Studio 2022
+image: Visual Studio 2026
 configuration: Release
 init:
 - ps: ''
@@ -11,9 +11,11 @@ install:
     premake5.bat
 before_build:
 - ps: >-
-    msbuild -m build/XboxRainDropletsWrapper.sln /property:Configuration=Release /property:Platform=Win32
+    msbuild -m build/XboxRainDropletsWrapper.slnx /property:Configuration=Release /property:Platform=Win32
 
-    msbuild -m build/XboxRainDropletsWrapper.sln /property:Configuration=Release /property:Platform=x64
+    msbuild -m build/XboxRainDropletsWrapper64.slnx /property:Configuration=Release /property:Platform=x64
+
+    msbuild -m build/XboxRainDroplets64.slnx /property:Configuration=Release /property:Platform=x64
 
 
     Start-FileDownload https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/download/Win32-latest/version-Win32.zip
@@ -24,7 +26,7 @@ before_build:
 
     Start-FileDownload https://github.com/ThirteenAG/WidescreenFixesPack/releases/download/xrd/PPSSPP.XboxRainDroplets.zip
 build:
-  project: build/XboxRainDroplets.sln
+  project: build/XboxRainDroplets.slnx
   verbosity: minimal
 before_package:
 - cmd: >-
