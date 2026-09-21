@@ -1,4 +1,6 @@
-#include "xrd.h"
+// Direct3D 9, the API this game uses
+#define XRD_ENABLE_D3D9
+#include "xrd/xrd.h"
 #include <unordered_set>
 
 namespace UObject
@@ -161,8 +163,9 @@ void InitD3DDrv()
     static auto RenderHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
     {
         IDirect3DDevice9* pDevice = (IDirect3DDevice9*)(regs.esi);
-        WaterDrops::Process(pDevice);
-        WaterDrops::Render(pDevice);
+        Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+        WaterDrops::Process();
+        WaterDrops::Render();
         WaterDrops::ms_rainIntensity = 0.0f;
     });
     

@@ -1,6 +1,6 @@
-#include "xrd.h"
-
-//#define USE_D3D_HOOK
+// Direct3D 9, the API this game uses
+#define XRD_ENABLE_D3D9
+#include "xrd/xrd.h"
 
 static LPDIRECT3DDEVICE9* pDev;
 uint32_t* TheGameFlowManagerStatus = (uint32_t*)0x008654A4;
@@ -199,7 +199,8 @@ void __stdcall OnScreenRain_Update_Hook(void* View)
     WaterDrops::pos.y = (*cam).CurrentKey.Position.y;
     WaterDrops::pos.z = (*cam).CurrentKey.Position.z;
     
-    WaterDrops::Process(*pDev);
+    Xrd::Init(XRD_DEVICE_RENDERER, *pDev);
+    WaterDrops::Process();
     WaterDrops::ms_rainIntensity = 0.0f;
 }
 
@@ -208,7 +209,7 @@ void __cdecl PreRVMHook(int unk1)
 {
     if ((*TheGameFlowManagerStatus == 6))
     {
-        WaterDrops::Render(*pDev);
+        WaterDrops::Render();
     }
 
     return hb_PreRVM.fun(unk1);

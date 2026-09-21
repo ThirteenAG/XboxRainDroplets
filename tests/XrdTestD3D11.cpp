@@ -1,0 +1,419 @@
+// ---------------------------------------------------------------------------
+// Test application for the Direct3D 11 backend.
+//
+// Same scene and the same UI as the Direct3D 9 one, only the little drawing
+// code of the application itself differs. The drops do not: the effect and the
+// renderer call are identical on both APIs.
+// ---------------------------------------------------------------------------
+
+#define XRD_ENABLE_D3D11 1
+#include "xrd/xrd.h"
+
+#include "XrdTest.h"
+
+#include <d3d11.h>
+
+namespace
+{
+    struct SimpleVertex
+    {
+        float x, y, z;
+        uint32_t color;
+    };
+
+    ID3D11Device* pDevice = nullptr;
+    ID3D11DeviceContext* pContext = nullptr;
+    IDXGISwapChain* pSwapChain = nullptr;
+    ID3D11RenderTargetView* pBackBufferView = nullptr;
+
+    ID3D11VertexShader* pVertexShader = nullptr;
+    ID3D11PixelShader* pPixelShader = nullptr;
+    ID3D11InputLayout* pInputLayout = nullptr;
+    ID3D11Buffer* pVertexBuffer = nullptr;
+    ID3D11Buffer* pConstantBuffer = nullptr;
+    ID3D11BlendState* pBlendState = nullptr;
+
+    XrdTest::Window window;
+    XrdTest::Camera camera;
+    XrdTest::Ui ui;
+
+    float deltaTime = 1.0f / 60.0f;
+    int uiSelection = 0;
+    constexpr int MaxVertices = 8192;
+
+    struct SimpleConstants
+    {
+        float projection[16];
+    };
+
+    bool InitializeDevice()
+    {
+        DXGI_SWAP_CHAIN_DESC swapChainDesc{};
+        swapChainDesc.BufferCount = 2;
+        swapChainDesc.BufferDesc.Width = window.width;
+        swapChainDesc.BufferDesc.Height = window.height;
+        swapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        swapChainDesc.OutputWindow = window.hwnd;
+        swapChainDesc.SampleDesc.Count = 1;
+        swapChainDesc.Windowed = TRUE;
+        swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+
+        D3D_FEATURE_LEVEL levels[] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_10_0 };
+
+        if (FAILED(D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, levels, ARRAYSIZE(levels),
+            D3D11_SDK_VERSION, &swapChainDesc, &pSwapChain, &pDevice, nullptr, &pContext)))
+            return false;
+
+        ID3D11Texture2D* pBackBuffer = nullptr;
+        if (FAILED(pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&pBackBuffer)))
+            return false;
+
+        const bool bTargetOk = SUCCEEDED(pDevice->CreateRenderTargetView(pBackBuffer, nullptr, &pBackBufferView));
+        pBackBuffer->Release();
+
+        if (!bTargetOk)
+            return false;
+
+        ID3DBlob* pVertexBlob = Xrd::CompileShader(Xrd::Shaders::D3D11SimpleSource, "SimpleVS", "vs_4_0");
+        ID3DBlob* pPixelBlob = Xrd::CompileShader(Xrd::Shaders::D3D11SimpleSource, "SimplePS", "ps_4_0");
+
+        if (!pVertexBlob || !pPixelBlob)
+            return false;
+
+        D3D11_INPUT_ELEMENT_DESC layout[] =
+        {
+            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(SimpleVertex, x), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "COLOR",    0, DXGI_FORMAT_B8G8R8A8_UNORM,  0, offsetof(SimpleVertex, color), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        };
+
+        bool bResult = SUCCEEDED(pDevice->CreateVertexShader(pVertexBlob->GetBufferPointer(), pVertexBlob->GetBufferSize(), nullptr, &pVertexShader))
+            && SUCCEEDED(pDevice->CreateInputLayout(layout, ARRAYSIZE(layout), pVertexBlob->GetBufferPointer(), pVertexBlob->GetBufferSize(), &pInputLayout))
+            && SUCCEEDED(pDevice->CreatePixelShader(pPixelBlob->GetBufferPointer(), pPixelBlob->GetBufferSize(), nullptr, &pPixelShader));
+
+        pVertexBlob->Release();
+        pPixelBlob->Release();
+
+        if (!bResult)
+            return false;
+
+        D3D11_BUFFER_DESC bufferDesc{};
+        bufferDesc.ByteWidth = MaxVertices * sizeof(SimpleVertex);
+        bufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+        bufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        bResult = bResult && SUCCEEDED(pDevice->CreateBuffer(&bufferDesc, nullptr, &pVertexBuffer));
+
+        D3D11_BUFFER_DESC constantDesc{};
+        constantDesc.ByteWidth = sizeof(SimpleConstants);
+        constantDesc.Usage = D3D11_USAGE_DYNAMIC;
+        constantDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        constantDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        bResult = bResult && SUCCEEDED(pDevice->CreateBuffer(&constantDesc, nullptr, &pConstantBuffer));
+
+        D3D11_BLEND_DESC blendDesc{};
+        blendDesc.RenderTarget[0].BlendEnable = TRUE;
+        blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+        blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+        blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+        blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_SRC_ALPHA;
+        blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+        blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+        blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+        bResult = bResult && SUCCEEDED(pDevice->CreateBlendState(&blendDesc, &pBlendState));
+
+        return bResult;
+    }
+
+    void DrawRects(const XrdTest::Rect* pRects, int count)
+    {
+        if (count <= 0 || count * 6 > MaxVertices)
+            return;
+
+        D3D11_MAPPED_SUBRESOURCE mapped{};
+        if (FAILED(pContext->Map(pVertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
+            return;
+
+        SimpleVertex* pVertices = (SimpleVertex*)mapped.pData;
+        int n = 0;
+
+        for (int i = 0; i < count; i++)
+        {
+            const XrdTest::Rect& rect = pRects[i];
+            const uint32_t color = Xrd::ColorFloat(rect.color.r, rect.color.g, rect.color.b, rect.color.a);
+
+            const SimpleVertex quad[4] =
+            {
+                { rect.x,                    rect.y,                    0.0f, color },
+                { rect.x + rect.width,       rect.y,                    0.0f, color },
+                { rect.x + rect.width,       rect.y + rect.height,      0.0f, color },
+                { rect.x,                    rect.y + rect.height,      0.0f, color },
+            };
+
+            for (int v = 0; v < 4; v++)
+                pVertices[n++] = quad[v];
+        }
+
+        pContext->Unmap(pVertexBuffer, 0);
+
+        SimpleConstants constants{};
+        Xrd::Matrix ortho = Xrd::Matrix::OrthographicOffCenter(0.0f, (float)window.width, (float)window.height, 0.0f, 0.0f, 1.0f);
+        memcpy(constants.projection, ortho.m, sizeof(constants.projection));
+
+        D3D11_MAPPED_SUBRESOURCE constantMapped{};
+        if (FAILED(pContext->Map(pConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &constantMapped)))
+            return;
+
+        memcpy(constantMapped.pData, &constants, sizeof(constants));
+        pContext->Unmap(pConstantBuffer, 0);
+
+        const UINT stride = sizeof(SimpleVertex);
+        const UINT offset = 0;
+        pContext->IASetVertexBuffers(0, 1, &pVertexBuffer, &stride, &offset);
+        pContext->IASetInputLayout(pInputLayout);
+        pContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        pContext->VSSetShader(pVertexShader, nullptr, 0);
+        pContext->VSSetConstantBuffers(0, 1, &pConstantBuffer);
+        pContext->PSSetShader(pPixelShader, nullptr, 0);
+
+        // the quads are drawn as four vertices each without an index buffer, so
+        // a small internal one is used instead
+        static ID3D11Buffer* pIndexBuffer = nullptr;
+        if (!pIndexBuffer)
+        {
+            std::vector<uint16_t> indices(MaxVertices / 4 * 6);
+            for (int i = 0; i < MaxVertices / 4; i++)
+            {
+                indices[i * 6 + 0] = (uint16_t)(i * 4 + 0);
+                indices[i * 6 + 1] = (uint16_t)(i * 4 + 1);
+                indices[i * 6 + 2] = (uint16_t)(i * 4 + 2);
+                indices[i * 6 + 3] = (uint16_t)(i * 4 + 0);
+                indices[i * 6 + 4] = (uint16_t)(i * 4 + 2);
+                indices[i * 6 + 5] = (uint16_t)(i * 4 + 3);
+            }
+
+            D3D11_BUFFER_DESC desc{};
+            desc.ByteWidth = (UINT)(indices.size() * sizeof(uint16_t));
+            desc.Usage = D3D11_USAGE_IMMUTABLE;
+            desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+
+            D3D11_SUBRESOURCE_DATA data{};
+            data.pSysMem = indices.data();
+            pDevice->CreateBuffer(&desc, &data, &pIndexBuffer);
+        }
+
+        pContext->IASetIndexBuffer(pIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
+        pContext->OMSetBlendState(pBlendState, nullptr, 0xFFFFFFFF);
+        pContext->DrawIndexed(count * 6, 0, 0);
+    }
+
+    void DrawWorld()
+    {
+        std::vector<XrdTest::Rect> rects;
+
+        rects.push_back({ 0.0f, 0.0f, (float)window.width, (float)window.height * 0.62f, { 0.35f, 0.45f, 0.65f, 1.0f } });
+        rects.push_back({ 0.0f, (float)window.height * 0.62f, (float)window.width, (float)window.height * 0.38f, { 0.18f, 0.20f, 0.16f, 1.0f } });
+        rects.push_back({ 0.0f, (float)window.height * 0.62f - 3.0f, (float)window.width, 3.0f, { 0.75f, 0.70f, 0.45f, 1.0f } });
+
+        for (int i = 0; i < 48; i++)
+        {
+            const float offset = fmodf((float)i * 137.0f - camera.yaw * 900.0f, (float)window.width + 240.0f);
+            const float x = offset - 120.0f;
+            const float heightFraction = 0.18f + 0.32f * (float)((i * 37) % 100) / 100.0f;
+            const float width = 40.0f + (float)((i * 53) % 60);
+            const float height = (float)window.height * 0.62f * heightFraction;
+
+            rects.push_back({ x, (float)window.height * 0.62f - height, width, height,
+                { 0.10f + 0.35f * (float)((i * 17) % 100) / 100.0f, 0.12f, 0.22f + 0.3f * (float)((i * 29) % 100) / 100.0f, 1.0f } });
+        }
+
+        for (int i = 0; i < 40; i++)
+        {
+            const float z = fmodf((float)i * 2.5f + camera.z * 6.0f, 100.0f);
+            const float y = (float)window.height * 0.62f + (float)window.height * 0.38f * (z / 100.0f) * (z / 100.0f);
+            rects.push_back({ 0.0f, y, (float)window.width, 1.5f, { 0.30f, 0.34f, 0.30f, 1.0f } });
+        }
+
+        DrawRects(rects.data(), (int)rects.size());
+    }
+
+    void DrawUi()
+    {
+        DrawRects(ui.rects.data(), (int)ui.rects.size());
+
+        if (uiSelection >= 0 && (size_t)uiSelection + 1 < ui.rects.size())
+        {
+            XrdTest::Rect marker = ui.rects[uiSelection + 1];
+            marker.x = marker.x + marker.width - 26.0f;
+            marker.width = 16.0f;
+            marker.y += 9.0f;
+            marker.height = 16.0f;
+            marker.color = { 1.0f, 1.0f, 1.0f, 1.0f };
+            DrawRects(&marker, 1);
+        }
+    }
+
+    // The world space snow of the consoles. It takes the camera twice, exactly
+    // like the games hand it over: the matrix of the camera orients and places
+    // the flakes, the view matrix projects them.
+    bool snowEnabled = false; // T turns the snow on, Y turns it off
+
+    void DrawSnow()
+    {
+        const float cosPitch = cosf(camera.pitch);
+        const float sinPitch = sinf(camera.pitch);
+        const float cosYaw = cosf(camera.yaw);
+        const float sinYaw = sinf(camera.yaw);
+
+        static RwMatrix cam{};
+        static RwMatrix view{};
+
+        cam.right = { cosYaw, 0.0f, -sinYaw };
+        cam.up = { -sinYaw * sinPitch, cosPitch, -cosYaw * sinPitch };
+        cam.at = { sinYaw * cosPitch, sinPitch, cosYaw * cosPitch };
+        cam.pos = { camera.x, camera.y, camera.z };
+
+        view.right = { 1.0f, 0.0f, 0.0f };
+        view.up = { 0.0f, 1.0f, 0.0f };
+        view.at = { 0.0f, 0.0f, 1.0f };
+        view.pos = { -camera.x, -camera.y, -camera.z };
+
+        float timeStep = deltaTime;
+        CSnow::targetSnow = 1.0f;
+        CSnow::AddSnow(window.width, window.height, &cam, &view, &timeStep, false);
+    }
+
+    void ApplyCameraToDrops()
+    {
+        const float cosPitch = cosf(camera.pitch);
+
+        WaterDrops::right = { cosf(camera.yaw), 0.0f, -sinf(camera.yaw) };
+        WaterDrops::up = { -sinf(camera.yaw) * sinf(camera.pitch), cosPitch, -cosf(camera.yaw) * sinf(camera.pitch) };
+        WaterDrops::at = { sinf(camera.yaw) * cosPitch, sinf(camera.pitch), cosf(camera.yaw) * cosPitch };
+        WaterDrops::pos = { camera.x, camera.y, camera.z };
+    }
+}
+
+int main()
+{
+    if (!window.Create(L"Xbox Rain Droplets - Direct3D 11", 1280, 720))
+        return 1;
+
+    if (!InitializeDevice())
+        return 1;
+
+    Xrd::Init(Xrd::RENDERER_D3D11, pSwapChain);
+        WaterDrops::fTimeStep = &deltaTime;
+    // the games read this from the weather, a test wants a lot of rain
+    WaterDrops::ms_rainIntensity = 4.0f;
+
+    bool active[4] = { true, false, true, false };
+    ui.Build(XrdTest::g_uiLabels, 4, active, (float)window.width);
+
+    auto previous = std::chrono::high_resolution_clock::now();
+    auto lastReport = previous;
+    int frames = 0;
+    char extra[128]{};
+
+    D3D11_VIEWPORT viewport{};
+    viewport.Width = (float)window.width;
+    viewport.Height = (float)window.height;
+    viewport.MaxDepth = 1.0f;
+
+    while (window.running)
+    {
+        window.Pump();
+
+        const auto now = std::chrono::high_resolution_clock::now();
+        deltaTime = std::chrono::duration<float>(now - previous).count();
+        previous = now;
+
+        if (deltaTime > 0.1f)
+            deltaTime = 0.1f;
+
+        camera.Update(window, deltaTime);
+
+        if (window.clicked)
+        {
+            const int hit = ui.HitTest(window.mouseX, window.mouseY);
+
+            if (hit >= 0)
+            {
+                uiSelection = hit;
+
+                switch (hit)
+                {
+                case 0: active[0] = true;  active[1] = false; WaterDrops::SetSnow(false); break;
+                case 1: active[0] = false; active[1] = true;  WaterDrops::SetSnow(true); break;
+                case 2: active[2] = !active[2]; WaterDrops::bGravity = active[2]; break;
+                case 3: active[3] = !active[3]; WaterDrops::isPaused = active[3]; break;
+                }
+
+                ui.Build(XrdTest::g_uiLabels, 4, active, (float)window.width);
+            }
+
+            window.clicked = false;
+        }
+
+        ApplyCameraToDrops();
+
+        const float clear[4] = { 12.0f / 255.0f, 12.0f / 255.0f, 16.0f / 255.0f, 1.0f };
+        pContext->ClearRenderTargetView(pBackBufferView, clear);
+        pContext->OMSetRenderTargets(1, &pBackBufferView, nullptr);
+        pContext->RSSetViewports(1, &viewport);
+
+        DrawWorld();
+
+        // the drops land on the scene, which is the same call as on Direct3D 9
+        WaterDrops::Process();
+        WaterDrops::Render();
+
+        if (window.keys['T'])
+        {
+            snowEnabled = true;
+        }
+        else if (window.keys['Y'])
+        {
+            snowEnabled = false;
+
+            if (snowEnabled == false)
+                CSnow::targetSnow = 0.0f;
+        }
+
+        if (snowEnabled || CSnow::Snow > 0.0f)
+            DrawSnow();
+
+        DrawUi();
+
+        pSwapChain->Present(0, 0);
+
+        // A game runs at 50 to 60 frames a second and the effect measures its
+        // time in those frames, so the application waits for the rest of the
+        // frame. Without this it would run at thousands of frames a second and
+        // every drop would age in a fraction of a second.
+        const float frameTime = std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - now).count();
+
+        if (frameTime < 1.0f / 60.0f)
+            Sleep((DWORD)((1.0f / 60.0f - frameTime) * 1000.0f));
+
+        frames++;
+
+        if (std::chrono::duration<float>(now - lastReport).count() >= 1.0f)
+        {
+            sprintf_s(extra, "camera %.1f %.1f %.1f", camera.x, camera.y, camera.z);
+            XrdTest::PrintStatus("d3d11", WaterDrops::ms_numDrops, frames, WaterDrops::bEnableSnow, extra);
+
+            wchar_t title[160]{};
+            swprintf_s(title, L"Xbox Rain Droplets - Direct3D 11  |  drops %d  fps %d", WaterDrops::ms_numDrops, frames);
+            SetWindowTextW(window.hwnd, title);
+
+            frames = 0;
+            lastReport = now;
+        }
+    }
+
+    WaterDrops::Shutdown();
+    Xrd::Shutdown();
+
+    return 0;
+}

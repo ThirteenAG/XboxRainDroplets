@@ -1,5 +1,6 @@
-#include "xrd.h"
-#include "snow.h"
+// Direct3D 9, the API this game uses
+#define XRD_ENABLE_D3D9
+#include "xrd/xrd.h"
 
 void RegisterFountains()
 {
@@ -113,8 +114,9 @@ void Init()
                 WaterDrops::at = { at.x, at.z, at.y };
                 WaterDrops::pos = { pos.x, pos.z, pos.y };
 
-                WaterDrops::Process(pDevice);
-                WaterDrops::Render(pDevice);
+                Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+                WaterDrops::Process();
+                WaterDrops::Render();
 
                 {
                     static RwMatrix camMatrix;
@@ -127,7 +129,7 @@ void Init()
 
                     static float ts = 0.0f;
                     ts = WaterDrops::GetTimeStepInMilliseconds();
-                    CSnow::AddSnow(pDevice, WaterDrops::ms_fbWidth, WaterDrops::ms_fbHeight, &camMatrix, &GviewMatrix, &ts, false);
+                    CSnow::AddSnow(WaterDrops::ms_fbWidth, WaterDrops::ms_fbHeight, &camMatrix, &GviewMatrix, &ts, false);
                 }
             }
         }

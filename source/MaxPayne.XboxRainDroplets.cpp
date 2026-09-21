@@ -1,6 +1,7 @@
-#define DIRECT3D_VERSION         0x0800
 #define SNOWDROPS
-#include "xrd.h"
+// Direct3D 8, the API this game uses
+#define XRD_ENABLE_D3D8
+#include "xrd/xrd.h"
 
 IDirect3DDevice8* pDevice = nullptr;
 
@@ -32,8 +33,9 @@ void Init()
             WaterDrops::right = { up.x, up.y, up.z };
             WaterDrops::pos = { pos.x, pos.y, pos.z };
 
-            WaterDrops::Process(pDevice);
-            WaterDrops::Render(pDevice);
+            Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+            WaterDrops::Process();
+            WaterDrops::Render();
             WaterDrops::ms_rainIntensity = 0.0f;
         }
     }; injector::MakeInline<RenderHook>(pattern.get_first(0));

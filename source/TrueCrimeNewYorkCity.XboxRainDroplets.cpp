@@ -1,5 +1,6 @@
-#define DIRECT3D_VERSION 0x0800
-#include "xrd.h"
+// Direct3D 8, the API this game uses
+#define XRD_ENABLE_D3D8
+#include "xrd/xrd.h"
 
 bool* bPause = nullptr;
 bool* bCutscene = nullptr;
@@ -158,8 +159,9 @@ void Init()
         WaterDrops::pos.y = posY;
         WaterDrops::pos.z = posZ;
 
-        WaterDrops::Process(*pDevice);
-        WaterDrops::Render(*pDevice);
+        Xrd::Init(XRD_DEVICE_RENDERER, *pDevice);
+        WaterDrops::Process();
+        WaterDrops::Render();
     });
 
     // The game does not support device reset, it just dies if that happens.

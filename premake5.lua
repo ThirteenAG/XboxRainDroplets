@@ -1,95 +1,135 @@
-workspace "XboxRainDroplets"
-   configurations { "Release", "Debug" }
-   architecture "x86"
-   location "build"
-   cppdialect "C++latest"
-   kind "SharedLib"
-   language "C++"
-   targetextension ".asi"
-   linkoptions "/SAFESEH:NO"
-   buildoptions { "/Zc:__cplusplus /utf-8" }
-   flags { "MultiProcessorCompile" }
-   defines { "_CRT_SECURE_NO_WARNINGS" }
-   characterset ("Unicode")
-   
-   defines { "rsc_CompanyName=\"ThirteenAG\"" }
-   defines { "rsc_LegalCopyright=\"MIT License\""} 
-   defines { "rsc_FileVersion=\"1.0.0.0\"", "rsc_ProductVersion=\"1.0.0.0\"" }
-   defines { "rsc_InternalName=\"%{prj.name}\"", "rsc_ProductName=\"%{prj.name}\"", "rsc_OriginalFilename=\"%{prj.name}.dll\"" }
-   defines { "rsc_FileDescription=\"Xbox Rain Droplets Plugin\"" }
-   defines { "rsc_UpdateUrl=\"https://github.com/ThirteenAG/XboxRainDroplets\"" }
+-- The version of the plugins is the date of the build plus the short hash of the commit
+-- they were built from, like in the WidescreenFixesPack repository. It is written into
+-- the version resource of every plugin, see source/resources/Versioninfo.rc.
+function AddVersionDefines()
+   local major = os.date("%d")
+   local minor = os.date("%m")
+   local build = os.date("%Y")
+   local revision = os.date("%H") .. os.date("%M")
 
-   includedirs { "source" }
-   includedirs { "external" }
-   files { "source/%{prj.name}.cpp" }
-   files { "source/resources/Versioninfo.rc" }
-   files { "source/resources/Dropmask.rc" }
-   files { "external/hooking/Hooking.Patterns.h", "external/hooking/Hooking.Patterns.cpp" }
-   files { "external/injector/safetyhook/include/**.hpp", "external/injector/safetyhook/src/**.cpp" }
-   files { "external/injector/zydis/**.h", "external/injector/zydis/**.c" }
-   includedirs { "external/hooking" }
-   includedirs { "external/injector/include" }
-   includedirs { "external/injector/safetyhook/include" }
-   includedirs { "external/injector/zydis" }
-   includedirs { "external/FusionDxHook/includes" }
-   includedirs { "external/sire" }
-   files { "external/sire/sire.h" }
+   local githash = ""
+   local f = io.popen("git rev-parse --short HEAD")
+   if f then
+      githash = f:read("*a"):gsub("%s+", "")
+      f:close()
+   end
 
-   pbcommands = { 
-      "setlocal EnableDelayedExpansion",
-      --"set \"path=" .. (gamepath) .. "\"",
-      "set file=$(TargetPath)",
-      "FOR %%i IN (\"%file%\") DO (",
-      "set filename=%%~ni",
-      "set fileextension=%%~xi",
-      "set target=!path!!filename!!fileextension!",
-      "if exist \"!target!\" copy /y \"!file!\" \"!target!\"",
-      ")" }
+   local productVersion = major .. "." .. minor .. "." .. build .. "." .. revision
+   if githash ~= "" then
+      productVersion = productVersion .. "-" .. githash
+   end
 
-   function setpaths (gamepath, exepath, scriptspath)
-      scriptspath = scriptspath or "scripts/"
-      if (gamepath) then
-         cmdcopy = { "set \"path=" .. gamepath .. scriptspath .. "\"" }
-         table.insert(cmdcopy, pbcommands)
-         postbuildcommands (cmdcopy)
-         debugdir (gamepath)
-         if (exepath) then
-            debugcommand (gamepath .. exepath)
-            dir, file = exepath:match'(.*/)(.*)'
-            debugdir (gamepath .. (dir or ""))
+   defines { "rsc_FileVersion_MAJOR=" .. major }
+   defines { "rsc_FileVersion_MINOR=" .. minor }
+   defines { "rsc_FileVersion_BUILD=" .. build }
+   defines { "rsc_FileVersion_REVISION=" .. revision }
+   defines { "rsc_FileVersion=\"" .. major .. "." .. minor .. "." .. build .. "\"" }
+   defines { "rsc_ProductVersion=\"" .. productVersion .. "\"" }
+   defines { "rsc_GitSHA1=\"" .. githash .. "\"" }
+   defines { "rsc_GitSHA1W=L\"" .. githash .. "\"" }
+end
+
+-- The settings every plugin of this repository is built with. Visual Studio 2026 has no
+-- mixed platform solutions, so the plugins of one architecture are one solution: this
+-- is called once for the 32 bit plugins and once for the 64 bit ones, below.
+function PluginsSetup(name, platform, arch)
+   workspace (name)
+      configurations { "Release", "Debug" }
+      platforms { platform }
+      architecture (arch)
+      location "build"
+      cppdialect "C++latest"
+      kind "SharedLib"
+      language "C++"
+      targetextension ".asi"
+      linkoptions "/SAFESEH:NO"
+      buildoptions { "/Zc:__cplusplus /utf-8" }
+      multiprocessorcompile "On"
+      defines { "_CRT_SECURE_NO_WARNINGS" }
+      characterset ("Unicode")
+
+      defines { "rsc_CompanyName=\"ThirteenAG\"" }
+      defines { "rsc_LegalCopyright=\"MIT License\""}
+      defines { "rsc_InternalName=\"%{prj.name}\"", "rsc_ProductName=\"%{prj.name}\"", "rsc_OriginalFilename=\"%{cfg.buildtarget.name}\"" }
+      defines { "rsc_FileDescription=\"Xbox Rain Droplets Plugin\"" }
+      defines { "rsc_UpdateUrl=\"https://github.com/ThirteenAG/XboxRainDroplets\"" }
+      AddVersionDefines()
+
+      includedirs { "source" }
+      includedirs { "external" }
+      files { "source/%{prj.name}.cpp" }
+      files { "source/resources/Versioninfo.rc" }
+      files { "source/resources/Dropmask.rc" }
+      files { "external/hooking/Hooking.Patterns.h", "external/hooking/Hooking.Patterns.cpp" }
+      files { "external/injector/safetyhook/include/**.hpp", "external/injector/safetyhook/src/**.cpp" }
+      files { "external/injector/zydis/**.h", "external/injector/zydis/**.c" }
+      includedirs { "external/hooking" }
+      includedirs { "external/injector/include" }
+      includedirs { "external/injector/safetyhook/include" }
+      includedirs { "external/injector/zydis" }
+      includedirs { "external/FusionDxHook/includes" }
+
+      pbcommands = {
+         "setlocal EnableDelayedExpansion",
+         --"set \"path=" .. (gamepath) .. "\"",
+         "set file=$(TargetPath)",
+         "FOR %%i IN (\"%file%\") DO (",
+         "set filename=%%~ni",
+         "set fileextension=%%~xi",
+         "set target=!path!!filename!!fileextension!",
+         "if exist \"!target!\" copy /y \"!file!\" \"!target!\"",
+         ")" }
+
+      function setpaths (gamepath, exepath, scriptspath)
+         scriptspath = scriptspath or "scripts/"
+         if (gamepath) then
+            cmdcopy = { "set \"path=" .. gamepath .. scriptspath .. "\"" }
+            table.insert(cmdcopy, pbcommands)
+            postbuildcommands (cmdcopy)
+            debugdir (gamepath)
+            if (exepath) then
+               debugcommand (gamepath .. exepath)
+               dir, file = exepath:match'(.*/)(.*)'
+               debugdir (gamepath .. (dir or ""))
+            end
          end
+         targetdir ("bin")
       end
-      targetdir ("bin")
-   end
 
-   function add_kananlib()
-      defines { "BDDISASM_HAS_MEMSET", "BDDISASM_HAS_VSNPRINTF" }
-      files { "external/injector/kananlib/include/utility/**.hpp", "external/injector/kananlib/src/**.cpp" }
-      files { "external/injector/bddisasm/bddisasm/*.c" }
-      files { "external/injector/bddisasm/bdshemu/*.c" }
-      includedirs { "external/injector/kananlib/include" }
-      includedirs { "external/injector/bddisasm/inc" }
-      includedirs { "external/injector/bddisasm/bddisasm/include" }
-   end
+      function add_kananlib()
+         defines { "BDDISASM_HAS_MEMSET", "BDDISASM_HAS_VSNPRINTF" }
+         files { "external/injector/kananlib/include/utility/**.hpp", "external/injector/kananlib/src/**.cpp" }
+         files { "external/injector/bddisasm/bddisasm/*.c" }
+         files { "external/injector/bddisasm/bdshemu/*.c" }
+         includedirs { "external/injector/kananlib/include" }
+         includedirs { "external/injector/bddisasm/inc" }
+         includedirs { "external/injector/bddisasm/bddisasm/include" }
+      end
 
-   filter "architecture:x32"
-      includedirs { "source/dxsdk" }
-      libdirs { "source/dxsdk/lib/x86" }
-      includedirs { "source/dxsdk/dx8" }
-      libdirs { "source/dxsdk/dx8" }
-      
-   filter "architecture:x64"
-      includedirs { "source/dxsdk" }
-      libdirs { "source/dxsdk/lib/x64" }
+      filter "architecture:x86"
+         includedirs { "source/dxsdk" }
+         libdirs { "source/dxsdk/lib/x86" }
+         includedirs { "source/dxsdk/dx8" }
+         libdirs { "source/dxsdk/dx8" }
 
-   filter "configurations:Debug"
-      defines { "DEBUG" }
-      symbols "On"
+      filter "architecture:x64"
+         includedirs { "source/dxsdk" }
+         libdirs { "source/dxsdk/lib/x64" }
 
-   filter "configurations:Release"
-      defines { "NDEBUG" }
-      optimize "On"
-      staticruntime "On"
+      filter "configurations:Debug"
+         defines { "DEBUG" }
+         symbols "On"
+
+      filter "configurations:Release"
+         defines { "NDEBUG" }
+         optimize "On"
+         staticruntime "On"
+
+      filter {}
+end
+
+-- ====================== WIN32 SOLUTION ======================
+PluginsSetup("XboxRainDroplets", "Win32", "x86")
 
 project "Driv3r.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Driv3r/", "driv3r.exe")
@@ -130,94 +170,203 @@ project "SplinterCellDoubleAgent.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Splinter Cell/Splinter Cell - Double Agent/SCDA-Offline/System/", "SplinterCell4.exe", "scripts/")
 project "SplinterCellBlacklist.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Splinter Cell/Splinter Cell Blacklist/src/SYSTEM/", "Blacklist_DX11_game.exe", "scripts/")
-project "GTASADE.XboxRainDroplets"
-   architecture "x64"
-   add_kananlib()
-   setpaths("Z:/WFP/Games/Grand Theft Auto The Definitive Edition/GTA San Andreas - Definitive Edition/", "Gameface/Binaries/Win64/SanAndreas.exe", "Gameface/Binaries/Win64/scripts/")
-project "GTAVCDE.XboxRainDroplets"
-   architecture "x64"
-   add_kananlib()
-   setpaths("Z:/WFP/Games/Grand Theft Auto The Definitive Edition/GTA Vice City - Definitive Edition/", "Gameface/Binaries/Win64/ViceCity.exe", "Gameface/Binaries/Win64/scripts/")
-project "GTA3DE.XboxRainDroplets"
-   architecture "x64"
-   add_kananlib()
-   setpaths("Z:/WFP/Games/Grand Theft Auto The Definitive Edition/GTA III - Definitive Edition/", "Gameface/Binaries/Win64/LibertyCity.exe", "Gameface/Binaries/Win64/scripts/")
 project "TrueCrimeNewYorkCity.XboxRainDroplets"
    setpaths("Z:/WFP/Games/True Crime New York City/", "True Crime New York City.exe", "scripts/")
 project "KingKongGamersEdition.XboxRainDroplets"
    setpaths("Z:/WFP/Games/King Kong Gamers Edition/", "KingKong8.exe", "scripts/")
 project "SR2.XboxRainDroplets"
    setpaths("Z:/WFP/Games/Saints Row 2", "SR2_pc.exe", "scripts/")
---tests
---project "GTA3.XboxRainDroplets"
---   setpaths("Z:/WFP/Games/Grand Theft Auto/GTAIII/", "gta3.exe", "scripts/")
---project "GTASA.XboxRainDroplets"
---   setpaths("Z:/WFP/Games/Grand Theft Auto/GTA San Andreas/", "gta_sa.exe", "scripts/")
+project "GTA3.XboxRainDroplets"
+   setpaths("Z:/WFP/Games/Grand Theft Auto/GTAIII/", "gta3.exe")
+project "GTAVC.XboxRainDroplets"
+   setpaths("Z:/WFP/Games/Grand Theft Auto/Grand Theft Auto Vice City/", "gta-vc.exe")
+project "GTASA.XboxRainDroplets"
+   setpaths("Z:/WFP/Games/Grand Theft Auto/GTA San Andreas/", "gta_sa.exe")
+PluginsSetup("XboxRainDroplets64", "x64", "x64")
 
-workspace "XboxRainDropletsWrapper"
+project "GTASADE.XboxRainDroplets"
+   add_kananlib()
+   setpaths("Z:/WFP/Games/Grand Theft Auto The Definitive Edition/GTA San Andreas - Definitive Edition/", "Gameface/Binaries/Win64/SanAndreas.exe", "Gameface/Binaries/Win64/scripts/")
+project "GTAVCDE.XboxRainDroplets"
+   add_kananlib()
+   setpaths("Z:/WFP/Games/Grand Theft Auto The Definitive Edition/GTA Vice City - Definitive Edition/", "Gameface/Binaries/Win64/ViceCity.exe", "Gameface/Binaries/Win64/scripts/")
+project "GTA3DE.XboxRainDroplets"
+   add_kananlib()
+   setpaths("Z:/WFP/Games/Grand Theft Auto The Definitive Edition/GTA III - Definitive Edition/", "Gameface/Binaries/Win64/LibertyCity.exe", "Gameface/Binaries/Win64/scripts/")
+
+-- The settings the wrapper and the emulator plugins are built with, see the note above
+-- PluginsSetup: one solution per architecture there as well.
+function WrapperSetup(name, platform, arch)
+   workspace (name)
+      configurations { "Release", "Debug" }
+      platforms { platform }
+      architecture (arch)
+      location "build"
+      objdir ("build/obj")
+      buildlog ("build/log/%{prj.name}.log")
+      cppdialect "C++latest"
+
+      kind "SharedLib"
+      language "C++"
+      targetextension ".asi"
+      characterset ("Unicode")
+      staticruntime "On"
+
+      defines { "rsc_CompanyName=\"ThirteenAG\"" }
+      defines { "rsc_LegalCopyright=\"MIT License\""}
+      defines { "rsc_InternalName=\"%{prj.name}\"", "rsc_ProductName=\"%{prj.name}\"", "rsc_OriginalFilename=\"%{cfg.buildtarget.name}\"" }
+      defines { "rsc_FileDescription=\"https://thirteenag.github.io/wfp\"" }
+      defines { "rsc_UpdateUrl=\"https://github.com/ThirteenAG/XboxRainDroplets\"" }
+      AddVersionDefines()
+
+      files { "source/%{prj.name}.cpp" }
+      files { "source/*.def" }
+      files { "source/resources/Versioninfo.rc" }
+      files { "source/resources/Dropmask.rc" }
+      files { "external/hooking/Hooking.Patterns.h", "external/hooking/Hooking.Patterns.cpp" }
+      files { "external/injector/safetyhook/include/**.hpp", "external/injector/safetyhook/src/**.cpp" }
+      files { "external/injector/zydis/**.h", "external/injector/zydis/**.c" }
+      includedirs { "source" }
+      includedirs { "external" }
+      includedirs { "external/hooking" }
+      includedirs { "external/injector/include" }
+      includedirs { "external/injector/safetyhook/include" }
+      includedirs { "external/injector/zydis" }
+      includedirs { "external/FusionDxHook/includes" }
+      includedirs { "source/dxsdk/dx8" }
+      libdirs { "source/dxsdk/dx8" }
+      -- the wrapper is the one project that hooks every API, Vulkan included, and
+      -- the declarations of Vulkan ship with the repository
+      includedirs { "external/vulkan/include" }
+      defines { "VK_USE_PLATFORM_WIN32_KHR" }
+
+      filter "configurations:Debug"
+         defines "DEBUG"
+         symbols "On"
+
+      filter "configurations:Release"
+         defines "NDEBUG"
+         optimize "On"
+
+      filter {}
+
+      if (arch == "x86") then
+         files { "source/xrd/xrdrender.d3d8.cpp" }
+         includedirs { "source/dxsdk" }
+         libdirs { "source/dxsdk/lib/x86" }
+      else
+         targetname "%{prj.name}64"
+         includedirs { "source/dxsdk" }
+         libdirs { "source/dxsdk/lib/x64" }
+      end
+end
+
+-- ====================== WIN32 SOLUTION ======================
+WrapperSetup("XboxRainDropletsWrapper", "Win32", "x86")
+
+project "XboxRainDropletsWrapper"
+   setpaths("Z:/WFP/Games/PPSSPP/", "PPSSPPWindows.exe", "")
+-- the emulator plugin is loaded from the folder of the executable, it is not a game
+-- script
+project "PPSSPP.XboxRainDroplets"
+   setpaths("Z:/WFP/Games/PPSSPP/", "PPSSPPWindows.exe", "")
+   -- The plugin is loaded into the emulator and draws with the drawing of the
+   -- emulator itself, see source/xrd/xrdrender.thin3d.h: the headers of that
+   -- drawing are the ones the build of the emulator was made with, and are copied
+   -- into this repository next to everything else it needs, see
+   -- external/ppsspp/README.md.
+   includedirs { "external/ppsspp" }
+
+-- ====================== X64 SOLUTION ======================
+-- The two architectures of these projects have the same names, so the 64 bit ones
+-- cannot be generated next to the 32 bit ones: their project files would overwrite
+-- each other. They get a folder of their own instead. The names, and with them the
+-- file names of the plugins, stay the same for both architectures, only the ones
+-- built for 64 bit end in 64, see targetname above. PCSX2 is 64 bit only.
+WrapperSetup("XboxRainDropletsWrapper64", "x64", "x64")
+
+project "XboxRainDropletsWrapper"
+   location "build/x64"
+   setpaths("Z:/WFP/Games/PPSSPP/", "PPSSPPWindows.exe", "")
+project "PPSSPP.XboxRainDroplets"
+   location "build/x64"
+   setpaths("Z:/WFP/Games/PPSSPP/", "PPSSPPWindows.exe", "")
+   includedirs { "external/ppsspp" }
+project "PCSX2F.XboxRainDroplets"
+   location "build/x64"
+   setpaths("Z:/GitHub/PCSX2-Fork-With-Plugins/bin/", "pcsx2-qtx64-clang.exe", "")
+-- Tests: one small application per renderer, each one draws its own scene and
+-- its own UI, the drops go in between so it is visible that they end up behind
+-- what the application draws last.
+workspace "XboxRainDropletsTests"
    configurations { "Release", "Debug" }
-   platforms { "Win32", "x64" }
+   platforms { "Win32" }
+   architecture "x86"
    location "build"
-   objdir ("build/obj")
-   buildlog ("build/log/%{prj.name}.log")
    cppdialect "C++latest"
-   
-   kind "SharedLib"
+   kind "ConsoleApp"
    language "C++"
-   targetextension ".asi"
    characterset ("Unicode")
-   staticruntime "On"
-   
-   defines { "rsc_CompanyName=\"ThirteenAG\"" }
-   defines { "rsc_LegalCopyright=\"MIT License\""} 
-   defines { "rsc_FileVersion=\"1.0.0.0\"", "rsc_ProductVersion=\"1.0.0.0\"" }
-   defines { "rsc_InternalName=\"%{prj.name}\"", "rsc_ProductName=\"%{prj.name}\"", "rsc_OriginalFilename=\"XboxRainDroplets.asi\"" }
-   defines { "rsc_FileDescription=\"https://thirteenag.github.io/wfp\"" }
-   defines { "rsc_UpdateUrl=\"https://github.com/ThirteenAG/%{prj.name}\"" }
-   
-   files { "source/%{prj.name}.cpp" }
-   files { "source/*.def" }
-   files { "source/resources/Versioninfo.rc" }
+   buildoptions { "/Zc:__cplusplus /utf-8" }
+   defines { "_CRT_SECURE_NO_WARNINGS" }
+   targetdir "bin/tests"
+   -- the Direct3D 8 library of the 2002 sdk has no safe exception handlers
+   linkoptions "/SAFESEH:NO"
+
    files { "source/resources/Dropmask.rc" }
    files { "external/hooking/Hooking.Patterns.h", "external/hooking/Hooking.Patterns.cpp" }
    files { "external/injector/safetyhook/include/**.hpp", "external/injector/safetyhook/src/**.cpp" }
    files { "external/injector/zydis/**.h", "external/injector/zydis/**.c" }
+
+   includedirs { "tests" }
    includedirs { "source" }
    includedirs { "external" }
    includedirs { "external/hooking" }
    includedirs { "external/injector/include" }
    includedirs { "external/injector/safetyhook/include" }
    includedirs { "external/injector/zydis" }
-   includedirs { "external/FusionDxHook/includes" }
-   includedirs { "external/sire" }
    includedirs { "source/dxsdk/dx8" }
    libdirs { "source/dxsdk/dx8" }
+   -- the applications do not use the Direct3D 9 helpers, and the headers of the
+   -- two Direct3D versions cannot be mixed
+   defines { "XRD_NO_D3DX" }
 
-   files { "external/sire/sire.h" }
-   
-   
    filter "configurations:Debug"
-      defines "DEBUG"
+      defines { "DEBUG" }
       symbols "On"
 
    filter "configurations:Release"
-      defines "NDEBUG"
+      defines { "NDEBUG" }
       optimize "On"
-      
-   filter "platforms:Win32"
-      architecture "x32"
-      includedirs { "source/dxsdk" }
-      libdirs { "source/dxsdk/lib/x86" }
-      
-   filter "platforms:x64"
-      architecture "x64"
-      targetname "%{prj.name}64"
-      includedirs { "source/dxsdk" }
-      libdirs { "source/dxsdk/lib/x64" }
 
-project "XboxRainDropletsWrapper"
-   setpaths("Z:/WFP/Games/PPSSPP/", "PPSSPPWindows.exe")
-project "PPSSPP.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/PPSSPP/", "PPSSPPWindows.exe")
-project "PCSX2F.XboxRainDroplets"
-   setpaths("Z:/GitHub/PCSX2-Fork-With-Plugins/bin/", "pcsx2-qtx64-clang.exe")
+   filter "action:vs*"
+      disablewarnings { "4005", "4244", "4267" }
+
+project "XrdTestD3D8"
+   files { "tests/XrdTestD3D8.cpp" }
+   links { "d3d8" }
+
+project "XrdTestD3D9"
+   files { "tests/XrdTestD3D9.cpp" }
+   links { "d3d9" }
+
+project "XrdTestD3D11"
+   files { "tests/XrdTestD3D11.cpp" }
+   links { "d3d11", "dxgi" }
+
+project "XrdTestD3D10"
+   files { "tests/XrdTestD3D10.cpp" }
+   links { "d3d10", "dxgi" }
+
+project "XrdTestD3D12"
+   files { "tests/XrdTestD3D12.cpp" }
+   links { "d3d12", "dxgi" }
+
+project "XrdTestOpenGL"
+   files { "tests/XrdTestOpenGL.cpp" }
+   links { "opengl32" }
+
+project "XrdTestVulkan"
+   files { "tests/XrdTestVulkan.cpp" }
+   defines { "XRD_ENABLE_VULKAN", "VK_USE_PLATFORM_WIN32_KHR" }
+   includedirs { "external/vulkan/include" }

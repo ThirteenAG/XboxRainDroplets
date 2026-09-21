@@ -3,13 +3,17 @@
 #include <injector\calling.hpp>
 #include <injector\utility.hpp>
 #include <injector\assembly.hpp>
-#include "xrd11.h"
+#define XRD_ENABLE_D3D9
+#define XRD_ENABLE_D3D10
+#define XRD_ENABLE_D3D10_1
+#define XRD_ENABLE_D3D11
+#define XRD_ENABLE_D3D12
+#include "xrd/xrd.h"
 
 void Init()
 {
     WaterDrops::ReadIniSettings();
 
-    WaterDrops::CreateRenderTargetFromBackBuffer = false;
     WaterDrops::ms_rainIntensity = 0.0f;
 
     static auto ppDevice = *hook::get_pattern<IDirect3DDevice9**>("68 ? ? ? ? 68 ? ? ? ? 8B D7 83 CA 10", 1);
@@ -37,14 +41,14 @@ void Init()
     static auto D3D11CreateDeviceAndSwapChain = safetyhook::create_mid(pattern.get_first(0), [](SafetyHookContext& ctx)
     {
         auto pSwapChain = *ppSwapChain;
-        Sire::Init(Sire::SIRE_RENDERER_DX11, pSwapChain);
+        Xrd::Init(Xrd::RENDERER_D3D11, pSwapChain);
     });
 
     pattern = hook::pattern("A3 ? ? ? ? 8B 06 8B 90 ? ? ? ? 6A 06");
     static auto D3D9CreateDevice = safetyhook::create_mid(pattern.get_first(0), [](SafetyHookContext& ctx)
     {
         auto pDevice = *ppDevice;
-        Sire::Init(Sire::SIRE_RENDERER_DX9, pDevice);
+        Xrd::Init(Xrd::RENDERER_D3D9, pDevice);
     });
 
     pattern = hook::pattern("68 ? ? ? ? E8 ? ? ? ? 8B 15 ? ? ? ? 8B 0D ? ? ? ? 8B 04 95 ? ? ? ? 83 C4 08 03 C1");
