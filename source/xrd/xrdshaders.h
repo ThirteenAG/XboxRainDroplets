@@ -231,6 +231,115 @@ float4 PSMain(VSOutput input) : SV_TARGET
 }
 )";
 
+        // Direct3D 9 transforms the drops with the fixed function pipeline, so
+        // the light a drop gathers can only be found in a pixel shader, and
+        // finding it again in the shader of every pixel of every drop is the whole
+        // cost of the effect: it is a few hundred texture reads for every pixel
+        // the drops cover. It is found once for the whole frame instead, into a
+        // field an eighth of the target in each direction, and the drops read that
+        // field with one tap each. The cost of the light no longer depends on how
+        // many drops there are on the glass, and what is left of it is small
+        // enough that the field can afford more taps per texel than a drop could.
+        //
+        // The number of cells the reach of a texel of the field is divided into
+        // has to be the LightCellCount the backend passes in c0.z.
+        inline const char* D3D9LightSource = R"(
+static const int LightCellCount = 6;
+
+sampler2D sceneSampler : register(s0);
+float4 field : register(c0); // inverse width/height of the field, cells, radius
+
+void GatherTap(float2 uv, float falloff, inout float3 energy, inout float3 plain, inout float weight)
+{
+    float3 source = tex2Dlod(sceneSampler, float4(uv, 0, 0)).rgb;
+    float brightness = max(source.r, max(source.g, source.b));
+    float saturation = (brightness - min(source.r, min(source.g, source.b))) / max(brightness, 0.001);
+    float w = brightness * brightness * (1 + saturation) * falloff;
+    energy += source * w;
+    plain += source * falloff;
+    weight += w;
+}
+
+float4 PSMain(float4 color : COLOR0, float2 atlas : TEXCOORD0, float2 scene : TEXCOORD1,
+    float2 pixel : VPOS) : COLOR0
+{
+    // Where this texel of the field is on the target, in the very coordinates the
+    // copy of the frame is in: the field and the frame are of the same picture,
+    // which is what makes one tap of the field enough for a drop. The crop a game
+    // asks the refraction to sample is not applied to it: a light is where it is
+    // on the screen.
+    float2 lightUV = (pixel + 0.5) * field.xy;
+    float2 radius = float2(field.w * field.x / field.y, field.w);
+    float2 cell = radius / field.z;
+    float2 anchor = floor(lightUV / cell) * cell;
+
+    float3 energy = 0, plain = 0;
+    float weight = 0, falloffSum = 0;
+
+    [loop] for (int y = -LightCellCount; y <= LightCellCount; ++y)
+    {
+        [loop] for (int x = -LightCellCount; x <= LightCellCount; ++x)
+        {
+            float2 corner = anchor + float2(x, y) * cell;
+            float2 offset = (corner - lightUV) / radius;
+            float distance2 = dot(offset, offset);
+            float falloff = exp2(-2 * distance2) * (1 - smoothstep(0.75, 1, distance2));
+            GatherTap(corner + float2(-0.25, -0.25) * cell, falloff, energy, plain, weight);
+            GatherTap(corner + float2( 0.25, -0.25) * cell, falloff, energy, plain, weight);
+            GatherTap(corner + float2(-0.25,  0.25) * cell, falloff, energy, plain, weight);
+            GatherTap(corner + float2( 0.25,  0.25) * cell, falloff, energy, plain, weight);
+            falloffSum += 4 * falloff;
+        }
+    }
+
+    float3 gathered = energy / (weight + 0.5);
+    float3 average = plain / max(falloffSum, 0.001);
+
+    // What is left of the frame around the light is the light itself, and the
+    // colour of it is not pushed out of its own grey here: a drop may not be
+    // brighter than the light it took, and the field is where both are kept.
+    return float4(max(gathered - average * 1.25, 0), 1);
+}
+)";
+
+        // The drop itself: its shape, the copy of the frame behind it, and the
+        // light it gathered out of that frame, which is one tap of the field the
+        // shader above fills. Everything about the light a drop is drawn with is
+        // what the renderers of Direct3D 10 and above do, so a drop looks the same
+        // on Direct3D 9 as on them.
+        inline const char* D3D9Source = R"(
+sampler2D maskSampler : register(s0);
+sampler2D sceneSampler : register(s1);
+sampler2D lightSampler : register(s2);
+float4 frame : register(c0); // inverse width/height, scene sampling, complement
+
+float4 PSMain(float4 color : COLOR0, float2 atlas : TEXCOORD0, float2 scene : TEXCOORD1,
+    float2 pixel : VPOS) : COLOR0
+{
+    bool lens = atlas.x < 0;
+    if (lens) atlas.x += 2;
+    float4 mask = tex2D(maskSampler, atlas);
+    clip(mask.a * color.a - 0.001);
+    float3 lightOut = 0;
+    if (lens && frame.z > 0.5 && frame.w < 0.5)
+    {
+        float3 excess = tex2D(lightSampler, (pixel + 0.5) * frame.xy).rgb;
+
+        // the same maths the other renderers do in their pixel shader
+        float grey = dot(excess, float3(0.2126, 0.7152, 0.0722));
+        float3 light = max(grey + (excess - grey) * 2.5, 0);
+        float peak = max(light.r, max(light.g, light.b));
+        lightOut = light * smoothstep(0.03, 0.20, peak);
+    }
+    float3 backdrop = 1;
+    if (frame.z > 0.5)
+    {
+        backdrop = tex2D(sceneSampler, scene).rgb;
+        if (frame.w > 0.5) backdrop = 1 - backdrop;
+    }
+    return color * mask * float4(backdrop + lightOut * 1.6 * (1 - backdrop), 1);
+}
+)";
         // OpenGL, same maths with the GLSL of a 1.20 context, which every
         // driver that can run a game provides.
         inline const char* OpenGLVertexSource = R"(

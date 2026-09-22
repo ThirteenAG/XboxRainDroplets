@@ -57,6 +57,18 @@ namespace
                 return false;
         }
 
+        if (XrdTest::Headless::State().lensLight)
+        {
+            D3DCAPS9 caps{};
+            pDevice->GetDeviceCaps(&caps);
+            auto* blob = Xrd::CompileShader(Xrd::Shaders::D3D9Source, "PSMain", "ps_3_0");
+            IDirect3DPixelShader9* shader = nullptr;
+            const HRESULT hr = blob ? pDevice->CreatePixelShader((DWORD*)blob->GetBufferPointer(), &shader) : E_FAIL;
+            printf("[d3d9] pixel shader version %08x, light shader creation %08x\n", caps.PixelShaderVersion, hr);
+            if (blob) blob->Release();
+            if (shader) shader->Release();
+            if (FAILED(hr)) return false;
+        }
         return SUCCEEDED(pDevice->CreateVertexBuffer(MaxVertices * sizeof(ScreenVertex), D3DUSAGE_WRITEONLY | D3DUSAGE_DYNAMIC, D3DFVF_XYZRHW | D3DFVF_DIFFUSE, D3DPOOL_DEFAULT, &pVertexBuffer, nullptr));
     }
 
@@ -169,7 +181,31 @@ namespace
             rects.push_back(line);
         }
 
+        if (XrdTest::Headless::State().lensLight)
+            for (auto& rect : rects)
+            {
+                rect.color.r *= 0.35f;
+                rect.color.g *= 0.35f;
+                rect.color.b *= 0.35f;
+            }
         DrawRects(rects.data(), (int)rects.size());
+        if (XrdTest::Headless::State().lensLight)
+        {
+            const float x = window.width * XrdTest::Headless::State().dropX, y = window.height * 0.25f;
+            const XrdTest::Rect lamps[] = {
+                { x + 86, y - 8, 30, 16, { 1, 0.05f, 0.02f, 1 } },
+                { x - 116, y - 8, 30, 16, { 0.06f, 1, 0.12f, 1 } },
+            };
+            DrawRects(lamps, 2);
+
+            const XrdTest::Rect tailLights[] = {
+                { x + 6.0f, y + 10.0f, 10.0f, 5.0f, { 1.0f, 0.10f, 0.05f, 1.0f } },
+                { x + 18.0f, y - 6.0f, 10.0f, 5.0f, { 1.0f, 0.10f, 0.05f, 1.0f } },
+                { x + 34.0f, y + 14.0f, 10.0f, 5.0f, { 1.0f, 0.10f, 0.05f, 1.0f } },
+                { x - 14.0f, y + 8.0f, 10.0f, 5.0f, { 0.10f, 1.0f, 0.15f, 1.0f } },
+            };
+            DrawRects(tailLights, 4);
+        }
     }
 
     void DrawUi()

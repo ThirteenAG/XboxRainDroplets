@@ -15,10 +15,38 @@
 #include <windows.h>
 #include <cstdint>
 #include <cmath>
+#include <cstring>
 #include <algorithm>
 #include <vector>
 #include <mutex>
 #include <atomic>
+
+// ---------------------------------------------------------------------------
+// The resources of the module. They are embedded exactly like the original
+// builds did and are read by the effect and by the backends, so they are here,
+// where both of them can see them: source/resources/Dropmask.rc has to agree
+// with these ids.
+// ---------------------------------------------------------------------------
+// the atlas of drop shapes
+#define IDR_DROPMASK 100
+#define IDR_SNOWDROPMASK 101
+// the menu blur of Scarface, built from source/resources/shaders
+#define IDR_BLURPS 103
+#define IDR_BLURVS 104
+// The refraction of Direct3D 8 is a shader of model 1, which cannot be built at
+// runtime the way the renderers of Direct3D 9 and above build theirs: these are
+// the shaders of source/resources/shaders/ps8, built by the tools of tools/x86,
+// see xrdrender.d3d8.h. One set is for the hardware of today (ps_1_4, which is as
+// high as the model goes) and one for the hardware the games themselves ran on
+// (ps_1_1).
+#define IDR_DROP8PS14 110
+#define IDR_DROP8PS11 111
+#define IDR_BLUR8PS14 112
+#define IDR_BLUR8PS11 113
+#define IDR_LIGHT8PS14 114
+#define IDR_LIGHT8PS11 115
+#define IDR_FADE8PS14 116
+#define IDR_FADE8PS11 117
 
 namespace Xrd
 {
@@ -89,6 +117,14 @@ namespace Xrd
         float u0, v0;       // atlas of the drop shape, sampled with the alpha
         float u1, v1;       // copy of what was on screen, the refracted backdrop
     };
+
+    // A drop of clear water is a lens, and the renderer has to be told which of the
+    // drops are those: the atlas coordinate of one is moved below zero, which is a
+    // coordinate no drop has, and the shader of the drops moves it back up before
+    // it samples the atlas with it. Every renderer that draws the drops with such a
+    // shader takes the mark off itself, and one that draws them with the fixed
+    // function pipeline is handed the coordinate untouched.
+    constexpr float AtlasLightMarker = 2.0f;
 
     struct Matrix
     {

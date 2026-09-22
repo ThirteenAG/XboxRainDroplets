@@ -86,6 +86,13 @@ namespace Xrd
         // nothing to release.
         virtual void Detach() {}
 
+        // Whether the drops are drawn with a shader that gathers the light of the
+        // frame around them, out of a device that may not be able to run one at
+        // all, see WaterDrops::GatheredLight. Only the backend of Direct3D 8
+        // answers this with something that is not known before the device is: its
+        // drops are drawn with a shader of model 1, which it builds itself.
+        virtual bool GathersLight() const { return false; }
+
         // Sets the transform used by the vertices. Width and height are the
         // target size, they are what the corners of the screen map to.
         virtual void SetProjection(Projection projection, const Matrix* pWorld, float width, float height) = 0;
@@ -351,6 +358,13 @@ namespace Xrd
     {
         if (pBackend)
             pBackend->SetSceneSampling(enabled);
+    }
+
+    // Whether the drops are drawn with a shader that gathers the light of the
+    // frame around them, see Backend::GathersLight.
+    inline bool GathersLight()
+    {
+        return pBackend && pBackend->GathersLight();
     }
 
     inline void Render(const Vertex* pVertices, int numVertices, PrimitiveType primitive = PRIMITIVE_TRIANGLES)
