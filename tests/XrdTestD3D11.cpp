@@ -251,7 +251,36 @@ namespace
             rects.push_back({ 0.0f, y, (float)window.width, 1.5f, { 0.30f, 0.34f, 0.30f, 1.0f } });
         }
 
+        // --lens-light: the world is dark and two bright lamps sit right next to
+        // the drop the check places at the top of the frame, one red and one
+        // green. What a drop of clear water gathers out of the frame around it is
+        // then the only light there is, and the drop is the same drop in the same
+        // place either way, so running this once with and once without Refractions
+        // in the ini is what the light gathering looks like.
+        if (XrdTest::Headless::State().lensLight)
+        {
+            for (auto& rect : rects)
+            {
+                rect.color.r *= 0.35f;
+                rect.color.g *= 0.35f;
+                rect.color.b *= 0.35f;
+            }
+        }
+
         DrawRects(rects.data(), (int)rects.size());
+
+        if (XrdTest::Headless::State().lensLight)
+        {
+            const float x = (float)window.width * 0.5f;
+            const float y = (float)window.height * 0.25f;
+
+            const XrdTest::Rect lamps[] = {
+                { x + 86.0f, y - 8.0f, 30.0f, 16.0f, { 1.0f, 0.05f, 0.02f, 1.0f } },
+                { x - 116.0f, y - 8.0f, 30.0f, 16.0f, { 0.06f, 1.0f, 0.12f, 1.0f } },
+            };
+
+            DrawRects(lamps, 2);
+        }
     }
 
     void DrawUi()
@@ -309,12 +338,204 @@ namespace
         WaterDrops::at = { sinf(camera.yaw) * cosPitch, sinf(camera.pitch), cosf(camera.yaw) * cosPitch };
         WaterDrops::pos = { camera.x, camera.y, camera.z };
     }
+
+    // -----------------------------------------------------------------------
+    // the water a running drop leaves behind it, without a device
+    //
+    // Three things the effect has to get right do not need a graphics API to be
+    // looked at, only the drops it makes and the vertices they become:
+    //
+    //   - what runs down the glass and what hangs on it is decided by how much
+    //     water there is in a bead, and never by a setting,
+    //   - the water a bead leaves is only ever a part of how visible the bead is,
+    //     so a bead that has almost faded out can not leave a trail that shows up
+    //     brighter than the bead itself. The original code drew every trace at
+    //     full opacity, which is why a drop that was about to fade out painted a
+    //     bright smear as soon as the camera moved,
+    //   - a place in the pool that is free again is not still being moved, see
+    //     WaterDrops::DetachMoving. The original code left the entry that points
+    //     at a drop behind when the drop expired, and the next drop to take that
+    //     place was moved twice.
+    // -----------------------------------------------------------------------
+    int CheckTrails()
+    {
+        using D = WaterDrops;
+
+        bool passed = true;
+        const auto check = [&](bool ok, const char* message)
+        {
+            printf("[%s] %s\n", ok ? "PASS" : "FAIL", message);
+            fflush(stdout);
+            passed &= ok;
+        };
+
+        // the seconds per frame the games hand over, 60 frames a second
+        float timeStep = 1.0f / 60.0f;
+
+        D::ms_fbWidth = 1920;
+        D::ms_fbHeight = 1080;
+        D::ms_scaling = D::ms_fbHeight / 480.0f;
+        D::ms_movingEnabled = true;
+        D::ms_vec = {};
+        D::bGravity = true;
+        D::bEnableSnow = false;
+        D::bRefractions = true;
+        D::fTimeStep = &timeStep;
+
+        const int32_t smallest = (int32_t)(D::MinSize * D::ms_scaling);
+        const int32_t biggest = (int32_t)(D::MaxSize * D::ms_scaling);
+        const float slowest = D::gravity / D::gdivmin;
+        const float fastest = D::gravity / D::gdivmax;
+
+        // What runs down the glass and what hangs on it. Nothing here is a
+        // setting: the surface tension that holds a small bead where it is does
+        // not hold a big one, so how much water there is in a bead is what
+        // decides, and the only thing that then moves a bead that hangs is the
+        // camera.
+        D::Clear();
+        auto* hanging = D::PlaceNew(960.0f, 540.0f, (float)smallest, 20000.0f, true);
+        auto* rolling = D::PlaceNew(400.0f, 540.0f, (float)biggest, 20000.0f, true);
+
+        check(hanging->slide == 0.0f, "a small bead is held where it is and never runs");
+        check(rolling->slide > 0.0f, "a big bead runs down the glass");
+        check(rolling->slide >= slowest - 0.001f && rolling->slide <= fastest + 0.001f,
+            "how fast a bead runs is in the range the effect has always given a drop");
+
+        D::bGravity = false;
+        D::Clear();
+        auto* weightless = D::PlaceNew(400.0f, 540.0f, (float)biggest, 20000.0f, true);
+        check(weightless->slide == 0.0f, "nothing runs down the glass while gravity is turned off");
+        D::bGravity = true;
+
+        // A bead leaves water where it has been, and only once it has gone far
+        // enough for the water to be a streak and not a pool on one spot.
+        D::Clear();
+        D::ms_vec = {};
+        auto* bead = D::PlaceNew(960.0f, 300.0f, (float)biggest, 20000.0f, true);
+        D::NewDropMoving(bead);
+
+        for (int i = 0; i < 5; i++)
+            D::ProcessMoving();
+
+        check(bead->trailCount == 0, "a bead that has only just started to run has left nothing yet");
+
+        for (int i = 0; i < 200; i++)
+            D::ProcessMoving();
+
+        check(bead->trailCount > 0, "a bead that runs down the glass leaves water behind it");
+        check(bead->trailY[bead->trailCount - 1] <= 0.0f, "the water is left behind the bead and not in front of it");
+        check(bead->trailCount <= WaterDrop::TrailLength, "the water of one bead is a trail of a few places, not a pool");
+
+        // How much water a bead left is a part of how visible the bead is and it
+        // goes down with the bead, which is what the original code got wrong.
+        D::ms_vertices.clear();
+        D::AddToRenderList(bead);
+
+        const uint8_t beadAlpha = (uint8_t)(D::ms_vertices.back().color >> 24);
+        uint8_t brightest = 0;
+
+        // the bead is the last quad that was added, the water is in front of it
+        for (size_t i = 0; i + 4 < D::ms_vertices.size(); i += 4)
+        {
+            const uint8_t alpha = (uint8_t)(D::ms_vertices[i].color >> 24);
+
+            if (alpha > brightest)
+                brightest = alpha;
+        }
+
+        check(D::ms_vertices.size() > 4 && brightest < beadAlpha, "the water a bead left is drawn fainter than the bead");
+        check(D::ms_vertices.size() == (size_t)(bead->trailCount + 1) * 4,
+            "the water and the bead are drawn together and nothing else is");
+
+        bead->alpha = 24;
+        D::ms_vertices.clear();
+        D::AddToRenderList(bead);
+
+        uint8_t faded = 0;
+
+        // the bead is the last quad that was added, the water is in front of it
+        for (size_t i = 0; i + 4 < D::ms_vertices.size(); i++)
+        {
+            const uint8_t alpha = (uint8_t)(D::ms_vertices[i].color >> 24);
+
+            if (alpha > faded)
+                faded = alpha;
+        }
+
+        check(faded <= 24, "a bead that has almost faded out leaves water that can not be brighter than itself");
+        bead->alpha = 255;
+
+        // The water is on the glass, and the glass is what the camera moves: a
+        // place stays where it was left on the screen while the camera drifts,
+        // only the bead runs on to the next place by itself.
+        float was[WaterDrop::TrailLength] = {};
+        const int32_t places = bead->trailCount;
+
+        for (int32_t i = 0; i < places; i++)
+            was[i] = bead->x + bead->trailX[i];
+
+        D::ms_vec = { -37.0f, 11.0f, 0.0f };
+        D::ProcessMoving();
+
+        int32_t stayed = 0;
+
+        for (int32_t i = 0; i < bead->trailCount; i++)
+            for (int32_t j = 0; j < places; j++)
+                if (fabsf((bead->x + bead->trailX[i]) - was[j]) < 0.001f)
+                {
+                    stayed++;
+                    break;
+                }
+
+        check(places > 0 && stayed + 1 >= bead->trailCount,
+            "the water stays where it was left on the screen while the camera drifts");
+
+        // A bead that neither runs nor is moved leaves nothing at all: what is
+        // left behind is the path of the bead, and it has none.
+        D::Clear();
+        D::ms_vec = {};
+        auto* hangingStill = D::PlaceNew(960.0f, 540.0f, (float)smallest, 20000.0f, true);
+        D::NewDropMoving(hangingStill);
+
+        for (int i = 0; i < 400; i++)
+            D::ProcessMoving();
+
+        check(hangingStill->trailCount == 0 && hangingStill->x == 960.0f,
+            "a bead that hangs on the glass leaves no water while the camera is still");
+
+        // a drop that expired is not moved any more: the place it had in the pool
+        // is handed to the drop below, which must not then move twice per frame
+        D::Clear();
+        D::ms_vec = {};
+        auto* expired = D::PlaceNew(960.0f, 540.0f, (float)biggest, 1.0f, true);
+        D::NewDropMoving(expired);
+        D::Fade();
+
+        check(D::ms_numDropsMoving == 0, "a drop that expired is taken out of the list of the drops that move");
+
+        auto* replacement = D::PlaceNew(960.0f, 540.0f, (float)biggest, 20000.0f, true);
+        D::NewDropMoving(replacement);
+        check(replacement == expired && D::ms_numDropsMoving == 1,
+            "the drop that takes the place of an expired one moves once, not twice");
+
+        D::Clear();
+        check(D::ms_numDrops == 0 && D::ms_numDropsMoving == 0 && D::ms_dropsMoving[0].drop == nullptr,
+            "clearing the drops clears the list of the drops that move as well");
+
+        D::ms_vec = {};
+        D::fTimeStep = nullptr;
+        return passed ? 0 : 1;
+    }
 }
 
 int main()
 {
     // --headless: a run for a build server, see XrdTest::Headless
     XrdTest::Headless::ParseCommandLine("d3d11");
+
+    // --trail-check: the trail of a running drop, which needs no device at all
+    if (XrdTest::Headless::State().trailCheck)
+        return CheckTrails();
 
     if (XrdTest::Headless::Active())
         camera.autoYawSpeed = 0.0f;	// the pictures of the check are compared to each other

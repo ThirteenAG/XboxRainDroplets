@@ -221,8 +221,20 @@ namespace Xrd
             }
 
 
+            // The state of the application has to be taken before anything of it
+            // is changed: the shader resource slots are emptied for the copy of
+            // the scene below, and a state that is put back afterwards with empty
+            // slots in it leaves the next draw of the application without the
+            // textures its pixel shader reads.
+            SavedState state{};
+            CaptureState(state);
+
+            // Our own scene texture has to be out of the shader resource slots
+            // while it is written to, and the vertex shader reads it as well, see
+            // VSMain.
             ID3D10ShaderResourceView* pNullViews[2] = {};
             pDevice->PSSetShaderResources(0, 2, pNullViews);
+            pDevice->VSSetShaderResources(0, 1, pNullViews);
 
             if (desc.SampleDesc.Count > 1)
                 pDevice->ResolveSubresource(pSceneTexture, 0, pResource, 0, desc.Format);
@@ -230,10 +242,6 @@ namespace Xrd
                 pDevice->CopyResource(pSceneTexture, pResource);
 
             pResource->Release();
-
-
-            SavedState state{};
-            CaptureState(state);
 
 
             ApplyState(desc, pTarget);
@@ -292,6 +300,12 @@ namespace Xrd
                 pDevice->PSSetShaderResources(0, 2, pViews);
                 pDevice->PSSetSamplers(0, 1, &pSampler);
 
+                // The vertex shader gathers the light around a drop out of the
+                // scene texture, which is slot 0 of its resources and the same
+                // sampler the pixel shader uses.
+                pDevice->VSSetShaderResources(0, 1, pViews);
+                pDevice->VSSetSamplers(0, 1, &pSampler);
+
                 if (primitive == PRIMITIVE_TRIANGLES)
                     pDevice->DrawIndexed(numIndices, 0, 0);
                 else
@@ -343,6 +357,8 @@ namespace Xrd
             ID3D10Buffer* pPSConstants = nullptr;
             ID3D10ShaderResourceView* pViews[2] = {};
             ID3D10SamplerState* pSampler = nullptr;
+            ID3D10ShaderResourceView* pVSView = nullptr;
+            ID3D10SamplerState* pVSSampler = nullptr;
         };
 
         bool GetTarget(ID3D10RenderTargetView** ppTarget, ID3D10Resource** ppResource) const
@@ -587,6 +603,8 @@ namespace Xrd
             pDevice->PSGetConstantBuffers(0, 1, &state.pPSConstants);
             pDevice->PSGetShaderResources(0, 2, state.pViews);
             pDevice->PSGetSamplers(0, 1, &state.pSampler);
+            pDevice->VSGetShaderResources(0, 1, &state.pVSView);
+            pDevice->VSGetSamplers(0, 1, &state.pVSSampler);
         }
 
         void ApplyState(const D3D10_TEXTURE2D_DESC& desc, ID3D10RenderTargetView* pTarget)
@@ -631,6 +649,8 @@ namespace Xrd
             pDevice->PSSetConstantBuffers(0, 1, &state.pPSConstants);
             pDevice->PSSetShaderResources(0, 2, state.pViews);
             pDevice->PSSetSamplers(0, 1, &state.pSampler);
+            pDevice->VSSetShaderResources(0, 1, &state.pVSView);
+            pDevice->VSSetSamplers(0, 1, &state.pVSSampler);
 
             if (state.pRenderTarget) state.pRenderTarget->Release();
             if (state.pDepthStencil) state.pDepthStencil->Release();
@@ -647,6 +667,8 @@ namespace Xrd
             if (state.pViews[0]) state.pViews[0]->Release();
             if (state.pViews[1]) state.pViews[1]->Release();
             if (state.pSampler) state.pSampler->Release();
+            if (state.pVSView) state.pVSView->Release();
+            if (state.pVSSampler) state.pVSSampler->Release();
         }
 
     private:
