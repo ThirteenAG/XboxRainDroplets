@@ -603,7 +603,9 @@ namespace Xrd
                 samplers[i].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
                 samplers[i].MaxLOD = D3D12_FLOAT32_MAX;
                 samplers[i].ShaderRegister = (UINT)i;
-                samplers[i].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+                // The vertex shader samples the scene texture as well, to gather
+                // the light around a drop, see VSMain in xrdshaders.h.
+                samplers[i].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
             }
 
             D3D12_ROOT_SIGNATURE_DESC rootDesc{};
@@ -720,7 +722,8 @@ namespace Xrd
             desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
             if (FAILED(pDevice->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
-                D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr, __uuidof(ID3D12Resource), (void**)&pSceneTexture)))
+                (D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
+                nullptr, __uuidof(ID3D12Resource), (void**)&pSceneTexture)))
             {
                 pSceneTexture = nullptr;
                 return false;
@@ -909,14 +912,14 @@ namespace Xrd
             barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
             barriers[1].Transition.pResource = pSceneTexture;
             barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-            barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+            barriers[1].Transition.StateBefore = (D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
             barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
 
             pCommandList->ResourceBarrier(2, barriers);
             pCommandList->CopyResource(pSceneTexture, pTarget);
 
             barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-            barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+            barriers[0].Transition.StateAfter = (D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
             barriers[0].Transition.pResource = pSceneTexture;
 
             barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;

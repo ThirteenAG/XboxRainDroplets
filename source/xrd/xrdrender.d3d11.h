@@ -326,9 +326,11 @@ namespace Xrd
 
             // The copy has to happen before the states are changed, it is the
             // picture the drops are drawn on top of. Our own scene texture has
-            // to be out of the shader resource slots while it is written to.
+            // to be out of the shader resource slots while it is written to,
+            // and the vertex shader reads it as well, see VSMain.
             ID3D11ShaderResourceView* pNullViews[2] = {};
             pContext->PSSetShaderResources(0, 2, pNullViews);
+            pContext->VSSetShaderResources(0, 1, pNullViews);
 
             if (desc.SampleDesc.Count > 1)
                 pContext->ResolveSubresource(pSceneTexture, 0, pResource, 0, desc.Format);
@@ -403,6 +405,12 @@ namespace Xrd
                 pContext->PSSetShaderResources(0, 2, pViews);
                 pContext->PSSetSamplers(0, 1, &pSampler);
 
+                // The vertex shader gathers the light around a drop out of the
+                // scene texture, which is slot 0 of its resources and the same
+                // sampler the pixel shader uses.
+                pContext->VSSetShaderResources(0, 1, pViews);
+                pContext->VSSetSamplers(0, 1, &pSampler);
+
                 if (primitive == PRIMITIVE_TRIANGLES)
                     pContext->DrawIndexed(numIndices, 0, 0);
                 else
@@ -462,6 +470,8 @@ namespace Xrd
             ID3D11Buffer* pPSConstants = nullptr;
             ID3D11ShaderResourceView* pViews[2] = {};
             ID3D11SamplerState* pSampler = nullptr;
+            ID3D11ShaderResourceView* pVSView = nullptr;
+            ID3D11SamplerState* pVSSampler = nullptr;
         };
 
         bool GetTarget(ID3D11RenderTargetView** ppTarget, ID3D11Resource** ppResource) const
@@ -848,6 +858,8 @@ namespace Xrd
             pContext->PSGetConstantBuffers(0, 1, &state.pPSConstants);
             pContext->PSGetShaderResources(0, 2, state.pViews);
             pContext->PSGetSamplers(0, 1, &state.pSampler);
+            pContext->VSGetShaderResources(0, 1, &state.pVSView);
+            pContext->VSGetSamplers(0, 1, &state.pVSSampler);
         }
 
         void ApplyState(const D3D11_TEXTURE2D_DESC& desc, ID3D11RenderTargetView* pTarget)
@@ -912,6 +924,8 @@ namespace Xrd
 
             pContext->PSSetShaderResources(0, 2, state.pViews);
             pContext->PSSetSamplers(0, 1, &state.pSampler);
+            pContext->VSSetShaderResources(0, 1, &state.pVSView);
+            pContext->VSSetSamplers(0, 1, &state.pVSSampler);
 
             for (UINT i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
                 if (state.pRenderTargets[i])
@@ -934,6 +948,8 @@ namespace Xrd
             if (state.pViews[0]) state.pViews[0]->Release();
             if (state.pViews[1]) state.pViews[1]->Release();
             if (state.pSampler) state.pSampler->Release();
+            if (state.pVSView) state.pVSView->Release();
+            if (state.pVSSampler) state.pVSSampler->Release();
         }
 
     private:
