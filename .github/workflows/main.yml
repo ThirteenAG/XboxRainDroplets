@@ -90,10 +90,28 @@ jobs:
       env:
         CODE_SIGNING_PFX: ${{ github.event_name == 'push' && github.ref_name == 'master' && secrets.CODE_SIGNING_PFX || '' }}
         CODE_SIGNING_PASSWORD: ${{ github.event_name == 'push' && github.ref_name == 'master' && secrets.CODE_SIGNING_PASSWORD || '' }}
-    - name: Upload artifacts to actions
-      uses: actions/upload-artifact@v7.0.1
+    - name: Install artifact client
+      shell: cmd
+      run: |
+        npm install @actions/artifact
+    - name: Upload individual zip artifacts
+      uses: actions/github-script@v9
       with:
-        path: ./bin/*.zip
+        script: |
+          const {DefaultArtifactClient} = require('./node_modules/@actions/artifact')
+          const client = new DefaultArtifactClient()
+          const path = require('path')
+          const globber = await glob.create('bin/*.zip')
+          const files = await globber.glob()
+          if (files.length === 0) {
+            core.warning('No .zip files found in bin.')
+            return
+          }
+          for (const file of files) {
+            const name = path.basename(file)
+            core.info(`Uploading ${name}...`)
+            await client.uploadArtifact(name, [file], 'bin', { retentionDays: 90, skipArchive: true })
+          }
     - name: Update Tags
       continue-on-error: true
       if: ${{ github.event_name == 'push' && github.ref_name == 'master' }}
