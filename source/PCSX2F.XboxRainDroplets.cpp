@@ -430,6 +430,13 @@ extern "C" __declspec(dllexport) void InitializeASI()
     {
         FusionDxHook::Init();
 
+        // The frame the drops are drawn into here was made by the emulator out of
+        // the frame of another machine, and it is handed over in the middle of its
+        // own frame. A drop of clear water that gathers the light of what is
+        // behind it comes out white over it, so these drops are the plain
+        // transparent ones the fixed function renderers draw.
+        WaterDrops::bOwnFrame = false;
+
         FusionDxHook::onInitEvent += []()
         {
 

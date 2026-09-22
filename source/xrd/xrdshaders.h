@@ -66,10 +66,22 @@ static const int LightCells = 8;
 // stands out of that frame, and nothing else: a frame that is bright is not a
 // light, so a drop in a bright frame is the colour of water. LightFloor is how
 // much brighter than the frame around it a light has to be to count at all, and
-// the ramp is how much of it there has to be to light a drop up in full.
-static const float LightFloor = 1.35f;
-static const float LightRampLow = 0.08f;
-static const float LightRampHigh = 0.5f;
+// the ramp is how much of it there has to be to light a drop up in full: a lamp of
+// a night city stands out of what is around it by a lot, so the ramp has to be
+// over well below its kind of brightness or the whole of it never arrives.
+static const float LightFloor = 1.25f;
+static const float LightRampLow = 0.03f;
+static const float LightRampHigh = 0.20f;
+
+// How much of the colour of a light a drop keeps. What a lens does with a colour
+// is to keep it, and what washes the colour out of a drop is the grey of the
+// whole neighbourhood the light was measured against, so the colour that was left
+// over is pushed back out of its own grey: a tail light is then a red drop and
+// not a grey one with a warm tint, and a white light, which has no colour to push
+// out, is left exactly as it was. Nothing about which places of the frame count
+// as a light changes here, so a drop takes on no new colour from one frame to the
+// next and nothing flickers.
+static const float LightChroma = 2.5f;
 
 struct VSInput
 {
@@ -178,12 +190,21 @@ VSOutput VSMain(VSInput input)
         // anything else that is brighter than everything near it.
         float3 excess = max(gathered - average * LightFloor, 0.0f);
 
+        // The colour of it is pushed out of its own grey, which is what the water
+        // of the drop does with a light: what is added is the colour of the lamp
+        // and not the grey of the frame it was found in, so a drop next to the
+        // tail light of a car is as red as the light is. Its brightness is left
+        // where the gather put it, so a drop does not start to glow where the
+        // scenery got brighter.
+        float grey = dot(excess, float3(0.2126f, 0.7152f, 0.0722f));
+        float3 light = max(grey + (excess - grey) * LightChroma, 0.0f);
+
         // What a drop takes from a light fades in as the drop comes near it
         // instead of switching on, which is what keeps the colour of a drop from
         // flickering while the scenery moves past it.
-        float peak = max(excess.r, max(excess.g, excess.b));
+        float peak = max(light.r, max(light.g, light.b));
 
-        output.light = excess * smoothstep(LightRampLow, LightRampHigh, peak);
+        output.light = light * smoothstep(LightRampLow, LightRampHigh, peak);
     }
 
     return output;
@@ -204,8 +225,8 @@ float4 PSMain(VSOutput input) : SV_TARGET
     // The drop shows the frame behind it, lifted by the light it gathered around
     // it. What it shows more of is the part the backdrop is missing, so a drop in
     // a frame that is already bright does not turn white, and the colour of a lamp
-    // still comes through where the frame around the drop is dark.
-    color.rgb *= backdrop + input.light * (1.0f - backdrop);
+    // still comes through strong where the frame around the drop is dark.
+    color.rgb *= backdrop + input.light * 1.6f * (1.0f - backdrop);
     return color;
 }
 )";

@@ -373,7 +373,7 @@ namespace Xrd
 
         bool EnsureResources(const D3DSURFACE_DESC& desc, int numVertices)
         {
-            static constexpr int MaxVertices = 24000;
+            static constexpr int MaxVertices = 64000;
             static constexpr int MaxIndices = MaxVertices * 6;
 
             if (numVertices > MaxVertices)

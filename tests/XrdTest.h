@@ -361,6 +361,7 @@ namespace XrdTest
             bool finished = false;
             bool lensLight = false;     // the world is dark and one light is behind the drop of the check
             bool trailCheck = false;    // no device at all, only the CPU side of the effect
+            bool trailView = false;     // drops the camera drags in a circle, and the water they leave
             int frameCount = 180;
             int frameIndex = 0;
             std::wstring screenshot;
@@ -426,6 +427,10 @@ namespace XrdTest
                 {
                     run.trailCheck = true;
                 }
+                else if (wcscmp(argv[i], L"--trail-view") == 0)
+                {
+                    run.trailView = true;
+                }
                 else if (wcscmp(argv[i], L"--screenshot") == 0 && i + 1 < argc)
                 {
                     run.screenshot = argv[++i];
@@ -467,6 +472,41 @@ namespace XrdTest
 
             if (!run.active)
                 return;
+
+            // The trail view is a handful of drops and a camera that is dragged
+            // round in a circle with the mouse, so that what a drop leaves behind
+            // it while it is dragged is on the pictures. Nothing of the run is
+            // checked, the pictures are what is looked at.
+            if (run.trailView)
+            {
+                WaterDrops::ms_rainIntensity = 0.0f;
+
+                if (frameIndex == 1)
+                {
+                    WaterDrops::Clear();
+
+                    for (int i = 0; i < 12; i++)
+                    {
+                        const float angle = (float)i * 0.5235988f;
+                        auto* drop = WaterDrops::PlaceNew(
+                            width * (0.5f + 0.3f * cosf(angle)),
+                            height * (0.5f + 0.28f * sinf(angle)),
+                            height / 22.0f, 60000.0f, false);
+
+                        if (drop)
+                            WaterDrops::NewDropMoving(drop);
+                    }
+                }
+
+                // A camera that sweeps from side to side, which is what dragging
+                // the mouse does to the drops of a game, and a bead of the rain that
+                // runs down the glass by itself as well: the water of both is on the
+                // pictures.
+                WaterDrops::pos.x = sinf((float)frameIndex * 0.05f) * 30.0f;
+                WaterDrops::bGravity = true;
+
+                return;
+            }
 
             if (!IsPictureFrame(frameIndex))
                 return;
@@ -725,6 +765,16 @@ namespace XrdTest
             {
                 report("SKIP: the window reads back empty, nothing could be checked");
                 return EXIT_SKIPPED;
+            }
+
+            if (run.trailView)
+            {
+                WritePicture(run.empty, run.screenshot, L"-empty");
+                WritePicture(run.topDrop, run.screenshot, L"-top");
+                WritePicture(run.bottomDrop, run.screenshot, L"-bottom");
+
+                report("the trail of a dragged drop is on the pictures");
+                return EXIT_PASSED;
             }
 
             const Changed top = Difference(run.empty, run.topDrop);
