@@ -360,6 +360,9 @@ namespace XrdTest
             bool active = false;
             bool finished = false;
             bool lensLight = false;     // the world is dark and one light is behind the drop of the check
+            bool noRefractions = false;
+            float dropX = 0.5f;         // where across the frame the drop of the check is placed
+            float dropY = 0.25f;        // and where down it, which is what the checks are about
             bool trailCheck = false;    // no device at all, only the CPU side of the effect
             bool trailView = false;     // drops the camera drags in a circle, and the water they leave
             int frameCount = 180;
@@ -423,6 +426,18 @@ namespace XrdTest
                 {
                     run.lensLight = true;
                 }
+                else if (wcscmp(argv[i], L"--drop-x") == 0 && i + 1 < argc)
+                {
+                    run.dropX = (float)_wtof(argv[++i]);
+                }
+                else if (wcscmp(argv[i], L"--drop-y") == 0 && i + 1 < argc)
+                {
+                    run.dropY = (float)_wtof(argv[++i]);
+                }
+                else if (wcscmp(argv[i], L"--no-refractions") == 0)
+                {
+                    run.noRefractions = true;
+                }
                 else if (wcscmp(argv[i], L"--trail-check") == 0)
                 {
                     run.trailCheck = true;
@@ -485,12 +500,12 @@ namespace XrdTest
                 {
                     WaterDrops::Clear();
 
-                    for (int i = 0; i < 12; i++)
+                    for (int i = 0; i < 40; i++)
                     {
-                        const float angle = (float)i * 0.5235988f;
+                        const float angle = (float)i * 0.1570796f;
                         auto* drop = WaterDrops::PlaceNew(
-                            width * (0.5f + 0.3f * cosf(angle)),
-                            height * (0.5f + 0.28f * sinf(angle)),
+                            width * (0.5f + 0.42f * cosf(angle)),
+                            height * (0.5f + 0.42f * sinf(angle)),
                             height / 22.0f, 60000.0f, false);
 
                         if (drop)
@@ -521,16 +536,22 @@ namespace XrdTest
             // the y of a drop counts down from the top of the frame, and a drop of a
             // fifth of the height in the middle of it is easy to find again
             if (picture == 1)
-                WaterDrops::PlaceNew(width * 0.5f, height * 0.25f, height / 5.0f, 60000.0f, false);
+                WaterDrops::PlaceNew(width * run.dropX, height * run.dropY, height / 5.0f, 60000.0f, false);
             else if (picture == 2)
-                WaterDrops::PlaceNew(width * 0.5f, height * 0.75f, height / 5.0f, 60000.0f, false);
+                WaterDrops::PlaceNew(width * run.dropX, height * (1.0f - run.dropY), height / 5.0f, 60000.0f, false);
 
             // The crop the Direct3D games of the Definitive Edition ask the
             // refraction to sample, which is what the check with the lamps is run
             // with: a light is where it is on the screen, and the field a drop
             // looks its light up in must not be moved by this.
+            if (run.noRefractions)
+                WaterDrops::bRefractions = false;
             if (run.lensLight)
+            {
                 WaterDrops::SetXUVScale(0.125f, 0.875f);
+                for (auto& drop : WaterDrops::ms_drops)
+                    if (drop.active) drop.uv_index = 0;
+            }
         }
 
         inline bool CaptureWindow(HWND hwnd, Image& image)
@@ -783,21 +804,21 @@ namespace XrdTest
             const int width = run.empty.width;
             const int height = run.empty.height;
 
-            // the drop has to be drawn at all, in the middle of the frame, and in
-            // the half of it the y of the drop said
+            // the drop has to be drawn at all, where the x of the drop said it would
+            // be, and in the half of the frame the y of it said
             const auto landed = [&](const Changed& changed, double expected)
             {
                 if (changed.count < 200)
                     return false;
 
-                if (fabs(changed.centerX - width * 0.5) > width * 0.15)
+                if (fabs(changed.centerX - width * run.dropX) > width * 0.15)
                     return false;
 
                 return fabs(changed.centerY - height * expected) <= height * 0.15;
             };
 
-            const bool topOk = landed(top, 0.25);
-            const bool bottomOk = landed(bottom, 0.75);
+            const bool topOk = landed(top, run.dropY);
+            const bool bottomOk = landed(bottom, 1.0 - run.dropY);
 
             WritePicture(run.empty, run.screenshot, L"-empty");
             WritePicture(run.topDrop, run.screenshot, L"-top");

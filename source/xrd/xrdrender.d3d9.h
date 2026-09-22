@@ -15,6 +15,8 @@
 // ---------------------------------------------------------------------------
 
 #include "xrdrender.h"
+#include "xrdd3dcompile.h"
+#include "xrdshaders.h"
 
 #include <d3d9.h>
 
@@ -57,6 +59,8 @@ namespace Xrd
             { 0, D3DSAMP_MINFILTER }, { 0, D3DSAMP_MAGFILTER }, { 0, D3DSAMP_MIPFILTER },
             { 1, D3DSAMP_ADDRESSU }, { 1, D3DSAMP_ADDRESSV },
             { 1, D3DSAMP_MINFILTER }, { 1, D3DSAMP_MAGFILTER }, { 1, D3DSAMP_MIPFILTER },
+            { 2, D3DSAMP_ADDRESSU }, { 2, D3DSAMP_ADDRESSV },
+            { 2, D3DSAMP_MINFILTER }, { 2, D3DSAMP_MAGFILTER }, { 2, D3DSAMP_MIPFILTER },
         };
 
         inline const D3DRENDERSTATETYPE renderStates[] =
@@ -70,6 +74,16 @@ namespace Xrd
         constexpr int NumStageStates = sizeof(stageStates) / sizeof(stageStates[0]);
         constexpr int NumSamplerStates = sizeof(samplerStates) / sizeof(samplerStates[0]);
         constexpr int NumRenderStates = sizeof(renderStates) / sizeof(renderStates[0]);
+    }
+
+    namespace D3D9Light
+    {
+        // The light field the drops read: an eighth of the target in each
+        // direction, and the number of cells the reach of a texel of it is
+        // divided into, which has to be the LightCellCount of D3D9LightSource.
+        constexpr UINT Divisor = 8;
+        constexpr float CellCount = 6.0f;
+        constexpr float Radius = 0.14f;
     }
 
     class D3D9Backend : public Backend
@@ -270,10 +284,21 @@ namespace Xrd
 
             SavedState state{};
             CaptureState(state);
+
+            // The light of the frame is gathered into the field once, before any
+            // drop is drawn, and the drops read the field with one tap each: see
+            // D3D9LightSource. It is a pass of its own, so it puts the target and
+            // the viewport back the way it found them.
+            const bool bLightField = projection == PROJECTION_SCREEN && sceneSampling && !sceneComplement &&
+                pLightShader && pDropShader && pLightSurface;
+
+            if (bLightField)
+                RenderLightField(state.pRenderTarget);
+
             ApplyState(desc);
 
             void* pVertexData = nullptr;
-            if (SUCCEEDED(pVertexBuffer->Lock(0, numVertices * sizeof(Vertex), (void**)&pVertexData, D3DLOCK_DISCARD)))
+            if (SUCCEEDED(pVertexBuffer->Lock(0, numVertices * vertexStride, (void**)&pVertexData, D3DLOCK_DISCARD)))
             {
                 if (projection == PROJECTION_SCREEN)
                 {
@@ -297,6 +322,12 @@ namespace Xrd
                         pDst[i].rhw = 1.0f;
                         pDst[i].color = pVertices[i].color;
                         pDst[i].u0 = pVertices[i].u0;
+                        // The marker of a drop that gathers light is a flag for the
+                        // shader of the drops, which takes it off again: only a
+                        // frame that is drawn without that shader has to have it
+                        // taken off here, or the shape of the drop is looked up in
+                        // the wrong tile of the atlas.
+                        if (!bLightField && pDst[i].u0 < 0.0f) pDst[i].u0 += AtlasLightMarker;
                         pDst[i].v0 = pVertices[i].v0;
                         pDst[i].u1 = pVertices[i].u1 * uvScaleX + uvOffsetX;
                         pDst[i].v1 = pVertices[i].v1 * uvScaleY + uvOffsetY;
@@ -321,6 +352,19 @@ namespace Xrd
             }
 
             pDevice->SetStreamSource(0, pVertexBuffer, 0, vertexStride);
+            if (bLightField)
+            {
+                const float constants[4] = { 1.0f / desc.Width, 1.0f / desc.Height,
+                    sceneSampling ? 1.0f : 0.0f, sceneComplement ? 1.0f : 0.0f };
+                pDevice->SetPixelShaderConstantF(0, constants, 1);
+                pDevice->SetTexture(2, pLightTexture);
+                pDevice->SetSamplerState(2, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+                pDevice->SetSamplerState(2, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+                pDevice->SetSamplerState(2, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+                pDevice->SetSamplerState(2, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
+                pDevice->SetSamplerState(2, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
+                pDevice->SetPixelShader(pDropShader);
+            }
 
             if (primitive == PRIMITIVE_TRIANGLES)
             {
@@ -345,13 +389,15 @@ namespace Xrd
             IDirect3DSurface9* pDepthStencil = nullptr;
             D3DVIEWPORT9 viewport{};
             DWORD fvf = 0;
+            IDirect3DVertexDeclaration9* pDeclaration = nullptr;
+            float pixelConstant[4]{};
             IDirect3DVertexShader9* pVertexShader = nullptr;
             IDirect3DPixelShader9* pPixelShader = nullptr;
             IDirect3DVertexBuffer9* pVertexBuffer = nullptr;
             UINT vertexOffset = 0;
             UINT vertexStride = 0;
             IDirect3DIndexBuffer9* pIndexBuffer = nullptr;
-            IDirect3DBaseTexture9* pTextures[2] = {};
+            IDirect3DBaseTexture9* pTextures[3] = {};
             bool bTransformsSaved = false;
             D3DMATRIX transformWorld{};
             D3DMATRIX transformView{};
@@ -363,6 +409,23 @@ namespace Xrd
 
         void ReleaseResources()
         {
+            if (pLightShader) { pLightShader->Release(); pLightShader = nullptr; }
+            if (pDropShader) { pDropShader->Release(); pDropShader = nullptr; }
+            shaderAttempted = false;
+            if (pLightSurface)
+            {
+                pLightSurface->Release();
+                pLightSurface = nullptr;
+            }
+
+            if (pLightTexture)
+            {
+                pLightTexture->Release();
+                pLightTexture = nullptr;
+            }
+
+            lightWidth = 0;
+            lightHeight = 0;
             if (pSceneSurface)
             {
                 pSceneSurface->Release();
@@ -394,6 +457,28 @@ namespace Xrd
 
         bool EnsureResources(const D3DSURFACE_DESC& desc, int numVertices)
         {
+            if (!shaderAttempted)
+            {
+                shaderAttempted = true;
+                D3DCAPS9 caps{};
+                if (SUCCEEDED(pDevice->GetDeviceCaps(&caps)) && caps.PixelShaderVersion >= D3DPS_VERSION(3, 0))
+                {
+                    // VPOS and the loops of the gather are what this needs, and
+                    // those are shader model 3: a device that has only 2 can not
+                    // find the light of a drop at all, and draws it as before.
+                    if (auto* blob = CompileShader(Shaders::D3D9Source, "PSMain", "ps_3_0"))
+                    {
+                        pDevice->CreatePixelShader((const DWORD*)blob->GetBufferPointer(), &pDropShader);
+                        blob->Release();
+                    }
+
+                    if (auto* blob = CompileShader(Shaders::D3D9LightSource, "PSMain", "ps_3_0"))
+                    {
+                        pDevice->CreatePixelShader((const DWORD*)blob->GetBufferPointer(), &pLightShader);
+                        blob->Release();
+                    }
+                }
+            }
             static constexpr int MaxVertices = 64000;
             static constexpr int MaxIndices = MaxVertices * 6;
 
@@ -427,6 +512,43 @@ namespace Xrd
                     }
 
                     pIndexBuffer->Unlock();
+                }
+            }
+
+            // The light field the drops read, an eighth of the target in each
+            // direction. A device that will not make one of these is a device whose
+            // drops are drawn without a light of their own, which is what every
+            // backend does that can not gather one: the effect is still there.
+            const UINT wantedWidth = desc.Width / D3D9Light::Divisor;
+            const UINT wantedHeight = desc.Height / D3D9Light::Divisor;
+
+            if (pLightTexture && (lightWidth != wantedWidth || lightHeight != wantedHeight))
+            {
+                if (pLightSurface)
+                {
+                    pLightSurface->Release();
+                    pLightSurface = nullptr;
+                }
+
+                pLightTexture->Release();
+                pLightTexture = nullptr;
+            }
+
+            if (!pLightTexture && wantedWidth > 0 && wantedHeight > 0)
+            {
+                if (SUCCEEDED(pDevice->CreateTexture(wantedWidth, wantedHeight, 1, D3DUSAGE_RENDERTARGET,
+                    D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &pLightTexture, nullptr)))
+                {
+                    if (FAILED(pLightTexture->GetSurfaceLevel(0, &pLightSurface)))
+                    {
+                        pLightTexture->Release();
+                        pLightTexture = nullptr;
+                    }
+                    else
+                    {
+                        lightWidth = wantedWidth;
+                        lightHeight = wantedHeight;
+                    }
                 }
             }
 
@@ -467,12 +589,15 @@ namespace Xrd
             pDevice->GetDepthStencilSurface(&state.pDepthStencil);
             pDevice->GetViewport(&state.viewport);
             pDevice->GetFVF(&state.fvf);
+            pDevice->GetVertexDeclaration(&state.pDeclaration);
+            pDevice->GetPixelShaderConstantF(0, state.pixelConstant, 1);
             pDevice->GetVertexShader(&state.pVertexShader);
             pDevice->GetPixelShader(&state.pPixelShader);
             pDevice->GetStreamSource(0, &state.pVertexBuffer, &state.vertexOffset, &state.vertexStride);
             pDevice->GetIndices(&state.pIndexBuffer);
             pDevice->GetTexture(0, &state.pTextures[0]);
             pDevice->GetTexture(1, &state.pTextures[1]);
+            pDevice->GetTexture(2, &state.pTextures[2]);
 
             for (int i = 0; i < D3D9Lists::NumStageStates; i++)
                 pDevice->GetTextureStageState(D3D9Lists::stageStates[i].stage, D3D9Lists::stageStates[i].state, &state.stageValues[i]);
@@ -571,11 +696,14 @@ namespace Xrd
             pDevice->SetStreamSource(0, state.pVertexBuffer, state.vertexOffset, state.vertexStride);
             pDevice->SetIndices(state.pIndexBuffer);
             pDevice->SetFVF(state.fvf);
+            pDevice->SetVertexDeclaration(state.pDeclaration);
+            pDevice->SetPixelShaderConstantF(0, state.pixelConstant, 1);
             pDevice->SetVertexShader(state.pVertexShader);
             pDevice->SetPixelShader(state.pPixelShader);
 
             pDevice->SetTexture(0, state.pTextures[0]);
             pDevice->SetTexture(1, state.pTextures[1]);
+            pDevice->SetTexture(2, state.pTextures[2]);
 
             for (int i = 0; i < D3D9Lists::NumStageStates; i++)
                 pDevice->SetTextureStageState(D3D9Lists::stageStates[i].stage, D3D9Lists::stageStates[i].state, state.stageValues[i]);
@@ -608,6 +736,7 @@ namespace Xrd
 
             if (state.pPixelShader)
                 state.pPixelShader->Release();
+            if (state.pDeclaration) state.pDeclaration->Release();
 
             if (state.pVertexBuffer)
                 state.pVertexBuffer->Release();
@@ -620,12 +749,111 @@ namespace Xrd
 
             if (state.pTextures[1])
                 state.pTextures[1]->Release();
+
+            if (state.pTextures[2])
+                state.pTextures[2]->Release();
+        }
+
+        // The light of the frame, gathered into the field once for the whole of it.
+        // One quad of four screen vertices covers the field and every texel of it
+        // gathers its own light out of the copy of the frame: hundreds of texture
+        // reads for a texel that is a hundredth of the pixels of a drop, where the
+        // drops themselves would have done it for every single pixel they cover.
+        // The target and the viewport this changes are put back straight away, and
+        // the state of the device that is not is captured around the whole frame.
+        void RenderLightField(IDirect3DSurface9* pTargetBack)
+        {
+            pDevice->SetRenderTarget(0, pLightSurface);
+
+            D3DVIEWPORT9 viewport{};
+            viewport.X = 0;
+            viewport.Y = 0;
+            viewport.Width = lightWidth;
+            viewport.Height = lightHeight;
+            viewport.MinZ = 0.0f;
+            viewport.MaxZ = 1.0f;
+            pDevice->SetViewport(&viewport);
+
+            // the field is written to, not blended into: the four corners of the
+            // quad cover every texel of it and nothing of what was there is to be
+            // kept, and neither the depth nor a facing of it may take the quad out
+            pDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+            pDevice->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+            pDevice->SetRenderState(D3DRS_ZENABLE, FALSE);
+            pDevice->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+            pDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+
+            const float constants[4] = { 1.0f / (float)lightWidth, 1.0f / (float)lightHeight,
+                D3D9Light::CellCount, D3D9Light::Radius };
+            pDevice->SetPixelShaderConstantF(0, constants, 1);
+            pDevice->SetVertexShader(nullptr);
+            pDevice->SetPixelShader(pLightShader);
+            pDevice->SetTexture(0, pSceneTexture);
+            pDevice->SetTexture(1, nullptr);
+            pDevice->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+            pDevice->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+            pDevice->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+            pDevice->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
+            pDevice->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
+
+            struct ScreenVertex
+            {
+                float x, y, z, rhw;
+                uint32_t color;
+                float u0, v0, u1, v1;
+            };
+
+            void* pVertexData = nullptr;
+            if (SUCCEEDED(pVertexBuffer->Lock(0, 4 * sizeof(ScreenVertex), (void**)&pVertexData, D3DLOCK_DISCARD)))
+            {
+                // the corners of the field, on the pixels of it and not on their
+                // edge, which is the half pixel a screen vertex sits on
+                const float x0 = -0.5f;
+                const float y0 = -0.5f;
+                const float x1 = (float)lightWidth - 0.5f;
+                const float y1 = (float)lightHeight - 0.5f;
+                ScreenVertex* pDst = (ScreenVertex*)pVertexData;
+                const float corners[4][2] = { { x0, y0 }, { x1, y0 }, { x1, y1 }, { x0, y1 } };
+
+                for (int i = 0; i < 4; i++)
+                {
+                    pDst[i].x = corners[i][0];
+                    pDst[i].y = corners[i][1];
+                    pDst[i].z = 0.0f;
+                    pDst[i].rhw = 1.0f;
+                    pDst[i].color = 0xFFFFFFFF;
+                    pDst[i].u0 = 0.0f;
+                    pDst[i].v0 = 0.0f;
+                    pDst[i].u1 = 0.0f;
+                    pDst[i].v1 = 0.0f;
+                }
+
+                pVertexBuffer->Unlock();
+            }
+
+            pDevice->SetFVF(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX2);
+            pDevice->SetStreamSource(0, pVertexBuffer, 0, sizeof(ScreenVertex));
+            pDevice->SetIndices(pIndexBuffer);
+            pDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, 4, 0, 2);
+
+            // the target the drops are drawn into is not the field: the field is a
+            // pass of its own and the viewport of the target is set by ApplyState
+            pDevice->SetRenderTarget(0, pTargetBack);
         }
 
     private:
         static inline constexpr UINT ScreenVertexStride = sizeof(float) * 9; // x, y, z, rhw, colour, u0, v0, u1, v1
 
         IDirect3DDevice9* pDevice = nullptr;
+        // the shader of the drops and the shader that gathers the light into the
+        // field, plus the field the two of them are of: see D3D9LightSource
+        IDirect3DPixelShader9* pLightShader = nullptr;
+        IDirect3DPixelShader9* pDropShader = nullptr;
+        IDirect3DTexture9* pLightTexture = nullptr;
+        IDirect3DSurface9* pLightSurface = nullptr;
+        UINT lightWidth = 0;
+        UINT lightHeight = 0;
+        bool shaderAttempted = false;
 
         IDirect3DTexture9* pSceneTexture = nullptr;
         IDirect3DSurface9* pSceneSurface = nullptr;

@@ -101,11 +101,9 @@ typedef LPDIRECT3DDEVICE9 LPDIRECT3DDEVICE;
 #define XRD_DEVICE_RENDERER Xrd::RENDERER_D3D9
 #endif
 
-// the masks of the drop shapes, embedded exactly like the original builds did
-#define IDR_DROPMASK 100
-#define IDR_SNOWDROPMASK 101
-#define IDR_BLURPS 103
-#define IDR_BLURVS 104
+// the masks of the drop shapes and the shaders of the refraction, embedded exactly
+// like the original builds did: see Xrd::resources in xrdcommon.h, which is where
+// the ids live, and source/resources/Dropmask.rc, which has to agree with them
 
 // Windows decodes the PNG masks on its own, no library has to be shipped
 #include <gdiplus.h>
@@ -185,25 +183,26 @@ public:
     uint8_t g;
     uint8_t b;
     uint8_t alpha;
+    // The alpha this drop fades down from, which is what it was handed when it was
+    // placed and what Fade counts the alpha of the drop from. Water a drop leaves
+    // is handed the alpha of the drop itself, so a drop that has almost faded out
+    // can not leave water that shows up brighter than the drop does.
+    uint8_t alpha0 = 0xFF;
 
     // How fast this bead runs down the glass, in pixels of a frame of the
     // effect's time. Zero is a bead the surface tension holds where it is: it
     // does not run, and the only thing that moves it is the camera.
     float slide = 0.0f;
+    float shapeX = 0.0f, shapeY = 0.0f; // filtered velocity for elastic deformation
 
-    // The water this bead has run over, as the places where it left it. A place
-    // is kept as an offset from the bead and as the age of the place, so the
-    // water stays on the glass, which is where it was left, while the bead runs
-    // on and while the camera drifts. The places are drawn with the bead and are
-    // not drops of their own: they can not take a place in the pool, they can
-    // not be moved and they can not leave a trail of their own.
-    static constexpr int32_t TrailLength = 16;
-    float trailX[TrailLength] = {};
-    float trailY[TrailLength] = {};
-    float trailAge[TrailLength] = {};
-    int32_t trailCount = 0;
-    // how far the bead has moved since the last place was left
-    float trailRun = 0.0f;
+    // The water this bead leaves behind it, as drops of the rain of its own: a drop
+    // of water running over a pane of glass leaves drops of water where it has been,
+    // and what it left takes a place in the pool and is drawn by exactly the same
+    // code as the bead it came from, with its shape and its colour, see NewTrace.
+    // How long one of them stays on the glass is rolled when the bead is placed, and
+    // it is what the length of the tail of this bead is: a bead whose water dries
+    // quickly has a short tail and one whose water stays has a long one.
+    float traceTtl = 0.0f;
 
     bool active;
     bool fades;
@@ -214,6 +213,8 @@ class WaterDropMoving
 {
 public:
     WaterDrop* drop;
+    // Remaining screen-space travel since the last deposit, in pixels.
+    float dist = 0.0f;
 };
 
 class WaterDrops
@@ -237,8 +238,6 @@ public:
     static inline auto ms_dropsMoving = std::vector<WaterDropMoving>(MaxDropsMoving);
     static inline int32_t ms_numDrops;
     static inline int32_t ms_numDropsMoving;
-    // how many drops have water behind them, see AddToRenderList
-    static inline int32_t ms_numDropsTrailing;
 
     static inline bool ms_enabled;
     static inline bool ms_movingEnabled;
@@ -269,51 +268,45 @@ public:
     // -----------------------------------------------------------------------
     // the water a bead leaves behind it
     //
-    // A bead that travels over the glass leaves water where it has been, and
-    // what it left is drawn with the bead itself, see AddToRenderList. Nothing
-    // of it is a setting: how much a bead can leave behind is how much there is
-    // of it, and how long the water stays on the glass is the glass.
+    // A bead that travels over the glass leaves drops of water where it has been,
+    // and what it left is a drop of the rain like any other: it takes a place in
+    // the pool, it is drawn by the same code with the same shape and the same
+    // colour as the bead it came from, and the only thing about it that is not a
+    // drop is that it does not move. How much of a tail a bead has is how long the
+    // water it left stays on the glass, and that is rolled for every bead of the
+    // rain on its own, so the tails of one shower are of every length there is.
     // -----------------------------------------------------------------------
-    // A place is left every time the bead has moved by this much of its own
-    // size, which is what makes the places of one bead overlap into a wake
-    // instead of piling up on one spot.
-    static constexpr float TrailSpacing = 0.45f;
-    // How many places a bead can leave in one frame. A bead that runs down the
-    // glass by itself moves far too little for more than one, but the camera can
-    // drag a bead across the whole screen between two frames, and the water of
-    // that is left along the path and not on the one spot the bead ended up on.
-    static constexpr int32_t TrailPlacesPerFrame = 4;
-    // How wide the water a bead left is, again in its own size. A little thinner
-    // than the bead it came from, so a wake reads as water that was left behind
-    // and not as a line of beads.
-    static constexpr float TrailWidth = 0.75f;
-    // How long a place stays wet, in the time of the effect: a second and a bit
-    // of water on the glass, which is long enough for a wake to stay behind a
-    // bead that has moved on and for a path drawn with the mouse to be seen.
-    static constexpr float TrailLife = 1200.0f;
-    // A fresh place is this much of the alpha of the bead it came from, and the
-    // oldest one of a wake this much, so the water thins out behind the bead.
-    // Both are below one, which is what keeps a wake from ever showing up
-    // brighter than the bead that left it, however faded the bead is.
-    static constexpr float TrailAlphaOldest = 0.28f;
-    static constexpr float TrailAlphaNewest = 0.8f;
+    // Requested deposit spacing in pixels. MoveDrop applies a small minimum
+    // based on the footprint to avoid redundant overlapping deposits.
+    static inline float fMoveStep = 0.1f;
+    // The part of the life of a bead that one of the drops it leaves behind it
+    // lasts, before the length of the tail of a bead is rolled for. The effect has
+    // always divided the life of a drop by SC(4) for this, and that is kept,
+    // because it is what the tails of the rain have always looked like.
+    static constexpr float TraceLifeBase = 4.0f;
+    // And what the tail of one bead is multiplied by, rolled for every bead of the
+    // rain on its own: a bead whose water dries quickly leaves a short tail behind
+    // it, a bead whose water stays leaves a long one that reaches back over the
+    // glass, so the tails of one shower are of every length there is and no two
+    // beads leave the same. See PlaceNew.
+    static constexpr float TraceLifeMin = 0.35f;
+    static constexpr float TraceLifeMax = 2.5f;
     // Every backend holds a vertex buffer of a fixed size, which is the 64000
-    // vertices of 16000 quads below, and one drop is one quad of it plus whatever
-    // water of its own it can show. Asking a backend for more than that is not a
-    // slow frame, it is a buffer that is written past its end, so the water is
-    // shared out over the drops there are: a screen full of drops gets the trails
-    // of a screen full of drops, and a few drops get all of theirs.
+    // vertices of 16000 quads below, and one drop of the rain is one quad of it.
+    // The drops a bead leaves behind it are drops of the rain, so the pool is what
+    // bounds the water of the effect: see MaxDrops, which ResizePools keeps inside
+    // this.
     static constexpr int32_t MaxQuads = 16000;
     // One bead in two is held where it is by the surface tension and never runs
     // down the glass, and it is not the small ones: see PlaceNew.
     static constexpr float HangingShare = 0.5f;
 
-    // A drop of clear water is a lens: the shaders of Direct3D 10 and above give
-    // it the colour of the light of the frame around it, see xrdshaders.h. That
-    // is only possible where the drops are drawn with a vertex shader at all,
-    // Direct3D 8 and 9 draw them with the fixed function pipeline, and it is
-    // only worth it for the drops of clear rain: a drop the game asked for in a
-    // colour of its own is that colour.
+    // A drop of clear water is a lens: the shaders that draw the drops give it
+    // the colour of the light of the frame around it, see xrdshaders.h and
+    // xrdrender.d3d8.h. That is only possible where the drops are drawn with a
+    // shader at all, which is what GatheredLight below answers, and it is only
+    // worth it for the drops of clear rain: a drop the game asked for in a colour
+    // of its own is that colour.
     static inline bool bRefractions = true;
 
     // The light a drop gathers is measured out of the frame it is drawn into, and
@@ -326,12 +319,23 @@ public:
     // the fixed function renderers draw them.
     static inline bool bOwnFrame = true;
 
+    // The renderers that draw the drops with a shader that gathers the light of
+    // the frame around them. Direct3D 9 and above build that shader at runtime,
+    // from the sources in xrdshaders.h, so they are known here; Direct3D 8 builds
+    // one of its own, out of a device that may not be able to run it at all, and
+    // its backend is what answers for it (see xrdrender.d3d8.h).
     static inline bool GatheredLight()
     {
+        if (!bRefractions || !bOwnFrame || bEnableSnow)
+            return false;
+
         const auto api = Xrd::GetRenderer();
-        return bRefractions && bOwnFrame && !bEnableSnow &&
-            (api == Xrd::RENDERER_D3D10 || api == Xrd::RENDERER_D3D10_1 ||
-                api == Xrd::RENDERER_D3D11 || api == Xrd::RENDERER_D3D12);
+
+        if (api == Xrd::RENDERER_D3D8)
+            return Xrd::GathersLight();
+
+        return api == Xrd::RENDERER_D3D9 || api == Xrd::RENDERER_D3D10 || api == Xrd::RENDERER_D3D10_1 ||
+            api == Xrd::RENDERER_D3D11 || api == Xrd::RENDERER_D3D12;
     }
 
     static inline bool IsLens(const WaterDrop* drop)
@@ -385,14 +389,11 @@ public:
         return GetTimeStep() / 50.0f * 1000.0f;
     }
 
-    // The length of a frame in seconds, whichever way the game gives it: a game that
-    // hands WaterDrops::fTimeStep over counts its frames in those of 50 Hz (about 1.5
-    // per frame), a game that does not lets the effect measure the frame rate itself,
-    // and what is left there is in seconds already. Everything the effect moves and
-    // ages is in that unit, and the snow module is handed it in milliseconds.
+    // Adapters supply seconds (including the GTA adapters, which convert their
+    // native 50 Hz timer before assigning fTimeStep).
     static inline float GetFrameTimeSeconds()
     {
-        return fTimeStep ? *fTimeStep / 50.0f : GetTimeStep();
+        return GetTimeStep();
     }
 
     static inline void Process()
@@ -436,6 +437,7 @@ public:
         bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
         bRefractions = iniReader.ReadInteger("MAIN", "Refractions", 1) != 0;
         fSpeedAdjuster = iniReader.ReadFloat("MAIN", "SpeedAdjuster", 1.0f);
+        fMoveStep = iniReader.ReadFloat("MAIN", "MoveStep", 0.1f);
         bBloodDrops = iniReader.ReadInteger("MAIN", "BloodDrops", 1) != 0;
         bEnableSnow = iniReader.ReadInteger("BONUS", "EnableSnow", 0) != 0;
         bForceRain = iniReader.ReadInteger("MAIN", "ForceRain", 0) != 0;
@@ -582,101 +584,36 @@ public:
         }
     }
 
-    // One more place of water on the glass, at an offset from the bead. A bead
-    // has room for a fixed number of them and the oldest one goes when there is
-    // no room left: the water of one bead is its own trail and only its own.
-    static inline void TrailPush(WaterDrop* drop, float x, float y)
+    // Deposited water keeps the parent's colour, atlas shape and opacity. It
+    // stays on the glass and fades independently, without producing more traces.
+    // MoveDrop distributes these deposits along the path, with bounded density.
+    static inline void NewTrace(WaterDrop* drop, float x, float y, float velocityX, float velocityY)
     {
-        if (drop->trailCount == WaterDrop::TrailLength)
-        {
-            for (int32_t i = 1; i < WaterDrop::TrailLength; i++)
-            {
-                drop->trailX[i - 1] = drop->trailX[i];
-                drop->trailY[i - 1] = drop->trailY[i];
-                drop->trailAge[i - 1] = drop->trailAge[i];
-            }
-
-            drop->trailCount--;
-        }
-
-        drop->trailX[drop->trailCount] = x;
-        drop->trailY[drop->trailCount] = y;
-        drop->trailAge[drop->trailCount] = 0.0f;
-        drop->trailCount++;
-    }
-
-    // The water a bead has run over. It is left where the bead has been, which is
-    // a place on the glass: the bead runs on over it and whatever the camera does
-    // moves the bead away from it, so a place is kept as an offset from the bead
-    // and everything the bead has travelled is taken off that offset. That is
-    // what keeps the water where it was left on the screen while the bead it came
-    // from goes on, and what draws the path of a bead the camera drags across the
-    // screen instead of a dot of it.
-    static inline void UpdateTrail(WaterDrop* drop, float travelX, float travelY)
-    {
-        const float age = GetTimeStepInMilliseconds();
-
-        int32_t kept = 0;
-
-        for (int32_t i = 0; i < drop->trailCount; i++)
-        {
-            drop->trailAge[i] += age;
-            drop->trailX[i] -= travelX;
-            drop->trailY[i] -= travelY;
-
-            // the water on a place dries out, and what has dried is gone
-            if (drop->trailAge[i] >= TrailLife)
-                continue;
-
-            drop->trailX[kept] = drop->trailX[i];
-            drop->trailY[kept] = drop->trailY[i];
-            drop->trailAge[kept] = drop->trailAge[i];
-            kept++;
-        }
-
-        drop->trailCount = kept;
-
-        const float distance = sqrtf(travelX * travelX + travelY * travelY);
-
-        // A place is only left once the bead has travelled far enough for one, so
-        // a bead that is held where it is by something else than the glass, or one
-        // that has just started to run, leaves a short trail and not a pool of
-        // water on one spot.
-        const float spacing = (std::max)(drop->size * TrailSpacing, 1.0f);
-        const float run = drop->trailRun + distance;
-
-        if (run < spacing || distance < 0.001f)
-        {
-            drop->trailRun = run;
+        if (ms_numDrops >= int32_t(ms_drops.size() - 1))
             return;
-        }
 
-        // How many places the bead has run over since the last of them was left,
-        // spread over the whole of that path so that they are the spacing apart
-        // and not bunched up at one end of it. A bead that the camera dragged
-        // across the screen has run over more than the bead can hold, and the cap
-        // is what keeps the newest places, which are the ones nearest the bead.
-        int32_t places = int32_t(run / spacing + 0.5f);
+        // A shrinking parent cannot leave a bead larger than itself.
+        const float size = (std::min)((float)SC(MinSize), drop->size * 0.65f);
+        auto* trace = PlaceNew(x, y, size, drop->traceTtl, true, drop->r, drop->g, drop->b);
 
-        if (places > TrailPlacesPerFrame)
-            places = TrailPlacesPerFrame;
+        if (!trace)
+            return;
 
-        drop->trailRun = 0.0f;
+        // the water of a drop is as visible as the drop is, and no more: a drop that
+        // has almost faded out leaves water that fades from where the drop is now
+        trace->alpha = drop->alpha;
+        trace->alpha0 = drop->alpha;
 
-        // the way back along the path the water was left on
-        const float backX = -travelX / distance;
-        const float backY = -travelY / distance;
-
-        // oldest first, so that the trail of the bead stays in order
-        for (int32_t j = places - 1; j >= 0; j--)
-        {
-            const float back = run * ((float)j + 0.5f) / (float)places;
-
-            TrailPush(drop, backX * back, backY * back);
-        }
+        // what the glass holds does not run down it, and water that was left behind
+        // is water of its own and not one of the drops that move
+        trace->slide = 0.0f;
+        trace->uv_index = drop->uv_index;
+        // Deposited water follows the direction of travel, without becoming a mover.
+        trace->shapeX = velocityX;
+        trace->shapeY = velocityY;
     }
 
-    static void MoveDrop(WaterDropMoving* moving)
+    static void MoveDrop(WaterDropMoving* moving, float dt, float response, float shrink)
     {
         WaterDrop* drop = moving->drop;
         if (!ms_movingEnabled)
@@ -687,15 +624,7 @@ public:
             return;
         }
 
-        // What this bead runs down the glass with when nothing else moves it. A
-        // slide is a speed and a frame is not the same length on every machine, so
-        // it is measured in the time of the effect and not in frames: without this
-        // a bead would run twice as fast on a machine that draws twice as many
-        // frames. A frame of 50 Hz is three of the milliseconds that
-        // GetTimeStepInMilliseconds counts, which is where the three is from, and
-        // the clamp is for a game that hands over something strange.
-        const float frame = std::clamp(GetTimeStepInMilliseconds() * 3.0f, 0.5f, 2.0f);
-        const float slide = drop->slide * frame;
+        const float slide = bGravity ? drop->slide * (60.0f * dt) : 0.0f;
 
         float d = abs(ms_vec.z * 0.2f);
         float dx, dy, sum;
@@ -712,14 +641,44 @@ public:
         // gives it and the slide of the drop itself.
         const float travelX = (dx * d) - ms_vec.x;
         const float travelY = (dy * d) + (ms_vec.y + slide);
+        if (dt > 0.0f)
+        {
+            drop->shapeX += (travelX / dt - drop->shapeX) * response;
+            drop->shapeY += (travelY / dt - drop->shapeY) * response;
+        }
 
-        // what the bead leaves behind it, before it is moved on from there
-        UpdateTrail(drop, travelX, travelY);
+        // Deposit by actual distance, not camera speed or frame count. A small
+        // footprint-dependent minimum avoids piling hundreds of nearly identical
+        // drops on top of each other during a slow slide.
+        const float distance = sqrtf(travelX * travelX + travelY * travelY);
+        const float footprint = (std::min)((float)SC(MinSize), drop->size * 0.65f);
+        const float spacing = (std::max)(std::isfinite(fMoveStep) ? fMoveStep : 0.1f,
+            (std::max)(0.25f, (std::min)(1.5f, footprint * 0.12f)));
+        if (distance > 0.0001f && std::isfinite(distance))
+        {
+            const float remainder = fmodf(moving->dist, spacing);
+            const float total = remainder + distance;
+            const float crossed = floorf(total / spacing);
+            // Spread a bounded number of deposits across a fast sweep. Never
+            // carry a spawn backlog into stationary frames after a camera cut.
+            const int count = (int)(std::min)(crossed, 8.0f);
+            if (drop->alpha > 0 && ms_numDrops < (int)ms_drops.size() - 1)
+                for (int i = 0; i < count; ++i)
+                {
+                    const float step = crossed > 8.0f ? (i + 0.5f) * distance / count
+                        : spacing - remainder + i * spacing;
+                    const float t = std::clamp(step / distance, 0.0f, 1.0f);
+                    NewTrace(drop, drop->x + travelX * t, drop->y + travelY * t,
+                        drop->shapeX, drop->shapeY);
+                }
+            moving->dist = fmodf(total, spacing);
+        }
 
         drop->x += travelX;
         drop->y += travelY;
 
-        drop->size -= (drop->size / 100.0f) * GetTimeStepInMilliseconds();
+        // Equivalent to the old 60 Hz shrink rate, integrated independently of FPS.
+        drop->size *= shrink;
 
         if (drop->x < -(float)(SC(MaxSize)) || drop->y < -(float)(SC(MaxSize)) ||
             drop->x >(ms_fbWidth + SC(MaxSize)) || drop->y >(ms_fbHeight + SC(MaxSize)))
@@ -732,9 +691,17 @@ public:
     {
         if (!ms_movingEnabled)
             return;
+        const float elapsed = GetFrameTimeSeconds();
+        if (!(elapsed > 0.0f) || !std::isfinite(elapsed))
+            return;
+        // Preserve 60 Hz tuning; bound recovery after a stall. These coefficients
+        // are shared by every moving bead, so compute exponentials once per frame.
+        const float dt = (std::min)(elapsed, 0.1f);
+        const float response = 1.0f - expf(-dt / 0.08f);
+        const float shrink = expf(-0.200334f * dt);
         for (auto& moving : ms_dropsMoving)
             if (moving.drop)
-                MoveDrop(&moving);
+                MoveDrop(&moving, dt, response, shrink);
     }
 
     static inline void Fade()
@@ -765,6 +732,7 @@ public:
                 drop.g = G;
                 drop.b = B;
                 drop.alpha = 0xFF;
+                drop.alpha0 = 0xFF;
                 drop.time = 0.0f;
                 drop.ttl = ttl;
 
@@ -786,8 +754,12 @@ public:
                     drop.slide = slowest + (fastest - slowest) * (0.3f + 0.7f * weight);
                 }
 
-                drop.trailCount = 0;
-                drop.trailRun = 0.0f;
+                // The water a drop leaves is the path it has run, over the time that
+                // water stays on the glass: it is rolled for every drop of the rain
+                // on its own, so no two drops leave a tail of the same length.
+                drop.traceTtl = (drop.ttl / (float)(std::max)(1, SC(4)) * TraceLifeBase)
+                    * (TraceLifeMin + GetRandomFloat(TraceLifeMax - TraceLifeMin));
+                drop.shapeX = drop.shapeY = 0.0f;
 
                 return &drop;
             }
@@ -821,6 +793,7 @@ public:
             {
                 ms_numDropsMoving++;
                 moving.drop = drop;
+                moving.dist = 0.0f;
                 return;
             }
         }
@@ -1050,9 +1023,12 @@ public:
     static inline bool ms_iniRead = false;
 
     // How far the atlas coordinate of a drop that gathers light is moved down,
-    // see AddToRenderList and VSMain in xrdshaders.h. The two have to agree on
-    // it: the vertex shader moves it back up and reads the sign as the mark.
-    static constexpr float AtlasLightMarker = 2.0f;
+    // see AddToRenderList and VSMain in xrdshaders.h. Every shader that takes the
+    // mark back off and every backend that takes it off itself have to agree on
+    // it, which is what Xrd::AtlasLightMarker is for: the vertex shader of
+    // Direct3D 10 and above moves it back up, the shader of Direct3D 9 reads the
+    // sign of it, and the backend of Direct3D 8 takes it off on the way in.
+    static constexpr float AtlasLightMarker = Xrd::AtlasLightMarker;
 
     // Switching the falling drops between rain and snow also switches the mask
     // they are drawn with, the one loaded from the resources.
@@ -1199,6 +1175,13 @@ public:
     // either, the effect is built again from the ini right after this.
     static inline void ResizePools()
     {
+        // Every drop of the effect, the drops the rain leaves behind it included,
+        // is one quad of the vertex buffer of the backend, so the pool can never
+        // be larger than the buffer: a pool of drops that does not fit in it is a
+        // buffer that is written past its end, see MaxQuads.
+        if (MaxDrops > MaxQuads)
+            MaxDrops = MaxQuads;
+
         if (ms_drops.size() == (size_t)MaxDrops && ms_dropsMoving.size() == (size_t)MaxDropsMoving)
             return;
 
@@ -1308,7 +1291,8 @@ public:
     // the frame around the quad that it samples, and the colour it is drawn in.
     // The smaller the quad is for the same shape and the same piece of the frame,
     // the more of the frame it shows, which is what makes a drop a lens.
-    static inline void AddDropQuad(float x, float y, float size, float uvsize, uint32_t color, int uv_index, bool lens)
+    static inline void AddDropQuad(float x, float y, float size, float uvsize, uint32_t color, int uv_index, bool lens,
+        float velocityX = 0.0f, float velocityY = 0.0f)
     {
         static float uv[5][8] = {
             { 0.0f, 0.0f, 0.0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.0f },
@@ -1346,12 +1330,18 @@ public:
         // left behind it does not gather any light: a film of water on the glass
         // is not a lens.
         const float scale = size * 0.5f;
+        const float speed = sqrtf(velocityX * velocityX + velocityY * velocityY);
+        const float stretch = 1.0f + (std::min)(0.45f, speed * 0.012f / (std::max)(size, 1.0f));
+        const float ax = speed > 0.001f ? velocityX / speed : 1.0f;
+        const float ay = speed > 0.001f ? velocityY / speed : 0.0f;
 
         for (int i = 0; i < 4; i++)
         {
             Xrd::Vertex vertex{};
-            vertex.x = x + xy[i * 2] * scale * ms_xScale + ms_xOff;
-            vertex.y = y + xy[i * 2 + 1] * scale + ms_yOff;
+            const float along = (xy[i * 2] * ax + xy[i * 2 + 1] * ay) * stretch;
+            const float across = (-xy[i * 2] * ay + xy[i * 2 + 1] * ax) / stretch;
+            vertex.x = x + (along * ax - across * ay) * scale * ms_xScale + ms_xOff;
+            vertex.y = y + (along * ay + across * ax) * scale + ms_yOff;
             vertex.z = 0.0f;
             vertex.color = color;
             vertex.u0 = uv[uv_index][i * 2] - (lens ? AtlasLightMarker : 0.0f);
@@ -1363,43 +1353,15 @@ public:
         }
     }
 
+    // One drop of the rain, drawn as one quad of the atlas of the drop shapes: see
+    // AddDropQuad. The drops a drop left behind it are drops of the rain like any
+    // other, so this is all there is to drawing one, and the water of the effect can
+    // never take more of the vertex buffer of a backend than the pool is large.
     static inline void AddToRenderList(WaterDrop* drop)
     {
-        // What the bead has run over is drawn first, because the bead is on top
-        // of the water it left behind it. It is only ever as visible as the bead
-        // is, so a bead that has almost faded out can not leave a trail that
-        // shows up brighter than the bead itself, which is what the original
-        // code looked like: it drew every trace at full opacity.
-        //
-        // How much of the water of one bead there is room for is what is left of
-        // the vertex buffer of the backend after every drop on the screen has had
-        // its own quad, shared out over the drops that have water behind them at
-        // all, and the oldest places are the ones that give way: see MaxQuads.
-        const int32_t trailing = (std::max)(ms_numDropsTrailing, 1);
-        const int32_t room = (std::max)((MaxQuads - ms_numDrops) / trailing, 0);
-        const int32_t budget = (std::min)(room, WaterDrop::TrailLength);
-        const int32_t start = (std::max)(drop->trailCount - budget, 0);
-        const int32_t shown = drop->trailCount - start;
-
-        for (int32_t i = start; i < drop->trailCount; i++)
-        {
-            const float wet = 1.0f - drop->trailAge[i] / TrailLife;
-
-            if (wet <= 0.0f)
-                continue;
-
-            // the older the place is, the thinner the water that is left on it
-            const float thin = shown > 1 ? (float)(i - start) / (float)(shown - 1) : 1.0f;
-            const float water = TrailAlphaOldest + (TrailAlphaNewest - TrailAlphaOldest) * thin;
-            const uint8_t alpha = (uint8_t)(drop->alpha * water * wet);
-
-            AddDropQuad(drop->x + drop->trailX[i], drop->y + drop->trailY[i],
-                drop->size * TrailWidth, drop->uvsize,
-                Xrd::ColorARGB(alpha, drop->r, drop->g, drop->b), drop->uv_index, false);
-        }
-
         AddDropQuad(drop->x, drop->y, drop->size, drop->uvsize,
-            Xrd::ColorARGB(drop->alpha, drop->r, drop->g, drop->b), drop->uv_index, IsLens(drop));
+            Xrd::ColorARGB(drop->alpha, drop->r, drop->g, drop->b), drop->uv_index, IsLens(drop),
+            drop->shapeX, drop->shapeY);
 
         ms_numBatchedDrops++;
     }
@@ -1428,14 +1390,6 @@ public:
 
         ms_vertices.clear();
         ms_numBatchedDrops = 0;
-
-        // The water of the drops is what the vertex buffer is shared out over, so
-        // how many drops there are with water behind them is counted first.
-        ms_numDropsTrailing = 0;
-
-        for (auto& drop : ms_drops)
-            if (drop.active && drop.trailCount > 0)
-                ms_numDropsTrailing++;
 
         for (auto& drop : ms_drops)
             if (drop.active)
@@ -1468,7 +1422,7 @@ void WaterDrop::Fade()
         WaterDrops::DetachMoving(this);
     }
     else if (this->fades)
-        this->alpha = (uint8_t)(255.0f * (1.0f - std::clamp(this->time / this->ttl, 0.0f, 1.0f)));
+        this->alpha = (uint8_t)(this->alpha0 * (1.0f - std::clamp(this->time / this->ttl, 0.0f, 1.0f)));
 }
 
 bool IsModuleUAL(HMODULE mod)

@@ -29,6 +29,24 @@ function AddVersionDefines()
    defines { "rsc_GitSHA1W=L\"" .. githash .. "\"" }
 end
 
+-- The refraction of Direct3D 8 is a shader of model 1, which cannot be built at
+-- runtime the way the renderers of Direct3D 9 and above build theirs (a game hands
+-- IDirect3DDevice8::CreatePixelShader the bytecode of one, not a source string): it
+-- is built here and embedded as a resource, exactly like the menu blur of Scarface.
+--
+-- The June 2010 compiler only builds a ps_1_x profile with /LD, and the old compiler
+-- it loads then is d3dx9_31.dll, which sits next to it in tools/x86. Both profiles
+-- are built: ps_1_4 is as high as the model goes and what every device that can run
+-- a game today reports, ps_1_1 is what the hardware the games themselves ran on has.
+-- The fade in of the light of the field needs one instruction more than ps_1_1 has,
+-- see lightPS8.hlsl and D3D8Backend::EnsureShaders.
+function BuildD3D8Shaders()
+   prebuildcommands {
+      "for /R \"../source/resources/shaders/ps8/\" %%f in (*.hlsl) do (\"../tools/x86/fxc.exe\" /LD /T ps_1_4 /E main /nologo /Fo \"../source/resources/%%~nf_14.cso\" %%f)",
+      "for /R \"../source/resources/shaders/ps8/\" %%f in (*.hlsl) do (\"../tools/x86/fxc.exe\" /LD /T ps_1_1 /D XRD_LIGHT_RAMP=0 /E main /nologo /Fo \"../source/resources/%%~nf_11.cso\" %%f)",
+   }
+end
+
 -- The settings every plugin of this repository is built with. Visual Studio 2026 has no
 -- mixed platform solutions, so the plugins of one architecture are one solution: this
 -- is called once for the 32 bit plugins and once for the 64 bit ones, below.
@@ -60,6 +78,7 @@ function PluginsSetup(name, platform, arch)
       files { "source/%{prj.name}.cpp" }
       files { "source/resources/Versioninfo.rc" }
       files { "source/resources/Dropmask.rc" }
+      BuildD3D8Shaders()
       files { "external/hooking/Hooking.Patterns.h", "external/hooking/Hooking.Patterns.cpp" }
       files { "external/injector/safetyhook/include/**.hpp", "external/injector/safetyhook/src/**.cpp" }
       files { "external/injector/zydis/**.h", "external/injector/zydis/**.c" }
@@ -239,6 +258,8 @@ function WrapperSetup(name, platform, arch)
       -- the declarations of Vulkan ship with the repository
       includedirs { "external/vulkan/include" }
       defines { "VK_USE_PLATFORM_WIN32_KHR" }
+      -- the wrapper builds the Direct3D 8 renderer as one of its translation units
+      BuildD3D8Shaders()
 
       filter "configurations:Debug"
          defines "DEBUG"
@@ -314,6 +335,7 @@ workspace "XboxRainDropletsTests"
    linkoptions "/SAFESEH:NO"
 
    files { "source/resources/Dropmask.rc" }
+   BuildD3D8Shaders()
    files { "external/hooking/Hooking.Patterns.h", "external/hooking/Hooking.Patterns.cpp" }
    files { "external/injector/safetyhook/include/**.hpp", "external/injector/safetyhook/src/**.cpp" }
    files { "external/injector/zydis/**.h", "external/injector/zydis/**.c" }

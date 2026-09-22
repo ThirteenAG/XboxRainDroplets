@@ -336,3 +336,6 @@ ASALocalRun/
 
 #Excludes
 !source/dxsdk/lib/**
+# the shader compilers of the Direct3D 8 era, see tools/x86 (the x86/ rule above
+# would keep the whole folder out of the repository)
+!tools/x86/

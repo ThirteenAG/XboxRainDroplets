@@ -18,6 +18,8 @@ namespace
     IDirect3D8* pD3D = nullptr;
     IDirect3DDevice8* pDevice = nullptr;
     IDirect3DVertexBuffer8* pVertexBuffer = nullptr;
+    // the depth of the frame a texture can be made of, see CreateDevice
+    IDirect3DTexture8* pDepthTexture = nullptr;
     constexpr int MaxVertices = 4096;
 
     struct ScreenVertex
@@ -54,8 +56,14 @@ namespace
         present.BackBufferHeight = window.height;
         present.BackBufferCount = 1;
         present.hDeviceWindow = window.hwnd;
-        // the two fullscreen fields have to stay zero in windowed mode, Direct3D
+        // The two fullscreen fields have to stay zero in windowed mode, Direct3D
         // 8 rejects the device with an invalid call otherwise
+        //
+        // A depth buffer of its own, because every game this backend draws for has
+        // one: the light of the frame is found with none of its own and puts back
+        // what it found, and without one here that is not put to the test.
+        present.EnableAutoDepthStencil = TRUE;
+        present.AutoDepthStencilFormat = D3DFMT_D24S8;
 
         HRESULT hr = pD3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, window.hwnd,
             D3DCREATE_HARDWARE_VERTEXPROCESSING, &present, &pDevice);
@@ -87,6 +95,32 @@ namespace
         const HRESULT hrBuffer = pDevice->CreateVertexBuffer(MaxVertices * sizeof(ScreenVertex), D3DUSAGE_WRITEONLY, D3DFVF_XYZRHW | D3DFVF_DIFFUSE, D3DPOOL_MANAGED, &pVertexBuffer);
         printf("device created, vertex buffer %x\n", (unsigned)hrBuffer);
         fflush(stdout);
+
+        // A depth buffer a texture can be made of, the way the games that read the
+        // depth of their own frame do it (see DepthStencil.ixx of the widescreen fix
+        // of True Crime: New York City): the depth buffer a device hands out is of a
+        // kind no texture can be made of, so the pass that reads the depth of the
+        // frame and leaves the light of it to what is close to the camera has
+        // nothing to read without one of these.
+        if (pD3D->CheckDeviceFormat(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, D3DFMT_X8R8G8B8,
+            D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, (D3DFORMAT)MAKEFOURCC('I', 'N', 'T', 'Z')) == D3D_OK &&
+            SUCCEEDED(pDevice->CreateTexture(window.width, window.height, 1, D3DUSAGE_DEPTHSTENCIL,
+                (D3DFORMAT)MAKEFOURCC('I', 'N', 'T', 'Z'), D3DPOOL_DEFAULT, &pDepthTexture)))
+        {
+            IDirect3DSurface8* pDepthSurface = nullptr;
+            IDirect3DSurface8* pBackBuffer = nullptr;
+
+            if (SUCCEEDED(pDepthTexture->GetSurfaceLevel(0, &pDepthSurface)) &&
+                SUCCEEDED(pDevice->GetBackBuffer(0, D3DBACKBUFFER_TYPE_MONO, &pBackBuffer)))
+            {
+                pDevice->SetRenderTarget(pBackBuffer, pDepthSurface);
+                printf("depth texture created\n");
+                fflush(stdout);
+            }
+
+            if (pBackBuffer) pBackBuffer->Release();
+            if (pDepthSurface) pDepthSurface->Release();
+        }
 
         return SUCCEEDED(hrBuffer);
     }
@@ -168,7 +202,48 @@ namespace
             rects.push_back({ 0.0f, y, (float)window.width, 1.5f, { 0.30f, 0.34f, 0.30f, 1.0f } });
         }
 
+        // --lens-light: the world is dark and two bright lamps sit right next to
+        // the drop the check places at the top of the frame, one red and one green.
+        // What a drop of clear water gathers out of the frame around it is then the
+        // only light there is, and the drop is the same drop in the same place
+        // either way, so running this once with and once without Refractions in the
+        // ini is what the light gathering of this renderer looks like.
+        if (XrdTest::Headless::State().lensLight)
+        {
+            for (auto& rect : rects)
+            {
+                rect.color.r *= 0.35f;
+                rect.color.g *= 0.35f;
+                rect.color.b *= 0.35f;
+            }
+        }
+
         DrawRects(rects.data(), (int)rects.size());
+
+        if (XrdTest::Headless::State().lensLight)
+        {
+            const float x = (float)window.width * XrdTest::Headless::State().dropX;
+            const float y = (float)window.height * 0.25f;
+
+            const XrdTest::Rect lamps[] = {
+                { x + 86.0f, y - 8.0f, 30.0f, 16.0f, { 1.0f, 0.05f, 0.02f, 1.0f } },
+                { x - 116.0f, y - 8.0f, 30.0f, 16.0f, { 0.06f, 1.0f, 0.12f, 1.0f } },
+            };
+
+            DrawRects(lamps, 2);
+
+            // and four small ones, the size a rear light of a car has, at a range
+            // a drop on the glass of a car that light belongs to is at, to see
+            // whether a light that small is found by the gather at all
+            const XrdTest::Rect tailLights[] = {
+                { x + 6.0f, y + 10.0f, 10.0f, 5.0f, { 1.0f, 0.10f, 0.05f, 1.0f } },
+                { x + 18.0f, y - 6.0f, 10.0f, 5.0f, { 1.0f, 0.10f, 0.05f, 1.0f } },
+                { x + 34.0f, y + 14.0f, 10.0f, 5.0f, { 1.0f, 0.10f, 0.05f, 1.0f } },
+                { x - 14.0f, y + 8.0f, 10.0f, 5.0f, { 0.10f, 1.0f, 0.15f, 1.0f } },
+            };
+
+            DrawRects(tailLights, 4);
+        }
     }
 
     void DrawUi()
@@ -227,6 +302,9 @@ int main()
     int frameIndex = 0;		// headless: how many frames the run has drawn
     char extra[128]{};
 
+    // and whether the drops left the drawing state of the application changed
+    bool stateLeak = false;
+
     while (window.running)
     {
         window.Pump();
@@ -278,8 +356,57 @@ int main()
             XrdTest::Headless::PrepareDrops(frameIndex, window.width, window.height);
 
             WaterDrops::Process();
+
+            // AUDIT: what a batch of drops leaves changed of the drawing state of the
+            // application it was drawn for. A state block puts the drawing state back,
+            // and the target, the depth buffer and the viewport are not in one: a game
+            // left without its depth buffer draws no more of its own world.
+            IDirect3DSurface8* pBeforeTarget = nullptr;
+            IDirect3DSurface8* pBeforeDepth = nullptr;
+            D3DVIEWPORT8 beforeViewport{};
+            pDevice->GetRenderTarget(&pBeforeTarget);
+            pDevice->GetDepthStencilSurface(&pBeforeDepth);
+            pDevice->GetViewport(&beforeViewport);
+
         if (frames < 3) { printf("frame: drops\n"); fflush(stdout); }
             WaterDrops::Render();
+
+            IDirect3DSurface8* pAfterTarget = nullptr;
+            IDirect3DSurface8* pAfterDepth = nullptr;
+            D3DVIEWPORT8 afterViewport{};
+            pDevice->GetRenderTarget(&pAfterTarget);
+            pDevice->GetDepthStencilSurface(&pAfterDepth);
+            pDevice->GetViewport(&afterViewport);
+
+            if (frames == 5)
+            {
+                const bool sameTarget = pBeforeTarget == pAfterTarget;
+                const bool sameDepth = pBeforeDepth == pAfterDepth;
+                const bool sameViewport = beforeViewport.X == afterViewport.X && beforeViewport.Y == afterViewport.Y &&
+                    beforeViewport.Width == afterViewport.Width && beforeViewport.Height == afterViewport.Height;
+
+                if (sameTarget && sameDepth && sameViewport)
+                {
+                    printf("[PASS] the drops left the target, the depth buffer and the viewport of the game as they found them\n");
+                }
+                else
+                {
+                    printf("[FAIL] the drops left the target %s, the depth buffer %s, the viewport %s\n",
+                        sameTarget ? "as it was" : "CHANGED", sameDepth ? "as it was" : "CHANGED (none left)",
+                        sameViewport ? "as it was" : "CHANGED");
+                    printf("[FAIL] viewport before %u %u %u x %u, after %u %u %u x %u\n",
+                        beforeViewport.X, beforeViewport.Y, beforeViewport.Width, beforeViewport.Height,
+                        afterViewport.X, afterViewport.Y, afterViewport.Width, afterViewport.Height);
+                    stateLeak = true;
+                }
+
+                fflush(stdout);
+            }
+
+            if (pBeforeTarget) pBeforeTarget->Release();
+            if (pBeforeDepth) pBeforeDepth->Release();
+            if (pAfterTarget) pAfterTarget->Release();
+            if (pAfterDepth) pAfterDepth->Release();
 
             DrawUi();
 
@@ -300,7 +427,7 @@ int main()
 
         // a headless run takes the pictures of its last few frames and is over
         if (XrdTest::Headless::AfterPresent(window.hwnd, frameIndex))
-            return XrdTest::Headless::Result();
+            return stateLeak ? XrdTest::Headless::EXIT_FAILED : XrdTest::Headless::Result();
 
         frameIndex++;
         frames++;
@@ -323,6 +450,7 @@ int main()
     Xrd::Shutdown();
 
     if (pVertexBuffer) pVertexBuffer->Release();
+    if (pDepthTexture) pDepthTexture->Release();
     if (pDevice) pDevice->Release();
     if (pD3D) pD3D->Release();
 
