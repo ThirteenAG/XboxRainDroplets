@@ -361,7 +361,7 @@ namespace Xrd
 
     private:
         static constexpr int FramesInFlight = 2;
-        static constexpr int MaxVertices = 24000;
+        static constexpr int MaxVertices = 64000;
         static constexpr int MaxIndices = MaxVertices * 6;
         static constexpr int DescriptorsPerFrame = 4; // constant buffer and three textures
 

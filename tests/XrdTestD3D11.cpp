@@ -387,19 +387,66 @@ namespace
         const float slowest = D::gravity / D::gdivmin;
         const float fastest = D::gravity / D::gdivmax;
 
-        // What runs down the glass and what hangs on it. Nothing here is a
-        // setting: the surface tension that holds a small bead where it is does
-        // not hold a big one, so how much water there is in a bead is what
-        // decides, and the only thing that then moves a bead that hangs is the
-        // camera.
-        D::Clear();
-        auto* hanging = D::PlaceNew(960.0f, 540.0f, (float)smallest, 20000.0f, true);
-        auto* rolling = D::PlaceNew(400.0f, 540.0f, (float)biggest, 20000.0f, true);
+        // What runs down the glass and what hangs on it: one bead in two is held
+        // where it is by the surface tension and never runs, whatever its size is,
+        // which is what makes beads of every size be seen both hanging and
+        // running. The only thing that then moves a bead that hangs is the camera.
+        int32_t hangingBeads = 0;
+        int32_t runningBeads = 0;
+        float slowestRunner = 1000.0f;
+        float fastestRunner = 0.0f;
 
-        check(hanging->slide == 0.0f, "a small bead is held where it is and never runs");
-        check(rolling->slide > 0.0f, "a big bead runs down the glass");
-        check(rolling->slide >= slowest - 0.001f && rolling->slide <= fastest + 0.001f,
+        D::Clear();
+
+        for (int i = 0; i < 400; i++)
+        {
+            auto* bead = D::PlaceNew(960.0f, 540.0f, (float)((i % 2) ? smallest : biggest), 20000.0f, true);
+
+            if (bead->slide == 0.0f)
+            {
+                hangingBeads++;
+            }
+            else
+            {
+                runningBeads++;
+
+                if (bead->slide < slowestRunner)
+                    slowestRunner = bead->slide;
+
+                if (bead->slide > fastestRunner)
+                    fastestRunner = bead->slide;
+            }
+        }
+
+        check(hangingBeads > 400 / 4 && hangingBeads < 400 * 3 / 4,
+            "about one bead in two hangs on the glass where it is");
+        check(runningBeads > 400 / 4 && runningBeads < 400 * 3 / 4,
+            "and the other one runs down it");
+        check(slowestRunner >= slowest - 0.001f && fastestRunner <= fastest + 0.001f,
             "how fast a bead runs is in the range the effect has always given a drop");
+
+        // both halves of the beads are of every size, and not the small ones that
+        // hang and the big ones that run
+        D::Clear();
+
+        int32_t hangingSmall = 0;
+        int32_t runningSmall = 0;
+        int32_t hangingBig = 0;
+        int32_t runningBig = 0;
+
+        for (int i = 0; i < 400; i++)
+        {
+            const bool tiny = (i % 2) != 0;
+            auto* bead = D::PlaceNew(960.0f, 540.0f, (float)(tiny ? smallest : biggest), 20000.0f, true);
+
+            if (tiny)
+                (bead->slide == 0.0f ? hangingSmall : runningSmall)++;
+            else
+                (bead->slide == 0.0f ? hangingBig : runningBig)++;
+        }
+
+        check(hangingSmall > 200 / 4 && runningSmall > 200 / 4 && hangingBig > 200 / 4 && runningBig > 200 / 4,
+            "the beads that hang and the beads that run are of every size");
 
         D::bGravity = false;
         D::Clear();
@@ -408,10 +455,19 @@ namespace
         D::bGravity = true;
 
         // A bead leaves water where it has been, and only once it has gone far
-        // enough for the water to be a streak and not a pool on one spot.
-        D::Clear();
+        // enough for the water to be a wake and not a pool on one spot. Which one
+        // of the beads runs is not known in advance, so a bead that runs is asked
+        // for until one is there.
         D::ms_vec = {};
+        D::Clear();
         auto* bead = D::PlaceNew(960.0f, 300.0f, (float)biggest, 20000.0f, true);
+
+        for (int i = 0; i < 200 && bead->slide == 0.0f; i++)
+        {
+            D::Clear();
+            bead = D::PlaceNew(960.0f, 300.0f, (float)biggest, 20000.0f, true);
+        }
+
         D::NewDropMoving(bead);
 
         for (int i = 0; i < 5; i++)
@@ -467,14 +523,15 @@ namespace
 
         // The water is on the glass, and the glass is what the camera moves: a
         // place stays where it was left on the screen while the camera drifts,
-        // only the bead runs on to the next place by itself.
+        // only the bead runs on to the next place by itself. The drift is small
+        // enough that the bead does not run over another whole place in it.
         float was[WaterDrop::TrailLength] = {};
         const int32_t places = bead->trailCount;
 
         for (int32_t i = 0; i < places; i++)
             was[i] = bead->x + bead->trailX[i];
 
-        D::ms_vec = { -37.0f, 11.0f, 0.0f };
+        D::ms_vec = { -5.0f, 2.0f, 0.0f };
         D::ProcessMoving();
 
         int32_t stayed = 0;
@@ -490,11 +547,82 @@ namespace
         check(places > 0 && stayed + 1 >= bead->trailCount,
             "the water stays where it was left on the screen while the camera drifts");
 
-        // A bead that neither runs nor is moved leaves nothing at all: what is
-        // left behind is the path of the bead, and it has none.
+        // A bead that the camera drags across the screen in one frame has run over
+        // more places of water than one, and all of them are drawn: the water of a
+        // drag is left along the path, and not on the one spot the bead happens to
+        // end up on, which is what a trail of dots is.
         D::Clear();
         D::ms_vec = {};
-        auto* hangingStill = D::PlaceNew(960.0f, 540.0f, (float)smallest, 20000.0f, true);
+        auto* dragged = D::PlaceNew(1200.0f, 540.0f, (float)biggest, 20000.0f, true);
+        D::NewDropMoving(dragged);
+        D::ms_vec = { 200.0f, 0.0f, 0.0f };
+        D::ProcessMoving();
+        D::ms_vec = {};
+
+        const float left = dragged->x;
+        const float right = 1200.0f;
+        int32_t onPath = 0;
+        float nearest = 0.0f;
+        float farthest = 0.0f;
+
+        for (int32_t i = 0; i < dragged->trailCount; i++)
+        {
+            const float x = dragged->x + dragged->trailX[i];
+
+            if (x >= left - 0.001f && x <= right + 0.001f)
+                onPath++;
+
+            if (i == dragged->trailCount - 1)
+                nearest = x - left;
+
+            if (i == 0)
+                farthest = x - left;
+        }
+
+        check(dragged->trailCount >= D::TrailPlacesPerFrame && onPath == dragged->trailCount,
+            "the path a bead is dragged over is drawn along with it, not one dot behind it");
+        check(farthest > (right - left) * 0.7f && nearest > 0.0f &&
+            nearest < (right - left) / (float)D::TrailPlacesPerFrame,
+            "the water of a drag reaches back over the whole of it, thinnest at the far end");
+
+        // The water dries out again, in the time of the effect and not in frames:
+        // a second and a bit after the bead has gone, the place it left is dry.
+        check(dragged->trailCount > 0, "the bead that was dragged left water behind it");
+
+        // A frame of the effect's time of six units, so that the water of the
+        // trail has dried out in a handful of frames instead of thousands. The
+        // bead is held where it is, or a frame that long would have it run over a
+        // new place of water on every one of them.
+        timeStep = 6.0f;
+        dragged->slide = 0.0f;
+
+        int32_t dryingFrames = 0;
+
+        while (dragged->trailCount > 0 && dryingFrames < 100)
+        {
+            D::ProcessMoving();
+            dryingFrames++;
+        }
+
+        const int32_t expectedFrames = (int32_t)(D::TrailLife / D::GetTimeStepInMilliseconds()) + 2;
+
+        timeStep = 1.0f / 60.0f;
+
+        check(dryingFrames > 0 && dryingFrames <= expectedFrames,
+            "the water of a trail dries out again instead of staying on the glass for good");
+
+        // A bead that neither runs nor is moved leaves nothing at all: what is
+        // left behind is the path of the bead, and it has none.
+        D::ms_vec = {};
+        D::Clear();
+        auto* hangingStill = D::PlaceNew(960.0f, 540.0f, (float)biggest, 20000.0f, true);
+
+        for (int i = 0; i < 200 && hangingStill->slide != 0.0f; i++)
+        {
+            D::Clear();
+            hangingStill = D::PlaceNew(960.0f, 540.0f, (float)biggest, 20000.0f, true);
+        }
+
         D::NewDropMoving(hangingStill);
 
         for (int i = 0; i < 400; i++)

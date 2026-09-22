@@ -284,6 +284,11 @@ namespace Xrd
             if (!pDevice || !pContext || !pVertices || numVertices <= 0)
                 return;
 
+            // the vertex buffer of this backend is a fixed size, and what does not
+            // fit in it is not drawn rather than written past its end
+            if (numVertices > MaxVertices)
+                numVertices = MaxVertices;
+
             const int numIndices = (primitive == PRIMITIVE_TRIANGLES) ? (numVertices / 4) * 6 : 0;
 
             if (primitive == PRIMITIVE_TRIANGLES && numIndices <= 0)
@@ -551,7 +556,6 @@ namespace Xrd
 
             if (!pVertexBuffer)
             {
-                constexpr int MaxVertices = 24000;
 
                 ID3DBlob* pVertexBlob = CompileShader(Shaders::D3D11Source, "VSMain", "vs_4_0");                ID3DBlob* pPixelBlob = CompileShader(Shaders::D3D11Source, "PSMain", "ps_4_0");
 
@@ -953,6 +957,11 @@ namespace Xrd
         }
 
     private:
+        // the size of the vertex buffer the geometry of this backend is drawn
+        // from: the vertex buffer below is not grown, so nothing can be drawn from
+        // it that does not fit in it
+        static constexpr int MaxVertices = 64000;
+
         ID3D11Device* pDevice = nullptr;
         ID3D11DeviceContext* pImmediateContext = nullptr;
         ID3D11DeviceContext* pContext = nullptr;
