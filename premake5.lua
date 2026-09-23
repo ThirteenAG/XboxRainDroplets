@@ -1,3 +1,31 @@
+-- The folder a project is deployed to, and the game it is started from when debugging,
+-- is the path of one machine and does not belong in the repository. It is read from a
+-- `.env` file next to this script, which is not tracked by git and holds one
+-- `<KEY>=<folder>` line per game (quotes and a trailing slash are optional). A project
+-- whose key is missing is not deployed at all.
+local envkeys = nil
+function envdir(key)
+   if not envkeys then
+      envkeys = {}
+      local text = io.readfile(path.join(_SCRIPT_DIR, ".env")) or ""
+      for line in text:gmatch("[^\r\n]+") do
+         local k, v = line:match("^%s*([%w_]+)%s*=%s*(.-)%s*$")
+         if k and v ~= "" then
+            v = v:gsub('^"', ""):gsub('"$', ""):gsub("^'", ""):gsub("'$", "")
+            envkeys[k] = v
+         end
+      end
+   end
+
+   local value = envkeys[key]
+   if not value then return nil end
+
+   value = value:gsub("[%s\\/]+$", "")
+   if value == "" then return nil end
+
+   return path.translate(value)
+end
+
 -- The version of the plugins is the date of the build plus the short hash of the commit
 -- they were built from, like in the WidescreenFixesPack repository. It is written into
 -- the version resource of every plugin, see source/resources/Versioninfo.rc.
@@ -88,28 +116,22 @@ function PluginsSetup(name, platform, arch)
       includedirs { "external/injector/zydis" }
       includedirs { "external/FusionDxHook/includes" }
 
-      pbcommands = {
-         "setlocal EnableDelayedExpansion",
-         --"set \"path=" .. (gamepath) .. "\"",
-         "set file=$(TargetPath)",
-         "FOR %%i IN (\"%file%\") DO (",
-         "set filename=%%~ni",
-         "set fileextension=%%~xi",
-         "set target=!path!!filename!!fileextension!",
-         "if exist \"!target!\" copy /y \"!file!\" \"!target!\"",
-         ")" }
-
-      function setpaths (gamepath, exepath, scriptspath)
+      -- Deploys the built .asi into the folder that `key` names in the .env file, and
+      -- starts the game from there when debugging. Only a plugin that is already
+      -- installed in the game folder is replaced, a folder without one is left alone.
+      function setpaths (key, exepath, scriptspath)
          scriptspath = scriptspath or "scripts/"
-         if (gamepath) then
-            cmdcopy = { "set \"path=" .. gamepath .. scriptspath .. "\"" }
-            table.insert(cmdcopy, pbcommands)
-            postbuildcommands (cmdcopy)
+         local gamepath = envdir(key)
+         if gamepath then
+            local target = gamepath .. "\\" .. path.translate(scriptspath)
+            postbuildcommands {
+               "if exist \"" .. target .. "$(TargetFileName)\" copy /y \"$(TargetPath)\" \"" .. target .. "\"",
+            }
             debugdir (gamepath)
             if (exepath) then
-               debugcommand (gamepath .. exepath)
-               dir, file = exepath:match'(.*/)(.*)'
-               debugdir (gamepath .. (dir or ""))
+               debugcommand (gamepath .. "\\" .. path.translate(exepath))
+               local dir = exepath:match'(.*/)(.*)'
+               debugdir (gamepath .. "\\" .. path.translate(dir or ""))
             end
          end
          targetdir ("bin")
@@ -151,67 +173,67 @@ end
 PluginsSetup("XboxRainDroplets", "Win32", "x86")
 
 project "Driv3r.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Driv3r/", "driv3r.exe")
+   setpaths("DRIV3R_DIR", "driv3r.exe")
 project "DriverParallelLines.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Driver Parallel Lines/", "DriverParallelLines.exe")
+   setpaths("DRIVER_PARALLEL_LINES_DIR", "DriverParallelLines.exe")
 project "NFSUnderground2.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Need For Speed/Need for Speed Underground 2/", "speed2.exe")
+   setpaths("NEED_FOR_SPEED_UNDERGROUND_2_DIR", "speed2.exe")
 project "NFSMostWanted.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Need For Speed/Need for Speed Most Wanted/", "speed.exe")
+   setpaths("NEED_FOR_SPEED_MOST_WANTED_DIR", "speed.exe")
 project "NFSCarbon.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Need For Speed/Need for Speed Carbon/", "NFSC.exe")
+   setpaths("NEED_FOR_SPEED_CARBON_DIR", "NFSC.exe")
 project "GTAIV.XboxRainDroplets"
-   setpaths("Z:/WGTA/IV/Episodes from Liberty City/", "EFLC.exe", "plugins/")
+   setpaths("EPISODES_FROM_LIBERTY_CITY_DIR", "EFLC.exe", "plugins/")
 project "Mafia.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Mafia/", "GameV12.exe")
+   setpaths("MAFIA_DIR", "GameV12.exe")
 project "Scarface.XboxRainDroplets"
     prebuildcommands {
         "for /R \"../source/resources/shaders/ps/\" %%f in (*.hlsl) do (\"../source/dxsdk/lib/x86/fxc.exe\" /T ps_3_0 /nologo /E main /Fo \"../source/resources/%%~nf.cso\" %%f)",
         "for /R \"../source/resources/shaders/vs/\" %%f in (*.hlsl) do (\"../source/dxsdk/lib/x86/fxc.exe\" /T vs_3_0 /nologo /E main /Fo \"../source/resources/%%~nf.cso\" %%f)",
     }
-   setpaths("Z:/WFP/Games/Scarface/", "Scarface.exe")
+   setpaths("SCARFACE_DIR", "Scarface.exe")
 project "Manhunt.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Manhunt/", "manhunt.exe", "scripts/")
+   setpaths("MANHUNT_DIR", "manhunt.exe", "scripts/")
 project "MaxPayne.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Max Payne/Max Payne/", "MaxPayne.exe", "scripts/")
+   setpaths("MAX_PAYNE_DIR", "MaxPayne.exe", "scripts/")
 project "MaxPayne2.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Max Payne/Max Payne 2 The Fall of Max Payne/", "MaxPayne2.exe", "scripts/")
+   setpaths("MAX_PAYNE_2_THE_FALL_OF_MAX_PAYNE_DIR", "MaxPayne2.exe", "scripts/")
 project "MaxPayne3.XboxRainDroplets"
-   setpaths("E:/Games/Steam/steamapps/common/Max Payne 3/Max Payne 3/", "MaxPayne3.exe", "plugins/")
+   setpaths("MAX_PAYNE_3_DIR", "MaxPayne3.exe", "plugins/")
 project "SplinterCell.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Splinter Cell/Splinter Cell/system/", "SplinterCell.exe", "scripts/")
+   setpaths("SPLINTER_CELL_DIR", "SplinterCell.exe", "scripts/")
 project "SplinterCellPandoraTomorrow.XboxRainDroplets"
    debugargs { "-uplay_steam_mode" }
-   setpaths("Z:/WFP/Games/Splinter Cell/Splinter Cell Pandora Tomorrow/system/", "SplinterCell2.exe", "scripts/")
+   setpaths("SPLINTER_CELL_PANDORA_TOMORROW_DIR", "SplinterCell2.exe", "scripts/")
 project "SplinterCellChaosTheory.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Splinter Cell/SplinterCell Chaos Theory/System/", "splintercell3.exe", "scripts/")
+   setpaths("SPLINTERCELL_CHAOS_THEORY_DIR", "splintercell3.exe", "scripts/")
 project "SplinterCellDoubleAgent.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Splinter Cell/Splinter Cell - Double Agent/SCDA-Offline/System/", "SplinterCell4.exe", "scripts/")
+   setpaths("SPLINTER_CELL_DOUBLE_AGENT_DIR", "SplinterCell4.exe", "scripts/")
 project "SplinterCellBlacklist.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Splinter Cell/Splinter Cell Blacklist/src/SYSTEM/", "Blacklist_DX11_game.exe", "scripts/")
+   setpaths("SPLINTER_CELL_BLACKLIST_DIR", "Blacklist_DX11_game.exe", "scripts/")
 project "TrueCrimeNewYorkCity.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/True Crime New York City/", "True Crime New York City.exe", "scripts/")
+   setpaths("TRUE_CRIME_NEW_YORK_CITY_DIR", "True Crime New York City.exe", "scripts/")
 project "KingKongGamersEdition.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/King Kong Gamers Edition/", "KingKong8.exe", "scripts/")
+   setpaths("KING_KONG_GAMERS_EDITION_DIR", "KingKong8.exe", "scripts/")
 project "SR2.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Saints Row 2", "SR2_pc.exe", "scripts/")
+   setpaths("SAINTS_ROW_2_DIR", "SR2_pc.exe", "scripts/")
 project "GTA3.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Grand Theft Auto/GTAIII/", "gta3.exe")
+   setpaths("GTAIII_DIR", "gta3.exe")
 project "GTAVC.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Grand Theft Auto/Grand Theft Auto Vice City/", "gta-vc.exe")
+   setpaths("GRAND_THEFT_AUTO_VICE_CITY_DIR", "gta-vc.exe")
 project "GTASA.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/Grand Theft Auto/GTA San Andreas/", "gta_sa.exe")
+   setpaths("GTA_SAN_ANDREAS_DIR", "gta_sa.exe")
 PluginsSetup("XboxRainDroplets64", "x64", "x64")
 
 project "GTASADE.XboxRainDroplets"
    add_kananlib()
-   setpaths("Z:/WFP/Games/Grand Theft Auto The Definitive Edition/GTA San Andreas - Definitive Edition/", "Gameface/Binaries/Win64/SanAndreas.exe", "Gameface/Binaries/Win64/scripts/")
+   setpaths("GTA_SAN_ANDREAS_DEFINITIVE_EDITION_DIR", "Gameface/Binaries/Win64/SanAndreas.exe", "Gameface/Binaries/Win64/scripts/")
 project "GTAVCDE.XboxRainDroplets"
    add_kananlib()
-   setpaths("Z:/WFP/Games/Grand Theft Auto The Definitive Edition/GTA Vice City - Definitive Edition/", "Gameface/Binaries/Win64/ViceCity.exe", "Gameface/Binaries/Win64/scripts/")
+   setpaths("GTA_VICE_CITY_DEFINITIVE_EDITION_DIR", "Gameface/Binaries/Win64/ViceCity.exe", "Gameface/Binaries/Win64/scripts/")
 project "GTA3DE.XboxRainDroplets"
    add_kananlib()
-   setpaths("Z:/WFP/Games/Grand Theft Auto The Definitive Edition/GTA III - Definitive Edition/", "Gameface/Binaries/Win64/LibertyCity.exe", "Gameface/Binaries/Win64/scripts/")
+   setpaths("GTA_III_DEFINITIVE_EDITION_DIR", "Gameface/Binaries/Win64/LibertyCity.exe", "Gameface/Binaries/Win64/scripts/")
 
 -- The settings the wrapper and the emulator plugins are built with, see the note above
 -- PluginsSetup: one solution per architecture there as well.
@@ -286,11 +308,11 @@ end
 WrapperSetup("XboxRainDropletsWrapper", "Win32", "x86")
 
 project "XboxRainDropletsWrapper"
-   setpaths("Z:/WFP/Games/PPSSPP/", "PPSSPPWindows.exe", "")
+   setpaths("PPSSPP_DIR", "PPSSPPWindows.exe", "")
 -- the emulator plugin is loaded from the folder of the executable, it is not a game
 -- script
 project "PPSSPP.XboxRainDroplets"
-   setpaths("Z:/WFP/Games/PPSSPP/", "PPSSPPWindows.exe", "")
+   setpaths("PPSSPP_DIR", "PPSSPPWindows.exe", "")
    -- The plugin is loaded into the emulator and draws with the drawing of the
    -- emulator itself, see source/xrd/xrdrender.thin3d.h: the headers of that
    -- drawing are the ones the build of the emulator was made with, and are copied
@@ -308,14 +330,14 @@ WrapperSetup("XboxRainDropletsWrapper64", "x64", "x64")
 
 project "XboxRainDropletsWrapper"
    location "build/x64"
-   setpaths("Z:/WFP/Games/PPSSPP/", "PPSSPPWindows.exe", "")
+   setpaths("PPSSPP_DIR", "PPSSPPWindows.exe", "")
 project "PPSSPP.XboxRainDroplets"
    location "build/x64"
-   setpaths("Z:/WFP/Games/PPSSPP/", "PPSSPPWindows.exe", "")
+   setpaths("PPSSPP_DIR", "PPSSPPWindows.exe", "")
    includedirs { "external/ppsspp" }
 project "PCSX2F.XboxRainDroplets"
    location "build/x64"
-   setpaths("Z:/GitHub/PCSX2-Fork-With-Plugins/bin/", "pcsx2-qtx64-clang.exe", "")
+   setpaths("PCSX2F_DIR", "pcsx2-qtx64-clang.exe", "")
 -- Tests: one small application per renderer, each one draws its own scene and
 -- its own UI, the drops go in between so it is visible that they end up behind
 -- what the application draws last.
