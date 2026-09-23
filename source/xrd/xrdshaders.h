@@ -222,11 +222,12 @@ float4 PSMain(VSOutput input) : SV_TARGET
     if (sceneComplement.y > 0.5f)
         backdrop = sceneComplement.x > 0.5f ? (1.0f - scene.rgb) : scene.rgb;
 
-    // The drop shows the frame behind it, lifted by the light it gathered around
-    // it. What it shows more of is the part the backdrop is missing, so a drop in
-    // a frame that is already bright does not turn white, and the colour of a lamp
-    // still comes through strong where the frame around the drop is dark.
-    color.rgb *= backdrop + input.light * 1.6f * (1.0f - backdrop);
+    // A bright light must still leave refracted scene detail visible. Compress
+    // its highlight smoothly, preserving hue instead of clipping RGB channels.
+    float peak = max(input.light.r, max(input.light.g, input.light.b)) * 1.6f;
+    float3 tint = input.light * (1.6f * 0.8f / (0.8f + peak));
+    color.rgb *= backdrop + tint * (1.0f - backdrop);
+    color.a *= 1.0f - 0.2f * (peak * 0.8f / (0.8f + peak));
     return color;
 }
 )";
@@ -337,7 +338,11 @@ float4 PSMain(float4 color : COLOR0, float2 atlas : TEXCOORD0, float2 scene : TE
         backdrop = tex2D(sceneSampler, scene).rgb;
         if (frame.w > 0.5) backdrop = 1 - backdrop;
     }
-    return color * mask * float4(backdrop + lightOut * 1.6 * (1 - backdrop), 1);
+    // Match the modern shader: preserve the refracted image under bright tint.
+    float peak = max(lightOut.r, max(lightOut.g, lightOut.b)) * 1.6;
+    float3 tint = lightOut * (1.6 * 0.8 / (0.8 + peak));
+    float opacity = 1 - 0.2 * (peak * 0.8 / (0.8 + peak));
+    return color * mask * float4(backdrop + tint * (1 - backdrop), opacity);
 }
 )";
         // OpenGL, same maths with the GLSL of a 1.20 context, which every
