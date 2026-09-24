@@ -18,3 +18,10 @@
 
 - Works with the Direct3D 9 renderer of the game.
 - The ini is watched while the game runs, so its settings can be changed and tested without restarting.
+
+<details>
+  <summary> Contributors (click to expand) </summary>
+
+@Clippy95 
+
+</details>
