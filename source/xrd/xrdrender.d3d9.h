@@ -116,6 +116,11 @@ namespace Xrd
             return pDevice != nullptr;
         }
 
+        bool GathersLight() const override
+        {
+            return pLightShader && pDropShader;
+        }
+
         Size GetSize() const override
         {
             Size size = targetSize;
@@ -285,6 +290,11 @@ namespace Xrd
             SavedState state{};
             CaptureState(state);
 
+            // An explicit target may differ from the currently bound one (for
+            // example a surface exposed by d3d8to9). Capture the original first.
+            pDevice->SetDepthStencilSurface(nullptr);
+            pDevice->SetRenderTarget(0, pTarget);
+
             // The light of the frame is gathered into the field once, before any
             // drop is drawn, and the drops read the field with one tap each: see
             // D3D9LightSource. It is a pass of its own, so it puts the target and
@@ -293,7 +303,7 @@ namespace Xrd
                 pLightShader && pDropShader && pLightSurface;
 
             if (bLightField)
-                RenderLightField(state.pRenderTarget);
+                RenderLightField(pTarget);
 
             ApplyState(desc);
 

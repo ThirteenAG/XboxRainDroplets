@@ -185,6 +185,7 @@ project "NFSCarbon.XboxRainDroplets"
 project "GTAIV.XboxRainDroplets"
    setpaths("GTAIV_DIR", "GTAIV.exe", "plugins/")
 project "Mafia.XboxRainDroplets"
+   files { "source/xrd/xrdrender.d3d9.cpp" }
    setpaths("MAFIA_DIR", "GameV12.exe")
 project "Scarface.XboxRainDroplets"
     prebuildcommands {
@@ -193,16 +194,21 @@ project "Scarface.XboxRainDroplets"
     }
    setpaths("SCARFACE_DIR", "Scarface.exe")
 project "Manhunt.XboxRainDroplets"
+   files { "source/xrd/xrdrender.d3d9.cpp" }
    setpaths("MANHUNT_DIR", "manhunt.exe", "scripts/")
 project "MaxPayne.XboxRainDroplets"
+   files { "source/xrd/xrdrender.d3d9.cpp" }
    setpaths("MAX_PAYNE_DIR", "MaxPayne.exe", "scripts/")
 project "MaxPayne2.XboxRainDroplets"
+   files { "source/xrd/xrdrender.d3d9.cpp" }
    setpaths("MAX_PAYNE_2_THE_FALL_OF_MAX_PAYNE_DIR", "MaxPayne2.exe", "scripts/")
 project "MaxPayne3.XboxRainDroplets"
    setpaths("MAX_PAYNE_3_DIR", "MaxPayne3.exe", "plugins/")
 project "SplinterCell.XboxRainDroplets"
+   files { "source/xrd/xrdrender.d3d9.cpp" }
    setpaths("SPLINTER_CELL_DIR", "SplinterCell.exe", "scripts/")
 project "SplinterCellPandoraTomorrow.XboxRainDroplets"
+   files { "source/xrd/xrdrender.d3d9.cpp" }
    debugargs { "-uplay_steam_mode" }
    setpaths("SPLINTER_CELL_PANDORA_TOMORROW_DIR", "SplinterCell2.exe", "scripts/")
 project "SplinterCellChaosTheory.XboxRainDroplets"
@@ -212,14 +218,17 @@ project "SplinterCellDoubleAgent.XboxRainDroplets"
 project "SplinterCellBlacklist.XboxRainDroplets"
    setpaths("SPLINTER_CELL_BLACKLIST_DIR", "Blacklist_DX11_game.exe", "scripts/")
 project "TrueCrimeNewYorkCity.XboxRainDroplets"
+   files { "source/xrd/xrdrender.d3d9.cpp" }
    setpaths("TRUE_CRIME_NEW_YORK_CITY_DIR", "True Crime New York City.exe", "scripts/")
 project "KingKongGamersEdition.XboxRainDroplets"
    setpaths("KING_KONG_GAMERS_EDITION_DIR", "KingKong8.exe", "scripts/")
 project "SR2.XboxRainDroplets"
    setpaths("SAINTS_ROW_2_DIR", "SR2_pc.exe", "scripts/")
 project "GTA3.XboxRainDroplets"
+   files { "source/xrd/xrdrender.d3d9.cpp" }
    setpaths("GTAIII_DIR", "gta3.exe")
 project "GTAVC.XboxRainDroplets"
+   files { "source/xrd/xrdrender.d3d9.cpp" }
    setpaths("GRAND_THEFT_AUTO_VICE_CITY_DIR", "gta-vc.exe")
 project "GTASA.XboxRainDroplets"
    setpaths("GTA_SAN_ANDREAS_DIR", "gta_sa.exe")
@@ -387,7 +396,7 @@ workspace "XboxRainDropletsTests"
       disablewarnings { "4005", "4244", "4267" }
 
 project "XrdTestD3D8"
-   files { "tests/XrdTestD3D8.cpp" }
+   files { "tests/XrdTestD3D8.cpp", "source/xrd/xrdrender.d3d9.cpp" }
    links { "d3d8" }
 
 project "XrdTestD3D9"

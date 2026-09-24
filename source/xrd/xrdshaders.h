@@ -250,8 +250,12 @@ static const int LightCellCount = 6;
 sampler2D sceneSampler : register(s0);
 float4 field : register(c0); // inverse width/height of the field, cells, radius
 
-void GatherTap(float2 uv, float falloff, inout float3 energy, inout float3 plain, inout float weight)
+void GatherTap(float2 uv, float falloff, inout float3 energy, inout float3 plain, inout float weight, inout float falloffSum)
 {
+    // Outside-screen taps must not replicate a border lamp via clamp sampling.
+    // Normalize both averages by the same remaining, visible part of the kernel.
+    falloff *= step(0, uv.x) * step(uv.x, 1) * step(0, uv.y) * step(uv.y, 1);
+    falloffSum += falloff;
     float3 source = tex2Dlod(sceneSampler, float4(uv, 0, 0)).rgb;
     float brightness = max(source.r, max(source.g, source.b));
     float saturation = (brightness - min(source.r, min(source.g, source.b))) / max(brightness, 0.001);
@@ -285,11 +289,10 @@ float4 PSMain(float4 color : COLOR0, float2 atlas : TEXCOORD0, float2 scene : TE
             float2 offset = (corner - lightUV) / radius;
             float distance2 = dot(offset, offset);
             float falloff = exp2(-2 * distance2) * (1 - smoothstep(0.75, 1, distance2));
-            GatherTap(corner + float2(-0.25, -0.25) * cell, falloff, energy, plain, weight);
-            GatherTap(corner + float2( 0.25, -0.25) * cell, falloff, energy, plain, weight);
-            GatherTap(corner + float2(-0.25,  0.25) * cell, falloff, energy, plain, weight);
-            GatherTap(corner + float2( 0.25,  0.25) * cell, falloff, energy, plain, weight);
-            falloffSum += 4 * falloff;
+            GatherTap(corner + float2(-0.25, -0.25) * cell, falloff, energy, plain, weight, falloffSum);
+            GatherTap(corner + float2( 0.25, -0.25) * cell, falloff, energy, plain, weight, falloffSum);
+            GatherTap(corner + float2(-0.25,  0.25) * cell, falloff, energy, plain, weight, falloffSum);
+            GatherTap(corner + float2( 0.25,  0.25) * cell, falloff, energy, plain, weight, falloffSum);
         }
     }
 

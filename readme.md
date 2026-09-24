@@ -250,6 +250,8 @@ Every game has its own release, and its notes hold the folder the plugin goes to
 3. Put the `.asi` and `.ini` files into the `scripts` folder of the game (`plugins` for GTA IV and Max Payne 3, the root folder of the emulator for PPSSPP and PCSX2F).
 4. Launch the game and wait for it to rain.
 
+Direct3D 8 games automatically use the Direct3D 9 droplet renderer when a wrapper such as d3d8to9 exposes its underlying device and resources. Otherwise they keep the native Direct3D 8 renderer. No INI setting is needed.
+
 ## Configuration
 
 The ini of a plugin is read at startup and again whenever the file is written to, so a value can be changed in the middle of a game.
