@@ -1,9 +1,3 @@
-#include <injector\injector.hpp>
-#include <injector\hooking.hpp>
-#include <injector\calling.hpp>
-#include <injector\utility.hpp>
-#include <injector\assembly.hpp>
-// Direct3D 9, the API this game uses
 #define XRD_ENABLE_D3D9
 #include "xrd/xrd.h"
 
@@ -15,14 +9,14 @@ AT DynAddress(AT address)
 
     uintptr_t inputAddr = std::bit_cast<uintptr_t>(address);
 
-        uintptr_t baseAddr = std::bit_cast<uintptr_t>(HandleDynAddress);
+    uintptr_t baseAddr = std::bit_cast<uintptr_t>(HandleDynAddress);
 
-#ifdef _WIN64
-        uintptr_t result = baseAddr - 0x140000000ULL + inputAddr;
-#else
-        uintptr_t result = baseAddr - 0x400000UL + inputAddr;
-#endif
-        return std::bit_cast<AT>(result);
+    #ifdef _WIN64
+    uintptr_t result = baseAddr - 0x140000000ULL + inputAddr;
+    #else
+    uintptr_t result = baseAddr - 0x400000UL + inputAddr;
+    #endif
+    return std::bit_cast<AT>(result);
 
 }
 
@@ -51,7 +45,8 @@ struct batch
     int parmsize;
 };
 
-struct matrix {
+struct matrix
+{
     vector3 x;
     vector3 y;
     vector3 z;
@@ -63,7 +58,8 @@ gr_batch_add_command_to_bufferT gr_batch_add_command_to_buffer = (gr_batch_add_c
 typedef BOOL(__cdecl* gr_is_batch_contextT)();
 gr_is_batch_contextT gr_is_batch_context = (gr_is_batch_contextT)0x56C310_g;
 
-bool is_game_paused() {
+bool is_game_paused()
+{
     return (*(int*)0x2527C08_g > 0);
 }
 
@@ -86,7 +82,8 @@ char __declspec(naked) is_pos_in_interiorasm(vector3* pos)
     }
 }
 
-bool is_pos_in_interior(vector3* pos) {
+bool is_pos_in_interior(vector3* pos)
+{
 
     return is_pos_in_interiorasm(pos) != 0;
 
@@ -99,8 +96,10 @@ float WeatherMultiplier = 4.85f;
 bool bBloodPlayer = true;
 bool bWaterGuns = true;
 
-static void rain_render_hook() {
-    if (rendered) {
+static void rain_render_hook()
+{
+    if (rendered)
+    {
         rendered = false;
         //return;
     }
@@ -124,22 +123,24 @@ static void rain_render_hook() {
         WaterDrops::ms_rainIntensity = (*(float*)0x02526D74_g) * WeatherMultiplier;
     else
         WaterDrops::ms_rainIntensity = 0.f;
-    if(!is_game_paused())
-    Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+    if (!is_game_paused())
+        Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
     WaterDrops::Process();
     WaterDrops::Render();
 
     rendered = true;
-    
+
 }
 
-void __cdecl render_batched(int data) {
+void __cdecl render_batched(int data)
+{
     rain_render_hook();
 }
 
 SafetyHookInline game_render_do_frameT;
 
-void __cdecl game_render_do_frame_hook() {
+void __cdecl game_render_do_frame_hook()
+{
     rain_render_hook();
     game_render_do_frameT.ccall();
 
@@ -165,7 +166,8 @@ SafetyHookInline huds_renderT;
 
 int hud_number_execute = 0;
 
-void __cdecl huds_hook() {
+void __cdecl huds_hook()
+{
 
     batch* pre_batch = *(batch**)(0x0230597C_g);
 
@@ -176,16 +178,19 @@ void __cdecl huds_hook() {
 
 }
 
-bool bounding_box_check(vector3& pos, vector3& bmin, vector3& bmax) {
+bool bounding_box_check(vector3& pos, vector3& bmin, vector3& bmax)
+{
     if (pos.x >= bmin.x && pos.x <= bmax.x &&
         pos.y >= bmin.y && pos.y <= bmax.y &&
-        pos.z >= bmin.z && pos.z <= bmax.z) {
+        pos.z >= bmin.z && pos.z <= bmax.z)
+    {
         return true;
     }
     return false;
 }
 
-bool is_object_player(uintptr_t object) {
+bool is_object_player(uintptr_t object)
+{
     if (object == *(uintptr_t*)0x021703D4_g)
         return true;
     return false;
@@ -194,17 +199,21 @@ bool is_object_player(uintptr_t object) {
 typedef uintptr_t(__fastcall* GetPointerT)(uintptr_t VehiclePointer);
 GetPointerT GetPointer = (GetPointerT)0x00AE28F0_g;
 
-uintptr_t FindPlayer() {
+uintptr_t FindPlayer()
+{
     return *(uintptr_t*)(0x21703D4_g);
 }
 
-uintptr_t FindPlayersVehicle() {
+uintptr_t FindPlayersVehicle()
+{
     if (!FindPlayer())
         return NULL;
     auto players_vehicle_handle = FindPlayer() + 0xD74;
-    if (players_vehicle_handle) {
+    if (players_vehicle_handle)
+    {
         uintptr_t value = *(uintptr_t*)players_vehicle_handle;
-        if (value) {
+        if (value)
+        {
             return GetPointer(value);
         }
     }
@@ -236,15 +245,19 @@ constexpr int blood_hit01_hash = 0xBFB53B3B;
 int* Water1_Effect_handle = (int*)0xF9E520_g;
 int* Water2_effect_handle = (int*)0xF9E538_g;
 
-int __cdecl effects_play_hook(effect_start_data* effect) {
+int __cdecl effects_play_hook(effect_start_data* effect)
+{
     int handle = effect_playT.ccall<int>(effect);
-    for (int i = 0; i < 6; i++) {
-        if (effect->effects_handle == Water1_Effect_handle[i]) {
+    for (int i = 0; i < 6; i++)
+    {
+        if (effect->effects_handle == Water1_Effect_handle[i])
+        {
             auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(effect->pos);
             WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 0.125f));
             break;
         }
-        else if (effect->effects_handle == Water2_effect_handle[i]) {
+        else if (effect->effects_handle == Water2_effect_handle[i])
+        {
             auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(effect->pos);
             WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 100.0f));
             break;
@@ -256,18 +269,20 @@ int __cdecl effects_play_hook(effect_start_data* effect) {
 
 void Init()
 {
-
     CIniReader iniReader;
-    static auto graphics_rest = safetyhook::create_mid(0xD1FEE3_g, [](SafetyHookContext& ctx) {
+    static auto graphics_rest = safetyhook::create_mid(0xD1FEE3_g, [](SafetyHookContext& ctx)
+    {
         WaterDrops::Reset();
-        });
+    });
     effect_playT = safetyhook::create_inline(0x50E330_g, &effects_play_hook);
 
-    static auto execute = safetyhook::create_mid(0xCF8FEC_g, [](SafetyHookContext& ctx) {
-        if (hud_number_execute == ctx.esi + 1) {
+    static auto execute = safetyhook::create_mid(0xCF8FEC_g, [](SafetyHookContext& ctx)
+    {
+        if (hud_number_execute == ctx.esi + 1)
+        {
             cached_read = PC_RENDER_BUFFER->ArrayWritePosition;
         }
-        });
+    });
 
     huds_renderT = safetyhook::create_inline(0x793BB0_g, huds_hook);
     WaterDrops::ReadIniSettings(true);
@@ -279,11 +294,10 @@ void Init()
     WaterDrops::ms_rainIntensity = 0.0f;
     ppDevice = *hook::get_pattern<IDirect3DDevice9**>("A1 ? ? ? ? 8B 08 8B 91 ? ? ? ? 83 EC", 1);
 
-    static auto game_loop = safetyhook::create_mid(0x68CB69_g, [](SafetyHookContext& ctx) {
+    static auto game_loop = safetyhook::create_mid(0x68CB69_g, [](SafetyHookContext& ctx)
+    {
         is_in_interior = is_pos_in_interior((RwV3d*)(0x025F5B14_g));
-        });
-
-
+    });
 
     auto pattern = hook::pattern("E8 ? ? ? ? 8B 4D ? 89 0D");
     static auto D3D9CreateDevice = safetyhook::create_mid(pattern.get_first(0), [](SafetyHookContext& ctx)
@@ -292,30 +306,33 @@ void Init()
         Xrd::Init(Xrd::RENDERER_D3D9, pDevice);
     });
 
-    static auto chainsaw_blood = safetyhook::create_mid(0x971550_g, [](SafetyHookContext& ctx) {
+    static auto chainsaw_blood = safetyhook::create_mid(0x971550_g, [](SafetyHookContext& ctx)
+    {
         RwV3d* hit_pos = (RwV3d*)ctx.edx;
 
         auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(hit_pos);
         if (WaterDrops::bBloodDrops)
-        WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 95.0f), true);
-        });
+            WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 95.0f), true);
+    });
 
-    static auto sword_blood = safetyhook::create_mid(0x97B28F, [](SafetyHookContext& ctx) {
+    static auto sword_blood = safetyhook::create_mid(0x97B28F, [](SafetyHookContext& ctx)
+    {
         RwV3d* hit_pos = (RwV3d*)ctx.edx;
 
         auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(hit_pos);
         if (WaterDrops::bBloodDrops)
-        WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 100.0f), true);
-        });
-
+            WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 100.0f), true);
+    });
 
     static bool is_player = false;
 
-    static auto blood_hook_is_player = safetyhook::create_mid(0x978775_g, [](SafetyHookContext& ctx) {
+    static auto blood_hook_is_player = safetyhook::create_mid(0x978775_g, [](SafetyHookContext& ctx)
+    {
         is_player = is_object_player(ctx.ebp);
-        });
+    });
 
-    static auto blood_hook = safetyhook::create_mid(0x4BCF23_g, [](SafetyHookContext& ctx) {
+    static auto blood_hook = safetyhook::create_mid(0x4BCF23_g, [](SafetyHookContext& ctx)
+    {
         if (!WaterDrops::bBloodDrops)
             return;
         int blood_strength = *(int*)(ctx.esp + 0x98);
@@ -323,15 +340,16 @@ void Init()
         RwV3d* hit_pos = (RwV3d*)ctx.edx;
 
         auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(hit_pos);
-        if(!is_player)
-        WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 80.0f), true);
-        else if(bBloodPlayer && is_player)
-        WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 1.0f), true);
+        if (!is_player)
+            WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 80.0f), true);
+        else if (bBloodPlayer && is_player)
+            WaterDrops::FillScreenMoving(WaterDrops::GetDropsAmountBasedOnEmitterDistance(len, 50.0f, 1.0f), true);
         is_player = false;
 
-        });
+    });
 
-    static auto human_water_hit = safetyhook::create_mid(0x56A7DB_g, [](SafetyHookContext& ctx) {
+    static auto human_water_hit = safetyhook::create_mid(0x56A7DB_g, [](SafetyHookContext& ctx)
+    {
         if (!bWaterGuns || !is_object_player(ctx.ebp))
             return;
         auto is_sewage = *(bool*)(ctx.esp + 0x1C);
@@ -340,9 +358,10 @@ void Init()
             WaterDrops::FillScreenMoving(25.f, false);
         else
             WaterDrops::FillScreenMovingColor(125.f, 210, 105, 30);
-        });
+    });
 
-    static auto vehicle_water_hit = safetyhook::create_mid(0x56A6D8_g, [](SafetyHookContext& ctx) {
+    static auto vehicle_water_hit = safetyhook::create_mid(0x56A6D8_g, [](SafetyHookContext& ctx)
+    {
         if (!bWaterGuns || ctx.edi != FindPlayersVehicle())
             return;
         auto is_sewage = (ctx.ebx & 0xFF) != 0;
@@ -351,16 +370,17 @@ void Init()
             WaterDrops::FillScreenMoving(25.f, false);
         else
             WaterDrops::FillScreenMovingColor(125.f, 210, 105, 30);
-        });
+    });
 
-
-    static auto read = safetyhook::create_mid(0xD203D8_g, [](SafetyHookContext& ctx) {
-        if (PC_RENDER_BUFFER->ArrayReadPosition == cached_read) {
+    static auto read = safetyhook::create_mid(0xD203D8_g, [](SafetyHookContext& ctx)
+    {
+        if (PC_RENDER_BUFFER->ArrayReadPosition == cached_read)
+        {
             //printf("read!\n");
             rendered_this_frame = true;
             rain_render_hook();
         }
-        });
+    });
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()
