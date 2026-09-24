@@ -189,7 +189,7 @@ Every game has a release of its own, and its notes hold the installation steps o
 <tbody>
 <tr>
 <td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/mafia">Mafia: The City of Lost Heaven</a></td>
-<td align="center" valign="middle"><img src="https://i.imgur.com/bMGzBbYm.jpg" width="320" alt="Mafia: The City of Lost Heaven"></td>
+<td align="center" valign="middle"><img src="https://img.youtube.com/vi/gi6irfmdPeo/maxresdefault.jpg" width="320" alt="Mafia: The City of Lost Heaven"></td>
 </tr>
 <tr>
 <td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/manhunt">Manhunt</a></td>
