@@ -183,7 +183,7 @@ project "NFSMostWanted.XboxRainDroplets"
 project "NFSCarbon.XboxRainDroplets"
    setpaths("NEED_FOR_SPEED_CARBON_DIR", "NFSC.exe")
 project "GTAIV.XboxRainDroplets"
-   setpaths("EPISODES_FROM_LIBERTY_CITY_DIR", "EFLC.exe", "plugins/")
+   setpaths("GTAIV_DIR", "GTAIV.exe", "plugins/")
 project "Mafia.XboxRainDroplets"
    setpaths("MAFIA_DIR", "GameV12.exe")
 project "Scarface.XboxRainDroplets"

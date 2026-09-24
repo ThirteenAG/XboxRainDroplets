@@ -11,6 +11,9 @@ inputs:
   artifacts:
     description: "List of artifacts for release"
     required: true
+  bodyFile:
+    description: "Path of the markdown file that holds the release description, .github/docs/<tag>.md"
+    required: false
 
 runs:
   using: "composite"
@@ -19,7 +22,7 @@ runs:
       id: release_info
       uses: cardinalby/git-get-release-action@1.2.4
       env:
-       GITHUB_TOKEN: ${{ inputs.token }}
+        GITHUB_TOKEN: ${{ inputs.token }}
       with:
         tag: ${{ inputs.tag }}
     - name: Upload Release
@@ -28,7 +31,8 @@ runs:
         token: ${{ inputs.token }}
         allowUpdates: true
         name: ${{ steps.release_info.outputs.name }}
-        body: ${{ steps.release_info.outputs.body }}
+        body: ${{ inputs.bodyFile == '' && steps.release_info.outputs.body || '' }}
+        bodyFile: ${{ inputs.bodyFile }}
         tag: ${{ steps.release_info.outputs.tag_name }}
         artifacts: ${{ inputs.artifacts }}
     - name: Update Tag
