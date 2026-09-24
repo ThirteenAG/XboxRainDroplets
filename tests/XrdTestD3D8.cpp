@@ -20,6 +20,7 @@ namespace
     IDirect3DVertexBuffer8* pVertexBuffer = nullptr;
     // the depth of the frame a texture can be made of, see CreateDevice
     IDirect3DTexture8* pDepthTexture = nullptr;
+    D3DPRESENT_PARAMETERS present{};
     constexpr int MaxVertices = 4096;
 
     struct ScreenVertex
@@ -48,7 +49,6 @@ namespace
         printf("display format %u %ux%u\n", (unsigned)displayMode.Format, displayMode.Width, displayMode.Height);
         fflush(stdout);
 
-        D3DPRESENT_PARAMETERS present{};
         present.Windowed = TRUE;
         present.SwapEffect = D3DSWAPEFFECT_DISCARD;
         present.BackBufferFormat = displayMode.Format ? displayMode.Format : D3DFMT_X8R8G8B8;
@@ -304,6 +304,11 @@ int main()
 
     // and whether the drops left the drawing state of the application changed
     bool stateLeak = false;
+    const bool expectD3D9 = strstr(GetCommandLineA(), "--expect-d3d9") != nullptr;
+    const bool expectD3D8 = strstr(GetCommandLineA(), "--expect-d3d8") != nullptr;
+    const bool resetCheck = strstr(GetCommandLineA(), "--reset-check") != nullptr;
+    const bool targetCheck = strstr(GetCommandLineA(), "--target-check") != nullptr;
+    int result = 0;
 
     while (window.running)
     {
@@ -345,6 +350,15 @@ int main()
 
         ApplyCameraToDrops();
 
+        if (resetCheck && frameIndex == 10)
+        {
+            Xrd::Reset();
+            if (pDepthTexture) { pDepthTexture->Release(); pDepthTexture = nullptr; }
+            const HRESULT hr = pDevice->Reset(&present);
+            printf("[%s] device reset: %x\n", SUCCEEDED(hr) ? "PASS" : "FAIL", (unsigned)hr);
+            if (FAILED(hr)) { result = XrdTest::Headless::EXIT_FAILED; break; }
+        }
+
         if (frames < 3) { printf("frame: begin\n"); fflush(stdout); }
         if (SUCCEEDED(pDevice->BeginScene()))
         {
@@ -352,6 +366,28 @@ int main()
 
         if (frames < 3) { printf("frame: world\n"); fflush(stdout); }
             DrawWorld();
+            // Controlled source-depth regression: the receiving background stays
+            // far away while only the depth at an identical lamp changes.
+            const bool sourceNear = strstr(GetCommandLineA(), "--source-near") != nullptr;
+            const bool sourceFar = strstr(GetCommandLineA(), "--source-far") != nullptr;
+            if (sourceNear || sourceFar)
+            {
+                if (!pDepthTexture) { printf("source depth test requires INTZ\n"); return 2; }
+                pDevice->Clear(0, nullptr, D3DCLEAR_ZBUFFER, 0, 0, 0);
+                const XrdTest::Rect background = { 0, 0, (float)window.width,
+                    window.height * 0.45f, { 0.03f, 0.03f, 0.03f, 1 } };
+                DrawRects(&background, 1);
+                const int x = (int)(window.width * XrdTest::Headless::State().dropX + 30);
+                const int y = (int)(window.height * 0.25f);
+                const XrdTest::Rect lamp = { (float)x, (float)y - 8, 16, 16, { 1, 0.02f, 0.01f, 1 } };
+                DrawRects(&lamp, 1);
+                if (sourceNear)
+                {
+                    const D3DRECT area{ x - 12, y - 20, x + 28, y + 20 };
+                    pDevice->Clear(1, &area, D3DCLEAR_ZBUFFER, 0, 1, 0);
+                }
+            }
+
 
             XrdTest::Headless::PrepareDrops(frameIndex, window.width, window.height);
 
@@ -368,8 +404,41 @@ int main()
             pDevice->GetDepthStencilSurface(&pBeforeDepth);
             pDevice->GetViewport(&beforeViewport);
 
+            // Draw to the caller's surface while another target is bound. This
+            // exercises the D3D8-to-D3D9 surface conversion and restoration.
+            IDirect3DSurface8* scratch = nullptr;
+            Xrd::RenderTarget explicitTarget{};
+            if (targetCheck)
+            {
+                D3DSURFACE_DESC desc{};
+                pBeforeTarget->GetDesc(&desc);
+                if (FAILED(pDevice->CreateRenderTarget(desc.Width, desc.Height, desc.Format,
+                    D3DMULTISAMPLE_NONE, FALSE, &scratch)))
+                {
+                    pBeforeTarget->Release();
+                    if (pBeforeDepth) pBeforeDepth->Release();
+                    pDevice->EndScene();
+                    result = XrdTest::Headless::EXIT_FAILED;
+                    break;
+                }
+                explicitTarget.resource = pBeforeTarget;
+                explicitTarget.size = { (int32_t)desc.Width, (int32_t)desc.Height };
+                Xrd::SetTarget(&explicitTarget);
+                pDevice->SetRenderTarget(scratch, pBeforeDepth);
+                pDevice->SetViewport(&beforeViewport);
+            }
+
         if (frames < 3) { printf("frame: drops\n"); fflush(stdout); }
             WaterDrops::Render();
+            Xrd::SetTarget(nullptr);
+
+            if (frameIndex == 5 || (resetCheck && frameIndex == 15))
+            {
+                const bool usesD3D9 = static_cast<Xrd::D3D8Backend*>(Xrd::pBackend)->UsesD3D9();
+                printf("drawing through %s\n", usesD3D9 ? "D3D9" : "D3D8");
+                if ((expectD3D9 && !usesD3D9) || (expectD3D8 && usesD3D9))
+                { printf("[FAIL] unexpected drawing backend\n"); stateLeak = true; }
+            }
 
             IDirect3DSurface8* pAfterTarget = nullptr;
             IDirect3DSurface8* pAfterDepth = nullptr;
@@ -380,7 +449,7 @@ int main()
 
             if (frames == 5)
             {
-                const bool sameTarget = pBeforeTarget == pAfterTarget;
+                const bool sameTarget = (scratch ? scratch : pBeforeTarget) == pAfterTarget;
                 const bool sameDepth = pBeforeDepth == pAfterDepth;
                 const bool sameViewport = beforeViewport.X == afterViewport.X && beforeViewport.Y == afterViewport.Y &&
                     beforeViewport.Width == afterViewport.Width && beforeViewport.Height == afterViewport.Height;
@@ -401,6 +470,13 @@ int main()
                 }
 
                 fflush(stdout);
+            }
+
+            if (scratch)
+            {
+                pDevice->SetRenderTarget(pBeforeTarget, pBeforeDepth);
+                pDevice->SetViewport(&beforeViewport);
+                scratch->Release();
             }
 
             if (pBeforeTarget) pBeforeTarget->Release();
@@ -427,7 +503,10 @@ int main()
 
         // a headless run takes the pictures of its last few frames and is over
         if (XrdTest::Headless::AfterPresent(window.hwnd, frameIndex))
-            return stateLeak ? XrdTest::Headless::EXIT_FAILED : XrdTest::Headless::Result();
+        {
+            result = stateLeak ? XrdTest::Headless::EXIT_FAILED : XrdTest::Headless::Result();
+            break;
+        }
 
         frameIndex++;
         frames++;
@@ -454,5 +533,5 @@ int main()
     if (pDevice) pDevice->Release();
     if (pD3D) pD3D->Release();
 
-    return 0;
+    return result;
 }

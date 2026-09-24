@@ -4,7 +4,7 @@
 //
 // One backend like all the others, it only cannot share a translation unit with
 // the Direct3D 9 one: the headers of the two versions define the same Direct3D
-// enumerations, so a project can only ever compile one of them. A project that
+// enumerations, so a translation unit can only include one of them. A project that
 // is a Direct3D 8 game therefore defines XRD_ENABLE_D3D8 before including
 // xrd/xrd.h, that one define is the device type, the headers and the renderer
 // at once, and it is all such a project has to say.
@@ -12,6 +12,11 @@
 // A binary that wants Direct3D 8 next to Direct3D 9 (the wrapper) includes this
 // header from a translation unit of its own instead, which is what
 // source/xrd/xrdrender.d3d8.cpp is for.
+//
+// If QueryInterface exposes a D3D9 device (d3d8to9), drawing is delegated to the
+// registered D3D9 backend. D3D8 plugins compile xrdrender.d3d9.cpp for this;
+// the wrapper already registers D3D9. Missing devices or resource interfaces
+// leave the original D3D8 path below in use, with no new runtime dependency.
 //
 // Like Direct3D 9 it uses the fixed function pipeline with two texture stages
 // and copies the frame with CopyRects, which is what the original Direct3D 8
@@ -37,6 +42,12 @@
 // game that is not a Direct3D 8 one compiles this backend and never calls it, and
 // would not fail to link over a symbol it never uses.
 #pragma comment(lib, "dxguid.lib")
+
+// Only COM identifiers are needed here; including d3d9.h would conflict with
+// d3d8.h. The optional D3D9 backend is compiled in a separate translation unit.
+EXTERN_C const IID IID_IDirect3DDevice9;
+EXTERN_C const IID IID_IDirect3DTexture9;
+EXTERN_C const IID IID_IDirect3DSurface9;
 
 namespace Xrd
 {
@@ -78,20 +89,39 @@ namespace Xrd
 
         bool Init(void* pNative) override
         {
+            Shutdown();
             pDevice = (IDirect3DDevice8*)pNative;
+            if (pDevice && SUCCEEDED(pDevice->QueryInterface(IID_IDirect3DDevice9, (void**)&pDevice9)) && pDevice9)
+            {
+                pBackend9 = Detail::Create(RENDERER_D3D9);
+                if (!pBackend9 || !pBackend9->Init(pDevice9))
+                    ReleaseD3D9();
+            }
             return pDevice != nullptr;
         }
 
         void Shutdown() override
         {
+            ReleaseD3D9();
             ReleaseResources();
+            pMaskTexture = nullptr;
+            pTargetOverride = nullptr;
             pDevice = nullptr;
         }
 
         void Reset() override
         {
+            if (pBackend9)
+                pBackend9->Reset();
             ReleaseResources();
         }
+
+        bool UpdateNative(void* pNative) override
+        {
+            return pNative == pDevice;
+        }
+
+        bool UsesD3D9() const { return usingD3D9; }
 
         bool IsActive() const override
         {
@@ -104,7 +134,7 @@ namespace Xrd
         // frames: the shaders are built the first time the drops are drawn.
         bool GathersLight() const override
         {
-            return bShaderDrops;
+            return usingD3D9 ? pBackend9->GathersLight() : bShaderDrops;
         }
 
         Size GetSize() const override
@@ -141,6 +171,15 @@ namespace Xrd
 
         void SetMaskTexture(Texture* pMask) override
         {
+            if (pMaskTexture != pMask)
+            {
+                ReleaseD3D9Mask();
+                if (pBackend9 && pMask && pMask->resource)
+                {
+                    ((IDirect3DTexture8*)pMask->resource)->QueryInterface(IID_IDirect3DTexture9, &mask9.resource);
+                    mask9.size = pMask->size;
+                }
+            }
             pMaskTexture = pMask;
         }
 
@@ -187,6 +226,9 @@ namespace Xrd
         {
             if (!pTexture)
                 return;
+
+            if (pMaskTexture == pTexture)
+                SetMaskTexture(nullptr);
 
             if (pTexture->resource)
                 ((IDirect3DTexture8*)pTexture->resource)->Release();
@@ -236,6 +278,10 @@ namespace Xrd
         void Render(const Vertex* pVertices, int numVertices, PrimitiveType primitive) override
         {
             if (!pDevice || !pVertices || numVertices <= 0)
+                return;
+
+            usingD3D9 = RenderD3D9(pVertices, numVertices, primitive);
+            if (usingD3D9)
                 return;
 
             const int numIndices = (primitive == PRIMITIVE_TRIANGLES) ? (numVertices / 4) * 6 : 0;
@@ -1337,21 +1383,20 @@ namespace Xrd
             // else. What is added here is a quarter of the box of it on top of the whole
             // of what it is, so a light is as bright where it is as it was and reaches
             // the drops around it.
-            SpreadLight(FIELD_LIGHT);
-
-            // What of the light is close enough to the camera to fall on the glass in
-            // front of it, out of the depth of the frame, see fadePS8.hlsl. A game
-            // that hands out no depth of its own to read - which is every game but
-            // the ones that replace their depth buffer with a texture - leaves the
-            // light of the frame alone, and so does a device whose fade shader did
-            // not come out of its resource.
-            pLightField = pFields[FIELD_LIGHT];
-
+            // Fade at the source before spreading. Testing the receiving pixel
+            // lets a distant lamp colour drops over nearby geometry, and suppresses
+            // nearby lamps when their glow reaches a distant background.
+            // FIELD_AROUND is no longer needed after LightPass, so reuse it without
+            // adding a texture or pass. The existing depth convention is preserved.
+            int lightField = FIELD_LIGHT;
             if (pDepthTexture && pFadeShader)
             {
-                FadePass(pFields[FIELD_LIGHT], pFieldSurfaces[FIELD_SCRATCH], pDepthTexture);
-                pLightField = pFields[FIELD_SCRATCH];
+                FadePass(pFields[FIELD_LIGHT], pFieldSurfaces[FIELD_AROUND], pDepthTexture);
+                lightField = FIELD_AROUND;
             }
+            SpreadLight(lightField);
+            pLightField = pFields[lightField];
+
         }
 
         // What the light of the frame is spread out into, which is what the drops around a
@@ -1409,7 +1454,63 @@ namespace Xrd
         }
 
     private:
+        void ReleaseD3D9Mask()
+        {
+            if (pBackend9)
+                pBackend9->SetMaskTexture(nullptr);
+            if (mask9.resource)
+                ((IUnknown*)mask9.resource)->Release();
+            mask9 = {};
+        }
+
+        void ReleaseD3D9()
+        {
+            ReleaseD3D9Mask();
+            delete pBackend9;
+            pBackend9 = nullptr;
+            if (pDevice9)
+                pDevice9->Release();
+            pDevice9 = nullptr;
+            usingD3D9 = false;
+        }
+
+        bool RenderD3D9(const Vertex* vertices, int count, PrimitiveType primitive)
+        {
+            if (!pBackend9 || (pMaskTexture && pMaskTexture->resource && !mask9.resource))
+                return false;
+
+            // Keep D3D8 handles at the public boundary. A wrapper may expose the
+            // device but not its resources; such a batch uses the original path.
+            RenderTarget target9{};
+            if (pTargetOverride)
+            {
+                target9 = *pTargetOverride;
+                target9.resource = nullptr;
+                if (pTargetOverride->resource &&
+                    (FAILED(((IDirect3DSurface8*)pTargetOverride->resource)->QueryInterface(
+                        IID_IDirect3DSurface9, &target9.resource)) || !target9.resource))
+                    return false;
+            }
+
+            pBackend9->SetTarget(pTargetOverride ? &target9 : nullptr);
+            pBackend9->SetMaskTexture(mask9.resource ? &mask9 : nullptr);
+            pBackend9->SetProjection(projection, &worldMatrix, width, height);
+            pBackend9->SetSceneUVScale(uvOffsetX, uvScaleX, uvOffsetY, uvScaleY);
+            pBackend9->SetSceneComplement(sceneComplement);
+            pBackend9->SetSceneSampling(sceneSampling);
+            pBackend9->Render(vertices, count, primitive);
+            pBackend9->SetTarget(nullptr);
+            if (target9.resource)
+                ((IUnknown*)target9.resource)->Release();
+            return true;
+        }
+
         IDirect3DDevice8* pDevice = nullptr;
+        // QueryInterface owns this reference for the lifetime of the delegate.
+        IUnknown* pDevice9 = nullptr;
+        Backend* pBackend9 = nullptr;
+        Texture mask9{};
+        bool usingD3D9 = false;
 
         // The frame the copy of it is taken into, a surface of the system memory
         // pool, and the texture the drops sample, which the same frame is handed
