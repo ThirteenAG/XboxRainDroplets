@@ -8,8 +8,6 @@
 
 ---
 
-Works only with the Direct3D 9 and Direct3D 11 renderers.
-
 ## Installation
 
 1. Download and install [Max Payne 3 Fusion Fix](https://github.com/ThirteenAG/MaxPayne3.FusionFix#readme), or the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
