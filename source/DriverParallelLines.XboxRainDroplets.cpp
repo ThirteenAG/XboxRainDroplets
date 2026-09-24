@@ -75,7 +75,7 @@ public:
 };
 
 uintptr_t dw4DE72F = 0x4DE72F;
-class CParticleEffectManager 
+class CParticleEffectManager
 {
 public:
     static int* __fastcall AddParticleEffect(CParticleEffectManager* _this, void* edx, int* a2, int a3, int a4)
@@ -105,14 +105,14 @@ public:
         if (Effect && !(uint8_t)CParticleEffectData::IsContinuous(Effect))
         {
             AddParticleEffect(_this, edx, a2, (int)Effect, a4);
-            
+
             auto crc = crc32(0, *(void**)Effect, 0x84);
             if (crc == 0x08d8c95b) //hydrant
             {
                 RwV3d vec = *(RwV3d*)(a4 + 0x30);
                 RwV3d prt_pos = { vec.x, vec.z, vec.y };
                 WaterDrops::RegisterSplash(&prt_pos, 10.0f, 2500, 100.0f);
-            } 
+            }
             else if (crc == 0x4faf489b)
             {
                 WaterDrops::RegisterSplash(&WaterDrops::pos, 50.0f, 14);
@@ -194,7 +194,7 @@ void Init()
 
     static LPDIRECT3DDEVICE9 pDevice = nullptr;
     static auto pCamMatrix = *hook::get_pattern<uint32_t>("BF ? ? ? ? F3 A5 BE", 1);
-    dw4DE72F = (uint32_t)hook::get_pattern<uint32_t>("55 8B EC 51 53 56 8B F1 8B 0D ? ? ? ? 57 E8 ? ? ? ? 8B 0D ? ? ? ? 8B F8 E8", 0);
+    dw4DE72F = injector::GetBranchDestination(hook::get_pattern("E8 ? ? ? ? 8B 45 ? 5F 5E 5D C2", 0)).as_int();
     static auto dw70C5B0 = *hook::get_pattern<uint32_t*>("A1 ? ? ? ? 8B 40 04 53 8B D9", 1);
     static auto dw6E8E18 = *hook::get_pattern<uint32_t*>("A3 ? ? ? ? 8B 4E 30", 1);
     static auto dw9804F0 = *hook::get_pattern<uint32_t>("BB ? ? ? ? 8B CD", 1);
@@ -271,7 +271,7 @@ void Init()
                     CSnow::targetSnow = 0.0f;
                     CSnow::Snow = 0.0f;
                 }
-                
+
                 if (WaterDrops::bEnableSnow)
                     CSnow::targetSnow = 1.0f;
             }
@@ -284,7 +284,7 @@ void Init()
                     WaterDrops::ms_rainIntensity = 0.0f;
                 WaterDrops::Render();
             }
-            
+
             if (!bMenu && *dw6E8E18 != 256)
             {
                 static float ts = 0.0f;
@@ -317,7 +317,7 @@ void Init()
             }
         }
     }; injector::MakeInline<RenderHook>(pattern.get_first(0), pattern.get_first(6));
-    
+
     pattern = hook::pattern("8B 83 ? ? ? ? 6A 0E 59");
     struct ResetHook
     {
@@ -329,8 +329,9 @@ void Init()
     }; injector::MakeInline<ResetHook>(pattern.get_first(0), pattern.get_first(6));
 
     pattern = hook::pattern("55 8B EC 56 57 FF 75 0C 8B F9 E8 ? ? ? ? 8B F0 85 F6 74 0B 8B CE E8 ? ? ? ? 84 C0 74 0C 8B 45 08");
-    injector::MakeJMP(pattern.get_first(0), &CParticleEffectManager::AddOneShotParticleEffect, true);
-    
+    if (!pattern.empty())
+        injector::MakeJMP(pattern.get_first(0), &CParticleEffectManager::AddOneShotParticleEffect, true);
+
     //pattern = hook::pattern("89 30 8B 52 04 89 50 04 5E FF 81 ? ? ? ? C2 04 00");
     //struct CamNoRainHook
     //{
