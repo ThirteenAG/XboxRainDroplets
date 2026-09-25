@@ -1,10 +1,8 @@
 # tools/x86
 
-The shader compilers of the Direct3D 8 era, which is the one thing the DirectX SDK
-that comes with the renderers of Direct3D 9 and above cannot do any more: the
-June 2010 `fxc.exe` refuses every `ps_1_x`/`vs_1_1` profile ("ps_1_x is no longer
-supported") unless it is told to use the old compiler with `/LD`, and the old
-compiler is the November 2006 D3DX DLL that sits next to this file.
+Bundled tools used by [`BuildShaders.ps1`](../BuildShaders.ps1) for all native
+Direct3D shader profiles. The June 2010 `fxc.exe` builds shader models 3–5 directly
+and uses the November 2006 D3DX DLL beside it for shader model 1 with `/LD`.
 
 | file | what it is |
 | --- | --- |
@@ -16,11 +14,9 @@ compiler is the November 2006 D3DX DLL that sits next to this file.
 
 ## Building a Direct3D 8 shader
 
-The four backends of Direct3D 10 and above and the Direct3D 9 one compile their
-shaders at runtime, from the source strings in `source/xrd/xrdshaders.h`. Direct3D 8
-cannot: `IDirect3DDevice8::CreatePixelShader` takes a `DWORD` handle and the
-pre-assembled bytecode of a shader model 1.x shader, so a Direct3D 8 shader is built
-with the tools here.
+Native Direct3D renderers load precompiled bytecode. Shader sources and generated
+outputs live under [`source/shaders`](../../source/shaders/README.md); use the
+shared build script rather than invoking a separate compiler for a game.
 
     rem HLSL, shader model 1.x (the /LD is what makes the ps_1_x profiles work)
     tools\x86\fxc.exe /LD /T ps_1_4 /E main /nologo /Fo dropPS.pso xrdDrop.ps

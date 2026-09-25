@@ -57,24 +57,18 @@ function AddVersionDefines()
    defines { "rsc_GitSHA1W=L\"" .. githash .. "\"" }
 end
 
--- The refraction of Direct3D 8 is a shader of model 1, which cannot be built at
--- runtime the way the renderers of Direct3D 9 and above build theirs (a game hands
--- IDirect3DDevice8::CreatePixelShader the bytecode of one, not a source string): it
--- is built here and embedded as a resource, exactly like the menu blur of Scarface.
---
--- The June 2010 compiler only builds a ps_1_x profile with /LD, and the old compiler
--- it loads then is d3dx9_31.dll, which sits next to it in tools/x86. Both profiles
--- are built: ps_1_4 is as high as the model goes and what every device that can run
--- a game today reports, ps_1_1 is what the hardware the games themselves ran on has.
--- The fade in of the light of the field needs one instruction more than ps_1_1 has,
--- see lightPS8.hlsl and D3D8Backend::EnsureShaders.
-function BuildD3D8Shaders()
+-- One manifest owns all shader sources, profiles and generated outputs.
+-- BuildShaders verifies cached outputs and only rebuilds changed inputs.
+function BuildShaders()
    prebuildcommands {
-      'powershell -NoProfile -ExecutionPolicy Bypass -File "' .. path.join(_SCRIPT_DIR, 'tools/CompileDropletShaders.ps1') .. '"',
+      'powershell -NoProfile -ExecutionPolicy Bypass -File "' .. path.join(_SCRIPT_DIR, 'tools/BuildShaders.ps1') .. '"',
       'if errorlevel 1 exit /b 1',
-      "for /R \"../source/resources/shaders/ps8/\" %%f in (*.hlsl) do (\"../tools/x86/fxc.exe\" /LD /T ps_1_4 /E main /nologo /Fo \"../source/resources/%%~nf_14.cso\" %%f)",
-      "for /R \"../source/resources/shaders/ps8/\" %%f in (*.hlsl) do (\"../tools/x86/fxc.exe\" /LD /T ps_1_1 /D XRD_LIGHT_RAMP=0 /E main /nologo /Fo \"../source/resources/%%~nf_11.cso\" %%f)",
    }
+   files { "source/shaders/**.hlsl", "source/shaders/**.vert", "source/shaders/**.frag",
+           "source/shaders/**.h", "source/shaders/manifest.json", "tools/BuildShaders.ps1" }
+   filter { "files:**.hlsl" }
+      buildaction "None"
+   filter {}
 end
 
 -- The settings every plugin of this repository is built with. Visual Studio 2026 has no
@@ -108,7 +102,7 @@ function PluginsSetup(name, platform, arch)
       files { "source/%{prj.name}.cpp" }
       files { "source/resources/Versioninfo.rc" }
       files { "source/resources/Dropmask.rc" }
-      BuildD3D8Shaders()
+      BuildShaders()
       files { "external/hooking/Hooking.Patterns.h", "external/hooking/Hooking.Patterns.cpp" }
       files { "external/injector/safetyhook/include/**.hpp", "external/injector/safetyhook/src/**.cpp" }
       files { "external/injector/zydis/**.h", "external/injector/zydis/**.c" }
@@ -190,10 +184,6 @@ project "Mafia.XboxRainDroplets"
    files { "source/xrd/xrdrender.d3d9.cpp" }
    setpaths("MAFIA_DIR", "GameV12.exe")
 project "Scarface.XboxRainDroplets"
-    prebuildcommands {
-        "for /R \"../source/resources/shaders/ps/\" %%f in (*.hlsl) do (\"../source/dxsdk/lib/x86/fxc.exe\" /T ps_3_0 /nologo /E main /Fo \"../source/resources/%%~nf.cso\" %%f)",
-        "for /R \"../source/resources/shaders/vs/\" %%f in (*.hlsl) do (\"../source/dxsdk/lib/x86/fxc.exe\" /T vs_3_0 /nologo /E main /Fo \"../source/resources/%%~nf.cso\" %%f)",
-    }
    setpaths("SCARFACE_DIR", "Scarface.exe")
 project "Manhunt.XboxRainDroplets"
    files { "source/xrd/xrdrender.d3d9.cpp" }
@@ -291,8 +281,8 @@ function WrapperSetup(name, platform, arch)
       -- the declarations of Vulkan ship with the repository
       includedirs { "external/vulkan/include" }
       defines { "VK_USE_PLATFORM_WIN32_KHR" }
-      -- the wrapper builds the Direct3D 8 renderer as one of its translation units
-      BuildD3D8Shaders()
+      -- The wrapper shares the same shader assets and build as the plugins.
+      BuildShaders()
 
       filter "configurations:Debug"
          defines "DEBUG"
@@ -368,7 +358,7 @@ workspace "XboxRainDropletsTests"
    linkoptions "/SAFESEH:NO"
 
    files { "source/resources/Dropmask.rc" }
-   BuildD3D8Shaders()
+   BuildShaders()
    files { "external/hooking/Hooking.Patterns.h", "external/hooking/Hooking.Patterns.cpp" }
    files { "external/injector/safetyhook/include/**.hpp", "external/injector/safetyhook/src/**.cpp" }
    files { "external/injector/zydis/**.h", "external/injector/zydis/**.c" }

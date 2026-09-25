@@ -18,7 +18,7 @@
 //      a texture,
 //   2. the frame itself, bound as the render target, so that the drops land in
 //      the frame and not wherever the emulator left its own binding,
-//   3. the pipeline of the drops: the shaders of xrdshaders.thin3d.h, the layout
+//   3. the pipeline of the drops: the shaders of source/shaders/thin3d/glsl.h, the layout
 //      of Xrd::Vertex, one dynamic constant buffer, the copy of the frame and the
 //      atlas of the drop shapes as the two textures, and the one blend the effect
 //      uses.
@@ -33,7 +33,8 @@
 // ---------------------------------------------------------------------------
 
 #include "xrdrender.h"
-#include "xrdshaders.thin3d.h"
+#include "../shaders/thin3d/glsl.h"
+#include "../shaders/generated/thin3d.h"
 
 // The drawing of the emulator. The header of it is the copy in this repository,
 // so that the build of the plugin needs no checkout of the emulator: it is the
@@ -512,7 +513,7 @@ namespace Xrd
         {
             // The colour of a vertex is an uint32 in memory and the drawing of the
             // emulator reads it the way the effect writes it, see the comment at
-            // the top of xrdshaders.thin3d.h. The vertex buffer is filled with the
+            // the top of source/shaders/thin3d/glsl.h. The vertex buffer is filled with the
             // two channels swapped, see UploadGeometry, which is why this layout
             // says RGBA while every other backend of the effect says BGRA.
             Draw::InputLayoutDesc layout{};

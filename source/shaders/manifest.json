@@ -1,0 +1,299 @@
+{
+  "version": 1,
+  "jobs": [
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d8/blurPS8.hlsl"
+      ],
+      "output": "d3d8/blurPS8_14.cso",
+      "profile": "ps_1_4",
+      "entry": "main",
+      "flags": [
+        "/LD"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d8/blurPS8.hlsl"
+      ],
+      "output": "d3d8/blurPS8_11.cso",
+      "profile": "ps_1_1",
+      "entry": "main",
+      "flags": [
+        "/LD",
+        "/D",
+        "XRD_LIGHT_RAMP=0"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d8/dropPS8.hlsl"
+      ],
+      "output": "d3d8/dropPS8_14.cso",
+      "profile": "ps_1_4",
+      "entry": "main",
+      "flags": [
+        "/LD"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d8/dropPS8.hlsl"
+      ],
+      "output": "d3d8/dropPS8_11.cso",
+      "profile": "ps_1_1",
+      "entry": "main",
+      "flags": [
+        "/LD",
+        "/D",
+        "XRD_LIGHT_RAMP=0"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d8/fadePS8.hlsl"
+      ],
+      "output": "d3d8/fadePS8_14.cso",
+      "profile": "ps_1_4",
+      "entry": "main",
+      "flags": [
+        "/LD"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d8/fadePS8.hlsl"
+      ],
+      "output": "d3d8/fadePS8_11.cso",
+      "profile": "ps_1_1",
+      "entry": "main",
+      "flags": [
+        "/LD",
+        "/D",
+        "XRD_LIGHT_RAMP=0"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d8/lightPS8.hlsl"
+      ],
+      "output": "d3d8/lightPS8_14.cso",
+      "profile": "ps_1_4",
+      "entry": "main",
+      "flags": [
+        "/LD"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d8/lightPS8.hlsl"
+      ],
+      "output": "d3d8/lightPS8_11.cso",
+      "profile": "ps_1_1",
+      "entry": "main",
+      "flags": [
+        "/LD",
+        "/D",
+        "XRD_LIGHT_RAMP=0"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d8/squarePS8.hlsl"
+      ],
+      "output": "d3d8/squarePS8_14.cso",
+      "profile": "ps_1_4",
+      "entry": "main",
+      "flags": [
+        "/LD"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d8/squarePS8.hlsl"
+      ],
+      "output": "d3d8/squarePS8_11.cso",
+      "profile": "ps_1_1",
+      "entry": "main",
+      "flags": [
+        "/LD",
+        "/D",
+        "XRD_LIGHT_RAMP=0"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d9/menu-blur.frag.hlsl"
+      ],
+      "output": "d3d9/blurPS.cso",
+      "profile": "ps_3_0",
+      "entry": "main",
+      "flags": []
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d9/menu-blur.vert.hlsl"
+      ],
+      "output": "d3d9/blurVS.cso",
+      "profile": "vs_3_0",
+      "entry": "main",
+      "flags": []
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d9/drops.hlsl"
+      ],
+      "output": "d3d9/dropPS9.cso",
+      "profile": "ps_3_0",
+      "entry": "PSMain",
+      "flags": [
+        "/O3"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d9/light.hlsl"
+      ],
+      "output": "d3d9/lightPS9.cso",
+      "profile": "ps_3_0",
+      "entry": "PSMain",
+      "flags": [
+        "/O3"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d10/drops.hlsl"
+      ],
+      "output": "d3d10/dropVS10.cso",
+      "profile": "vs_4_0",
+      "entry": "VSMain",
+      "flags": [
+        "/O3"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d10/drops.hlsl"
+      ],
+      "output": "d3d10/dropPS10.cso",
+      "profile": "ps_4_0",
+      "entry": "PSMain",
+      "flags": [
+        "/O3"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d10/drops.hlsl"
+      ],
+      "output": "d3d12/dropVS12.cso",
+      "profile": "vs_5_0",
+      "entry": "VSMain",
+      "flags": [
+        "/O3"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d10/drops.hlsl"
+      ],
+      "output": "d3d12/dropPS12.cso",
+      "profile": "ps_5_0",
+      "entry": "PSMain",
+      "flags": [
+        "/O3"
+      ]
+    },
+    {
+      "kind": "spirv",
+      "sources": [
+        "vulkan/drops.hlsl"
+      ],
+      "output": "vulkan/spirv.h",
+      "stages": [
+        {
+          "profile": "vs_6_0",
+          "entry": "VSMain",
+          "symbol": "XrdVulkanVertexShaderSpirv"
+        },
+        {
+          "profile": "ps_6_0",
+          "entry": "PSMain",
+          "symbol": "XrdVulkanPixelShaderSpirv"
+        }
+      ],
+      "flags": [
+        "-spirv",
+        "-fvk-use-dx-layout"
+      ]
+    },
+    {
+      "kind": "embed",
+      "sources": [
+        "opengl/drops.vert",
+        "opengl/drops.frag",
+        "opengl/drops-core.vert",
+        "opengl/drops-core.frag"
+      ],
+      "output": "opengl.h",
+      "namespace": "Xrd::Shaders",
+      "symbols": [
+        "OpenGLVertexSource",
+        "OpenGLFragmentSource",
+        "OpenGLVertexSourceCore",
+        "OpenGLFragmentSourceCore"
+      ]
+    },
+    {
+      "kind": "embed",
+      "sources": [
+        "tests/world.vert",
+        "tests/world.frag",
+        "tests/world.hlsl"
+      ],
+      "output": "tests.h",
+      "namespace": "Xrd::Shaders",
+      "symbols": [
+        "OpenGLSimpleVertexSource",
+        "OpenGLSimpleFragmentSource",
+        "D3D11SimpleSource"
+      ]
+    },
+    {
+      "kind": "embed",
+      "sources": [
+        "thin3d/vulkan.vert",
+        "thin3d/vulkan.frag",
+        "thin3d/d3d11.vert.hlsl",
+        "thin3d/d3d11.frag.hlsl"
+      ],
+      "output": "thin3d.h",
+      "namespace": "Xrd::Shaders::Thin3D",
+      "symbols": [
+        "VulkanVertexSource",
+        "VulkanPixelSource",
+        "D3D11VertexSource",
+        "D3D11PixelSource"
+      ]
+    }
+  ]
+}

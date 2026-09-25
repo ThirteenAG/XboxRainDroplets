@@ -61,11 +61,10 @@ namespace
         {
             D3DCAPS9 caps{};
             pDevice->GetDeviceCaps(&caps);
-            auto* blob = Xrd::CompileShader(Xrd::Shaders::D3D9Source, "PSMain", "ps_3_0");
+            auto blob = Xrd::LoadShaderBytecode(IDR_DROP9PS);
             IDirect3DPixelShader9* shader = nullptr;
-            const HRESULT hr = blob ? pDevice->CreatePixelShader((DWORD*)blob->GetBufferPointer(), &shader) : E_FAIL;
+            const HRESULT hr = blob ? pDevice->CreatePixelShader((const DWORD*)blob.GetBufferPointer(), &shader) : E_FAIL;
             printf("[d3d9] pixel shader version %08x, light shader creation %08x\n", caps.PixelShaderVersion, hr);
-            if (blob) blob->Release();
             if (shader) shader->Release();
             if (FAILED(hr)) return false;
         }

@@ -10,6 +10,8 @@
 #include "xrd/xrd.h"
 
 #include "XrdTest.h"
+#include "ShaderCompiler.h"
+#include "shaders/generated/tests.h"
 
 #include <d3d11.h>
 

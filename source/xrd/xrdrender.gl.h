@@ -24,7 +24,7 @@
 // ---------------------------------------------------------------------------
 
 #include "xrdrender.h"
-#include "xrdshaders.h"
+#include "../shaders/generated/opengl.h"
 
 #include <windows.h>
 #include <GL/gl.h>
@@ -807,11 +807,25 @@ namespace Xrd
             }
 
             if (!vertexShader || !fragmentShader)
+            {
+                if (vertexShader) GLFunctions::glDeleteShader(vertexShader);
+                if (fragmentShader) GLFunctions::glDeleteShader(fragmentShader);
                 return false;
+            }
 
             program = GLFunctions::glCreateProgram();
+            if (!program)
+            {
+                GLFunctions::glDeleteShader(vertexShader);
+                GLFunctions::glDeleteShader(fragmentShader);
+                return false;
+            }
             GLFunctions::glAttachShader(program, vertexShader);
             GLFunctions::glAttachShader(program, fragmentShader);
+            // The program owns the attached shaders now. Mark them for deletion
+            // so reset and failed-link retries do not leak driver objects.
+            GLFunctions::glDeleteShader(vertexShader);
+            GLFunctions::glDeleteShader(fragmentShader);
             GLFunctions::glLinkProgram(program);
 
             GLint linked = 0;
@@ -819,6 +833,7 @@ namespace Xrd
 
             if (!linked)
             {
+                GLFunctions::glDeleteProgram(program);
                 program = 0;
                 return false;
             }

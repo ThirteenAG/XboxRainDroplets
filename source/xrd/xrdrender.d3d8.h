@@ -26,7 +26,7 @@
 // refraction: Direct3D 9 needs shader model 3 for the gather, Direct3D 8 has
 // pixel shaders of model 1, which are enough for the same light when the gather
 // is done in passes of its own into a small render target first. See
-// EnsureShaders and RenderLightField, and source/resources/shaders/ps8, which
+// EnsureShaders and RenderLightField, and source/shaders/d3d8, which
 // are those shaders. A device that cannot run one of them keeps the fixed
 // function pipeline, which is what every Direct3D 8 game drew its drops with
 // until now.
@@ -597,7 +597,7 @@ namespace Xrd
         };
 
         // What the drops do with the light: the numbers the shaders of Direct3D 9
-        // and above use for it, see xrdshaders.h and source/resources/shaders/ps8,
+        // and above use for it, see source/shaders/d3d10/drops.hlsl and source/shaders/d3d8,
         // with two of them different here.
         //
         // The floor is one and not the 1.25 of those renderers, because the two
@@ -916,7 +916,7 @@ namespace Xrd
         // A shader of model 1 cannot be built at runtime the way the renderers of
         // Direct3D 9 and above build theirs, so the bytecode of one is a resource of
         // the module, built by the tools of tools/x86, see
-        // source/resources/shaders/ps8. It is built once per device here, and a
+        // source/shaders/d3d8. It is built once per device here, and a
         // device that cannot run one - or that has fewer than the four textures at
         // once the blur of the field needs - keeps the fixed function pipeline.
         void EnsureShaders()
@@ -1450,7 +1450,7 @@ namespace Xrd
             // a texel of the field is eight pixels of the target, so the six levels of it
             // reach four, twelve, twenty-eight, sixty and a hundred and twenty pixels of
             // the frame around a light, which is where the gather of the other renderers
-            // reaches of it, see GatherTap in source/xrd/xrdshaders.h
+            // reaches of it, see GatherTap in source/shaders/d3d9/light.hlsl
             static constexpr float radii[6] = { 0.5f, 1.0f, 2.0f, 3.0f, 5.0f, 8.0f };
             static constexpr float weights[6] = { 0.125f, 0.125f, 0.125f, 0.125f, 0.125f, 0.125f };
 

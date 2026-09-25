@@ -16,8 +16,6 @@
 // ---------------------------------------------------------------------------
 
 #include "xrdrender.h"
-#include "xrdshaders.h"
-#include "xrdd3dcompile.h"
 #include "xrdshaderbytecode.h"
 
 #include <d3d12.h>
@@ -609,7 +607,7 @@ namespace Xrd
                 samplers[i].MaxLOD = D3D12_FLOAT32_MAX;
                 samplers[i].ShaderRegister = (UINT)i;
                 // The vertex shader samples the scene texture as well, to gather
-                // the light around a drop, see VSMain in xrdshaders.h.
+                // the light around a drop, see VSMain in source/shaders/d3d10/drops.hlsl.
                 samplers[i].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
             }
 

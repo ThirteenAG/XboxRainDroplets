@@ -12,7 +12,7 @@
 // The averages are taken of the square of the frame instead. A light twice as
 // bright then holds four times as much of the average, which is the weighting
 // the renderers of Direct3D 9 and above gather a light with (see GatherTap in
-// source/xrd/xrdshaders.h), and a frame that is the same all over still gives
+// source/shaders/d3d9/light.hlsl), and a frame that is the same all over still gives
 // the same for both averages, so a frame that is bright is still not a light:
 // what is left over is a light and nothing else.
 //

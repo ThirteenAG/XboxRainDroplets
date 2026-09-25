@@ -36,7 +36,7 @@
 // ---------------------------------------------------------------------------
 
 #include "xrdrender.h"
-#include "xrdspirv.h"
+#include "../shaders/generated/vulkan/spirv.h"
 
 #include <vulkan/vulkan.h>
 #include <vector>
