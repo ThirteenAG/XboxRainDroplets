@@ -5,7 +5,7 @@
 // direction, which is the field the renderer of Direct3D 9 keeps its light in, and
 // a drop reads it with one tap (see dropPS8.hlsl).
 //
-// D3D9LightSource in source/xrd/xrdshaders.h is what this is, with one difference:
+// source/shaders/d3d9/light.hlsl is what this is, with one difference:
 // a shader of model 1 has no loops, so the two averages it compares are two blurred
 // copies of the frame instead of a disc of taps each, see blurPS8.hlsl and
 // D3D8Backend::RenderLightField. Comparing the frame itself against a blur of it

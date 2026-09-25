@@ -13,8 +13,6 @@
 // ---------------------------------------------------------------------------
 
 #include "xrdrender.h"
-#include "xrdshaders.h"
-#include "xrdd3dcompile.h"
 #include "xrdshaderbytecode.h"
 
 #include <d3d11.h>

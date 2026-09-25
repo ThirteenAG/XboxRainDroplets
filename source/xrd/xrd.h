@@ -302,7 +302,7 @@ public:
     static constexpr float HangingShare = 0.5f;
 
     // A drop of clear water is a lens: the shaders that draw the drops give it
-    // the colour of the light of the frame around it, see xrdshaders.h and
+    // the colour of the light of the frame around it, see source/shaders and
     // xrdrender.d3d8.h. That is only possible where the drops are drawn with a
     // shader at all, which is what GatheredLight below answers, and it is only
     // worth it for the drops of clear rain: a drop the game asked for in a colour
@@ -310,7 +310,7 @@ public:
     static inline bool bRefractions = true;
 
     // The light a drop gathers is measured out of the frame it is drawn into, and
-    // against that frame, see xrdshaders.h: it is the frame of the game the
+    // against that frame, see source/shaders: it is the frame of the game the
     // effect is a part of. The plugins of an emulator draw the drops into the
     // frame of another machine instead, handed over in the middle of its own
     // frame, and that frame is neither as bright as the ones the effect measures
@@ -321,7 +321,7 @@ public:
 
     // The renderers that draw the drops with a shader that gathers the light of
     // the frame around them. Direct3D 9 and above load embedded shader bytecode,
-    // built from xrdshaders.h, so they are known here; Direct3D 8 builds
+    // built from source/shaders, so they are known here; Direct3D 8 builds
     // one of its own, out of a device that may not be able to run it at all, and
     // its backend is what answers for it (see xrdrender.d3d8.h).
     static inline bool GatheredLight()
@@ -1027,8 +1027,8 @@ public:
     static inline bool ms_iniRead = false;
 
     // How far the atlas coordinate of a drop that gathers light is moved down,
-    // see AddToRenderList and VSMain in xrdshaders.h. Every shader that takes the
-    // mark back off and every backend that takes it off itself have to agree on
+    // see AddToRenderList and VSMain in source/shaders/d3d10/drops.hlsl. Every
+    // shader and backend that takes the mark back off has to agree on
     // it, which is what Xrd::AtlasLightMarker is for: the vertex shader of
     // Direct3D 10 and above moves it back up, the shader of Direct3D 9 reads the
     // sign of it, and the backend of Direct3D 8 takes it off on the way in.
@@ -1344,8 +1344,8 @@ public:
         v1_2 = (v1_2 >= ms_fbHeight ? ms_fbHeight : v1_2) / ms_fbHeight;
 
         // A drop of clear water gathers the light of the frame around it, see
-        // xrdshaders.h. The atlas coordinate is what says so: every drop samples
-        // its own tile of the atlas at a coordinate between zero and one, so a
+        // source/shaders/d3d10/drops.hlsl. The atlas coordinate is what says so:
+        // every drop samples its tile at a coordinate between zero and one, so a
         // coordinate below zero is one the shader can read as the mark that the
         // drop is a lens, and it moves it back up before it samples. Every
         // renderer that draws the drops without that shader gets the atlas

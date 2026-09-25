@@ -4,7 +4,7 @@
 // behind it, and the light that drop gathered out of the frame around it, in one
 // pass of a shader of model 1.
 //
-// It is the maths of D3D9Source in source/xrd/xrdshaders.h, written for a shader
+// It is the maths of source/shaders/d3d9/drops.hlsl, written for a shader
 // that has four texture coordinate registers, eight arithmetic instructions and
 // no branches at all. The light is not found per pixel here - a shader of model
 // 1 cannot afford the taps that needs - it is gathered into a field an eighth of

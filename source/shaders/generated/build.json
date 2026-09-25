@@ -1,0 +1,112 @@
+[
+    {
+        "output":  "d3d8/blurPS8_14.cso",
+        "inputHash":  "OiC47jP9gbunhU/tnhIH153jrz0t3v6cpoPvTPBtnqE=",
+        "outputHash":  "fm2Kn46NzD/ytq+vIHyR/Zl96T5BzXMavMN/d6znkPA="
+    },
+    {
+        "output":  "d3d8/blurPS8_11.cso",
+        "inputHash":  "lkzAiDbpOCY2zSoYO3uOAZhzmjgj5v04bwyKgWs8aBU=",
+        "outputHash":  "NfIR7BV+OZXiOaCKefm3DapSBhh8MYA2WhqJphg82I0="
+    },
+    {
+        "output":  "d3d8/dropPS8_14.cso",
+        "inputHash":  "Z+pgLCgfcDCBdOLMtv1mnRVwQiPPKBhvxJ8oiTyXn+Q=",
+        "outputHash":  "v1q/d9X/1b/FkHM6yeKVLoqAB16gmk3t/t3UgKTaDM8="
+    },
+    {
+        "output":  "d3d8/dropPS8_11.cso",
+        "inputHash":  "BqXm1tpPx1HUTbcuJ6izom8yqYkeVNbY8t/hfQLu6b8=",
+        "outputHash":  "rfC5oYONbadDpEmEW/8DmcM1Z5J8eLRMqahnXWifnBY="
+    },
+    {
+        "output":  "d3d8/fadePS8_14.cso",
+        "inputHash":  "jrXs5Vjf9OKAedy+y/xZ7bqb/X00Ie4/mtz6d2t3bxk=",
+        "outputHash":  "XxCFSiNYqjfuxVEnUMXtOg4rTIlXutLPVC1mzE9PmAs="
+    },
+    {
+        "output":  "d3d8/fadePS8_11.cso",
+        "inputHash":  "zmxJM9pR7tXWsNc/PNBrny5/bmp7BsHmeI7sQcD7bdM=",
+        "outputHash":  "muV9BwirP+o1zAgafPm5qpOXu2T4LHqzCqdJzSPgPL8="
+    },
+    {
+        "output":  "d3d8/lightPS8_14.cso",
+        "inputHash":  "6AoSvguGr6Q9DdihJEvftUVowXu98Xwe3gYt/KwKXqU=",
+        "outputHash":  "1YpIlvxD+lzjFqyX9rSLLFR7ACFjyRcTVstTTFc3CM8="
+    },
+    {
+        "output":  "d3d8/lightPS8_11.cso",
+        "inputHash":  "KN/AZLBEc5c9tGbBRJ2bM0k+4l1EEq6ckj8XtFkZ4eE=",
+        "outputHash":  "mMi7FYdnrWvhz23hCJrqtLaSzdkKURNaVmVEsSLP6UU="
+    },
+    {
+        "output":  "d3d8/squarePS8_14.cso",
+        "inputHash":  "ryHNVts+MmAZSMZBEiS7KsfDUjFN0jq1fmQN9vxXF3Q=",
+        "outputHash":  "U3Cy6/imAelfnu1XtCd5AOFQHmJwr25TrUP5grhKNBM="
+    },
+    {
+        "output":  "d3d8/squarePS8_11.cso",
+        "inputHash":  "5+b8cSgoyDTmo3Ur3LoLKGYof/7I2E0Zax3+3uUfBVA=",
+        "outputHash":  "+ICJqxXwDw+oPZ5hJP3HXQlnDuEEChMetGJwUMDY5uI="
+    },
+    {
+        "output":  "d3d9/blurPS.cso",
+        "inputHash":  "QBkqDoHnWY3oD6bxTdKaGGPFyj0b7/ypaqLzfJJ811s=",
+        "outputHash":  "JLb/vuVgKLAeNYxxHdOrCXq9PK2QI1AxFF7MEg4Jl0M="
+    },
+    {
+        "output":  "d3d9/blurVS.cso",
+        "inputHash":  "CmW9Fg8BUrGo8BUBStzK0/hsPugFYHLwCthxp9VvthI=",
+        "outputHash":  "pnqdw0fODa6onHCPhTse64kdGKesqQYuNlfaRZvBW8M="
+    },
+    {
+        "output":  "d3d9/dropPS9.cso",
+        "inputHash":  "XeSJf/N6xH3U3itTNuq3rCPe+Fx7tGSrXUI1PbS7Mc0=",
+        "outputHash":  "3HajU341F8LbknD8AO1n6b6uIqATWUswaVIAC7lAtxY="
+    },
+    {
+        "output":  "d3d9/lightPS9.cso",
+        "inputHash":  "UJXMqRvdOrI/5hitQgiGfwLvwfrxDtEYlPLu0GoUq6k=",
+        "outputHash":  "XL5VYQDmLw9eu5vj5oy0W6EL2AW4KauZO9j5Bql7h1k="
+    },
+    {
+        "output":  "d3d10/dropVS10.cso",
+        "inputHash":  "U44gmLSJv1OTB6mQ5tGF4QjoSeQUrCk0o+faNQOa/YY=",
+        "outputHash":  "fO6YVoy0cCTxxuy4lLJxUetU8Jar22yuTeMUW3nfckU="
+    },
+    {
+        "output":  "d3d10/dropPS10.cso",
+        "inputHash":  "o/hP36l04ts1aAup+60wXYBhHwIgxsbkxm4MkzmryNo=",
+        "outputHash":  "Mr0rUGdIfJU7CGRDGvbKES+sl9FgIB6cQUoYt2qwLsA="
+    },
+    {
+        "output":  "d3d12/dropVS12.cso",
+        "inputHash":  "WiLf/wLWD44wOlGVKD9kZU3+lH5Jyvgw2xYGvLwtZbY=",
+        "outputHash":  "3zwqlKyO60hd3YGPvmdS2b5L6Ze/Xn4g5McjUnCZawU="
+    },
+    {
+        "output":  "d3d12/dropPS12.cso",
+        "inputHash":  "OPb9jJQlOABnfAR6AYqb/C7eWAGAWcUJ5dmueLywLl4=",
+        "outputHash":  "tozg77sBNtn4uCzRmYkSKEIXRDcwsUWSujl3xNOS6LU="
+    },
+    {
+        "output":  "vulkan/spirv.h",
+        "inputHash":  "wAwF+vhLwjyezrlXfg4zAu74llozxQ8Tpx6mNpTbXj4=",
+        "outputHash":  "bE1oE706PWE+ikTcM+Y6cr3+xXO2HBrAoUKzYNvA9+k="
+    },
+    {
+        "output":  "opengl.h",
+        "inputHash":  "EVqgQnWAoaAbP2K+Onhqy+1I86zESi2pgJ/0yEP++4Q=",
+        "outputHash":  "6zs6lRCwb0h613MDrmRsNLM+fzJQXUeIXquzMBKYN4M="
+    },
+    {
+        "output":  "tests.h",
+        "inputHash":  "VSwu9tPPUZ3lppDWfu1ne9IZmwHYa42K4rkfOINGZjc=",
+        "outputHash":  "QYHbpik0+yQYsQ5A7CfNhyPyscIuHTSoUhe9138naSQ="
+    },
+    {
+        "output":  "thin3d.h",
+        "inputHash":  "EbAfPCd1cDQ0T+xVeU9zx6EfZM2/dbnMaliDqUo3RrM=",
+        "outputHash":  "vvJYreL0XrKAalXuFxfUDD2Ot9VC9x9rNoxgzbneBXs="
+    }
+]

@@ -3,7 +3,7 @@
 
 namespace Xrd
 {
-    // Embedded DXBC is compiled by tools/CompileDropletShaders.ps1. Loading a
+    // Embedded DXBC is compiled by tools/BuildShaders.ps1. Loading a
     // shader must never invoke the HLSL compiler on the game's render thread.
     struct ShaderBytecode
     {

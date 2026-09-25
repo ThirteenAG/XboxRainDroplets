@@ -260,7 +260,9 @@ The ini of a plugin is read at startup and again whenever the file is written to
 
 Run `premake5.bat` to generate the Visual Studio solutions in `build`, then build them.
 
-The build compiles the Direct3D droplet shaders from `source/xrd/xrdshaders.h` and embeds their bytecode. Games do not compile these shaders when rain starts. All renderers prepare their droplet resources during effect initialization, including dry frames; resource resets repeat that preparation.
+All shader sources and generated assets live in [`source/shaders`](source/shaders/README.md). Every project runs `tools/BuildShaders.ps1`, which verifies the outputs and rebuilds only changed shaders using `source/shaders/manifest.json`. Direct3D bytecode, Vulkan SPIR-V, and embedded OpenGL/Thin3D sources have the same build entry point. See the shader README for compiler requirements and regeneration commands.
+
+Native Direct3D and Vulkan renderers use precompiled shaders. OpenGL and the emulator's Thin3D API compile their embedded sources during resource preparation. All renderers prepare resources during effect initialization, including dry frames, and repeat preparation after resets. Driver initialization can still take time; precompiled bytecode does not eliminate pipeline creation costs.
 
 Renderer tests accept `--headless --frames 45 --startup-check --lens-light`. This checks preparation before any drops appear and after a reset, then verifies the first visible drops. Use `--expect-d3d8` or `--expect-d3d9` with the D3D8 test to check native or d3d8to9 rendering.
 

@@ -15,9 +15,7 @@
 // ---------------------------------------------------------------------------
 
 #include "xrdrender.h"
-#include "xrdd3dcompile.h"
 #include "xrdshaderbytecode.h"
-#include "xrdshaders.h"
 
 #include <d3d9.h>
 

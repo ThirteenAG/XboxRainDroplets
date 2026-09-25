@@ -14,6 +14,8 @@
 #include "xrd/xrd.h"
 
 #include "XrdTest.h"
+#include "ShaderCompiler.h"
+#include "shaders/generated/tests.h"
 
 // the 10.1 header has to come before anything that pulls in d3d10.h
 #include <d3d10_1.h>

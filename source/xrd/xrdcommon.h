@@ -30,12 +30,11 @@
 // the atlas of drop shapes
 #define IDR_DROPMASK 100
 #define IDR_SNOWDROPMASK 101
-// the menu blur of Scarface, built from source/resources/shaders
+// the menu blur of Scarface, built from source/shaders/d3d9
 #define IDR_BLURPS 103
 #define IDR_BLURVS 104
-// The refraction of Direct3D 8 is a shader of model 1, which cannot be built at
-// runtime the way the renderers of Direct3D 9 and above build theirs: these are
-// the shaders of source/resources/shaders/ps8, built by the tools of tools/x86,
+// Direct3D 8 uses precompiled shader model 1 bytecode. These are the shaders
+// of source/shaders/d3d8, built by tools/BuildShaders.ps1 using tools/x86,
 // see xrdrender.d3d8.h. One set is for the hardware of today (ps_1_4, which is as
 // high as the model goes) and one for the hardware the games themselves ran on
 // (ps_1_1).

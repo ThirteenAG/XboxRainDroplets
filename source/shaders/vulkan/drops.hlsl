@@ -1,9 +1,8 @@
 // ---------------------------------------------------------------------------
 // The shader of the Vulkan backend.
 //
-// It is the same maths as the HLSL the Direct3D 10, 11 and 12 backends compile
-// at runtime, only the bindings are spelled out: Vulkan has no registers, so the
-// descriptor set has to be laid out by hand.
+// This is the basic atlas/backdrop modulation path. The descriptor bindings
+// match VulkanBackend's pipeline layout.
 //
 //     binding 0  the constants (projection, scene texture coordinates, mode)
 //     binding 1  the copy of the frame behind the drops
@@ -16,9 +15,9 @@
 //     location 2  float2 atlas      (into the drop shapes)
 //     location 3  float2 scene      (into the copy of the frame)
 //
-// SPIR-V is generated from this file with dxc, see tools/build-spirv.ps1. The
-// result is committed as source/xrd/xrdspirv.h so that building the project
-// needs neither the Vulkan SDK nor a shader compiler.
+// tools/BuildShaders.ps1 uses Vulkan SDK DXC when this source changes. Verified
+// bytecode in source/shaders/generated/vulkan/spirv.h ships with the repository,
+// so ordinary builds do not require the Vulkan SDK.
 // ---------------------------------------------------------------------------
 
 struct VSInput

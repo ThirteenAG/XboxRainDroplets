@@ -15,6 +15,7 @@
 #include "xrd/xrd.h"
 
 #include "XrdTest.h"
+#include "shaders/generated/tests.h"
 
 #include <windows.h>
 #include <GL/gl.h>

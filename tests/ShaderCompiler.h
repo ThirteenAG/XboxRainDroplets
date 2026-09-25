@@ -1,13 +1,5 @@
 #pragma once
-// ---------------------------------------------------------------------------
-// Small helper around the shader compiler that comes with Windows.
-//
-// d3dcompiler_43.dll has been part of the operating system since Windows 7 and
-// it can build shader model 4 and 5, which is all the Direct3D 10, 10.1, 11 and
-// 12 backends need. Newer versions are preferred when a game happens to ship
-// them, the older ones are tried last.
-// ---------------------------------------------------------------------------
-
+// Runtime compiler for the test scene only. Production Direct3D shaders use embedded bytecode.
 #include <windows.h>
 #include <d3dcommon.h>
 #include <cstring>
