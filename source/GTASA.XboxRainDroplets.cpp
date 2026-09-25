@@ -2,6 +2,20 @@
 #define XRD_ENABLE_D3D9
 #include "xrd/xrd.h"
 
+inline void RegisterWidescreenResetCallback(const wchar_t* moduleName)
+{
+    static bool registered = false;
+    if (registered) return;
+
+    const HMODULE module = GetModuleHandleW(moduleName);
+    if (!module) return;
+    using RegisterCallback = BOOL (__cdecl*)(void (__cdecl*)());
+    const auto registerCallback = reinterpret_cast<RegisterCallback>(GetProcAddress(module, "RegisterBeforeResetCallback"));
+    if (!registerCallback) return;
+
+    registered = registerCallback(+[]() { WaterDrops::Reset(); }) != FALSE;
+}
+
 // one of the two functions that add a particle takes the colour of the particle
 struct RwRGBA
 {
@@ -67,13 +81,38 @@ static bool CameraSeesDrops()
     return true;
 }
 
+// Run during game initialization, after the original lifecycle call.
+static void InitialiseWaterDrops()
+{
+    auto device = static_cast<IDirect3DDevice9*>(*(void**)0xC97C28);
+    if (!device || FAILED(device->TestCooperativeLevel())) return;
+    RegisterWidescreenResetCallback(L"GTASA.WidescreenFix.asi");
+    if (!Xrd::Init(XRD_DEVICE_RENDERER, device)) return;
+    WaterDrops::Init();
+    if (!WaterDrops::ms_initialised || !WaterDrops::ms_maskTex) return;
+
+    // Exercise lazy shader/buffer creation during loading. The degenerate quad
+    // covers no pixels; the renderer restores the game's render state.
+    if (SUCCEEDED(device->BeginScene()))
+    {
+        const Xrd::Vertex vertices[4] = {};
+        Xrd::SetMaskTexture(WaterDrops::ms_maskTex);
+        Xrd::SetProjection(Xrd::PROJECTION_SCREEN);
+        Xrd::SetSceneUVScale(0.0f, 1.0f, 0.0f, 1.0f);
+        Xrd::SetSceneSampling(true);
+        Xrd::SetSceneComplement(false);
+        Xrd::Render(vertices, 4, Xrd::PRIMITIVE_TRIANGLES);
+        device->EndScene();
+    }
+}
+
 void Init()
 {
     WaterDrops::ReadIniSettings();
     // the effect moves with the time of the game, which is a value of its own,
     // see timeStepSeconds
     WaterDrops::fTimeStep = &timeStepSeconds;
-    
+
     static LPDIRECT3DDEVICE9* pDev = (LPDIRECT3DDEVICE9*)0xC97C28;
     static auto matrix = (RwMatrix*)((0xB6F97C + 0x20));
     static injector::hook_back<void(*)()> CMotionBlurStreaksRender;
@@ -87,7 +126,8 @@ void Init()
         WaterDrops::pos = matrix->pos;
 
         //when you put camera underwater, droplets disappear instantly instead of fading out
-        if (NoDrops()) {
+        if (NoDrops())
+        {
             WaterDrops::Clear();
             return;
         }
@@ -102,6 +142,7 @@ void Init()
         // them, and the effect wants seconds per frame
         timeStepSeconds = CTimer__ms_fTimeStep / 50.0f;
 
+        RegisterWidescreenResetCallback(L"GTASA.WidescreenFix.asi");
         Xrd::Init(XRD_DEVICE_RENDERER, *pDev);
         WaterDrops::Process();
 
@@ -123,24 +164,24 @@ void Init()
         RwV3dSub(&dist, point, &WaterDrops::ms_lastPos);
         if (RwV3dLength(&dist) <= 10.0f)
             WaterDrops::RegisterSplash(point, 20.0f, 20);
-        
+
         return CAEFireAudioEntityAddAudioEvent.fun(_this, edx, id, point);
     }; CAEFireAudioEntityAddAudioEvent.fun = injector::MakeCALL(0x4AAE2D, static_cast<void(__fastcall*)(void*, int, int, RwV3d*)>(CAEFireAudioEntityAddAudioEventHook), true).get(); //water_hydrant
     injector::MakeCALL(0x4AAE4B, static_cast<void(__fastcall*)(void*, int, int, RwV3d*)>(CAEFireAudioEntityAddAudioEventHook), true); //water_fountain
     injector::MakeCALL(0x4AAE69, static_cast<void(__fastcall*)(void*, int, int, RwV3d*)>(CAEFireAudioEntityAddAudioEventHook), true); //water_fnt_tme
-    
+
     //FxManager_c::CreateFxSystem
-    static injector::hook_back<void*(__fastcall*)(void*, int, char*, RwV3d*, RwMatrix*, char)> CreateFxSystem;
+    static injector::hook_back<void* (__fastcall*)(void*, int, char*, RwV3d*, RwMatrix*, char)> CreateFxSystem;
     auto CreateFxSystemHook = [](void* _this, int edx, char* name, RwV3d* point, RwMatrix* m, char flag) -> void*
     {
         RwV3d dist;
         RwV3dSub(&dist, point, &WaterDrops::ms_lastPos);
         if (RwV3dLength(&dist) <= 10.0f)
             WaterDrops::RegisterSplash(point, 10.0f, 1);
-        
+
         return CreateFxSystem.fun(_this, edx, name, point, m, flag);
     };
-    auto f = static_cast<void*(__fastcall*)(void*, int, char*, RwV3d*, RwMatrix*, char)>(CreateFxSystemHook);
+    auto f = static_cast<void* (__fastcall*)(void*, int, char*, RwV3d*, RwMatrix*, char)>(CreateFxSystemHook);
     CreateFxSystem.fun = injector::MakeCALL(0x4A10C9, f, true).get();// "water_splash_big"
     injector::MakeCALL(0x4A1139, f, true); // "water_splash"
     injector::MakeCALL(0x4A11A9, f, true); // "water_splsh_sml"
@@ -148,9 +189,10 @@ void Init()
     //injector::MakeCALL(0x68AF15, f, true); // "water_swim"
     //injector::MakeCALL(0x68AF66, f, true); // "water_swim"
     //injector::MakeCALL(0x68AFB3, f, true); // "water_swim"
-    
+
     //AddParticle
-    struct Fx_c {
+    struct Fx_c
+    {
         void* prt_blood;
         void* prt_boatsplash;
         void* prt_bubble;
@@ -170,27 +212,27 @@ void Init()
         void* prt_glass;
         //...
     };
-    static Fx_c &g_fx = *(Fx_c*)0xA9AE00;
-    static injector::hook_back<void*(__fastcall*)(void*, int, RwV3d*, RwV3d*, float, void*, float, float, float, unsigned char)> AddParticle;
+    static Fx_c& g_fx = *(Fx_c*)0xA9AE00;
+    static injector::hook_back<void* (__fastcall*)(void*, int, RwV3d*, RwV3d*, float, void*, float, float, float, unsigned char)> AddParticle;
     auto AddParticleHook = [](void* _this, int edx, RwV3d* position, RwV3d* velocity, float arg2, void* prtMult, float arg4, float brightness, float arg6, unsigned char arg7) -> void*
     {
-            RwV3d dist;
-            RwV3dSub(&dist, position, &WaterDrops::ms_lastPos);
-            float pd = 20.0f;
-            bool isBlood = false;
-            if (_this == g_fx.prt_blood) { pd = 5.0; isBlood = true; }
-            else if (_this == g_fx.prt_boatsplash) { pd = 40.0; }
-            else if (_this == g_fx.prt_splash) { pd = 15.0; }
-            else if (_this == g_fx.prt_wake) { pd = 10.0; }
-            else if (_this == g_fx.prt_watersplash) { pd = 30.0; }
-    
-            float len = RwV3dLength(&dist);
-            if (len <= pd)
-                WaterDrops::FillScreenMoving(1.0f / (len / 2.0f), isBlood);
-        
+        RwV3d dist;
+        RwV3dSub(&dist, position, &WaterDrops::ms_lastPos);
+        float pd = 20.0f;
+        bool isBlood = false;
+        if (_this == g_fx.prt_blood) { pd = 5.0; isBlood = true; }
+        else if (_this == g_fx.prt_boatsplash) { pd = 40.0; }
+        else if (_this == g_fx.prt_splash) { pd = 15.0; }
+        else if (_this == g_fx.prt_wake) { pd = 10.0; }
+        else if (_this == g_fx.prt_watersplash) { pd = 30.0; }
+
+        float len = RwV3dLength(&dist);
+        if (len <= pd)
+            WaterDrops::FillScreenMoving(1.0f / (len / 2.0f), isBlood);
+
         return AddParticle.fun(_this, edx, position, velocity, arg2, prtMult, arg4, brightness, arg6, arg7);
     };
-    auto f2 = static_cast<void*(__fastcall*)(void*, int, RwV3d*, RwV3d*, float, void*, float, float, float, unsigned char)>(AddParticleHook);
+    auto f2 = static_cast<void* (__fastcall*)(void*, int, RwV3d*, RwV3d*, float, void*, float, float, float, unsigned char)>(AddParticleHook);
     //injector::MakeCALL(0x72AD55, f2, true); // "prt_splash"
     AddParticle.fun = injector::MakeCALL(0x7294A6, f2, true).get(); // "prt_watersplash"
     //injector::MakeCALL(0x6DE21A, f2, true); // "prt_splash"
@@ -207,7 +249,7 @@ void Init()
     injector::MakeCALL(0x49FEEE, f2, true); // "prt_boatsplash"
     //injector::MakeCALL(0x49F01F, f2, true); // "prt_blood"
     injector::MakeCALL(0x49EC92, f2, true); // "prt_blood"
-    
+
     //chainsaw
     static injector::hook_back<void(__fastcall*)(void* _this, int edx, int eventID)> CAEPedWeaponAudioEntityAddAudioEvent;
     auto CAEPedWeaponAudioEntityAddAudioEventHook = [](void* _this, int edx, int eventID)
@@ -215,7 +257,7 @@ void Init()
         WaterDrops::FillScreenMoving(1.0f, true);
         return CAEPedWeaponAudioEntityAddAudioEvent.fun(_this, edx, eventID);
     }; CAEPedWeaponAudioEntityAddAudioEvent.fun = injector::MakeCALL(0x61CD73, static_cast<void(__fastcall*)(void*, int, int)>(CAEPedWeaponAudioEntityAddAudioEventHook), true).get();
-    
+
     //harvester
     //static injector::hook_back<void(__cdecl*)(CEntity*)> WorldAdd;
     //auto WorldAddHook = [](CEntity* entity)

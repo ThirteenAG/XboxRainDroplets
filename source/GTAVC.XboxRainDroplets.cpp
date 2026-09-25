@@ -2,6 +2,20 @@
 #define XRD_ENABLE_D3D8
 #include "xrd/xrd.h"
 
+inline void RegisterWidescreenResetCallback(const wchar_t* moduleName)
+{
+    static bool registered = false;
+    if (registered) return;
+
+    const HMODULE module = GetModuleHandleW(moduleName);
+    if (!module) return;
+    using RegisterCallback = BOOL (__cdecl*)(void (__cdecl*)());
+    const auto registerCallback = reinterpret_cast<RegisterCallback>(GetProcAddress(module, "RegisterBeforeResetCallback"));
+    if (!registerCallback) return;
+
+    registered = registerCallback(+[]() { WaterDrops::Reset(); }) != FALSE;
+}
+
 // ---------------------------------------------------------------------------
 // GTA Vice City 1.0. What the drops answer to is the original effect, see the
 // Neo water drops of skygfx: the same functions of the game are hooked and the
@@ -276,6 +290,7 @@ static void RenderEffectsHook()
     // and the effect wants seconds per frame
     timeStepSeconds = CTimer__ms_fTimeStep / 50.0f;
 
+    RegisterWidescreenResetCallback(L"GTAVC.WidescreenFix.asi");
     Xrd::Init(XRD_DEVICE_RENDERER, *ppRwD3DDevice);
     WaterDrops::Process();
 
@@ -286,13 +301,40 @@ static void RenderEffectsHook()
     }
 }
 
+// Run during game initialization, after the original lifecycle call.
+static void InitialiseWaterDrops()
+{
+    auto device = static_cast<IDirect3DDevice8*>(*ppRwD3DDevice);
+    if (!device || FAILED(device->TestCooperativeLevel())) return;
+    RegisterWidescreenResetCallback(L"GTAVC.WidescreenFix.asi");
+    if (!Xrd::Init(XRD_DEVICE_RENDERER, device)) return;
+    WaterDrops::Init();
+    if (!WaterDrops::ms_initialised || !WaterDrops::ms_maskTex) return;
+
+    // Exercise lazy shader/buffer creation during loading. The degenerate quad
+    // covers no pixels; the renderer restores the game's render state.
+    if (SUCCEEDED(device->BeginScene()))
+    {
+        const Xrd::Vertex vertices[4] = {};
+        Xrd::SetMaskTexture(WaterDrops::ms_maskTex);
+        Xrd::SetProjection(Xrd::PROJECTION_SCREEN);
+        Xrd::SetSceneUVScale(0.0f, 1.0f, 0.0f, 1.0f);
+        Xrd::SetSceneSampling(true);
+        Xrd::SetSceneComplement(false);
+        Xrd::Render(vertices, 4, Xrd::PRIMITIVE_TRIANGLES);
+        device->EndScene();
+    }
+}
+
 // the game starts a new game or a new save, the drops of the old one are gone
 #define RESET_HOOK(n) \
     static injector::hook_back<void(*)()> resetCall##n; \
     static void ResetHook##n() { resetCall##n.fun(); WaterDrops::Reset(); }
 
-RESET_HOOK(1)
-RESET_HOOK(2)
+static injector::hook_back<void(*)()> resetCall1;
+static void ResetHook1() { resetCall1.fun(); WaterDrops::Reset(); InitialiseWaterDrops(); }
+static injector::hook_back<void(*)()> resetCall2;
+static void ResetHook2() { resetCall2.fun(); WaterDrops::Reset(); InitialiseWaterDrops(); }
 RESET_HOOK(3)
 RESET_HOOK(4)
 RESET_HOOK(5)
