@@ -47,6 +47,12 @@
 #define IDR_LIGHT8PS11 115
 #define IDR_FADE8PS14 116
 #define IDR_FADE8PS11 117
+#define IDR_DROP9PS 120
+#define IDR_LIGHT9PS 121
+#define IDR_DROP10VS 122
+#define IDR_DROP10PS 123
+#define IDR_DROP12VS 124
+#define IDR_DROP12PS 125
 
 namespace Xrd
 {

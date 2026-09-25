@@ -16,6 +16,7 @@
 
 #include "xrdrender.h"
 #include "xrdd3dcompile.h"
+#include "xrdshaderbytecode.h"
 #include "xrdshaders.h"
 
 #include <d3d9.h>
@@ -119,6 +120,24 @@ namespace Xrd
         bool GathersLight() const override
         {
             return pLightShader && pDropShader;
+        }
+
+        bool Prepare(int maxVertices) override
+        {
+            if (!pDevice) return false;
+            IDirect3DSurface9* target = nullptr;
+            if (pTargetOverride && pTargetOverride->resource)
+            {
+                target = (IDirect3DSurface9*)pTargetOverride->resource;
+                target->AddRef();
+            }
+            else
+                pDevice->GetRenderTarget(0, &target);
+            if (!target) return false;
+            D3DSURFACE_DESC desc{};
+            const bool ready = SUCCEEDED(target->GetDesc(&desc)) && EnsureResources(desc, maxVertices);
+            target->Release();
+            return ready;
         }
 
         Size GetSize() const override
@@ -476,21 +495,19 @@ namespace Xrd
                     // VPOS and the loops of the gather are what this needs, and
                     // those are shader model 3: a device that has only 2 can not
                     // find the light of a drop at all, and draws it as before.
-                    if (auto* blob = CompileShader(Shaders::D3D9Source, "PSMain", "ps_3_0"))
+                    if (auto blob = LoadShaderBytecode(IDR_DROP9PS))
                     {
-                        pDevice->CreatePixelShader((const DWORD*)blob->GetBufferPointer(), &pDropShader);
-                        blob->Release();
+                        pDevice->CreatePixelShader((const DWORD*)blob.GetBufferPointer(), &pDropShader);
                     }
 
-                    if (auto* blob = CompileShader(Shaders::D3D9LightSource, "PSMain", "ps_3_0"))
+                    if (auto blob = LoadShaderBytecode(IDR_LIGHT9PS))
                     {
-                        pDevice->CreatePixelShader((const DWORD*)blob->GetBufferPointer(), &pLightShader);
-                        blob->Release();
+                        pDevice->CreatePixelShader((const DWORD*)blob.GetBufferPointer(), &pLightShader);
                     }
                 }
             }
             static constexpr int MaxVertices = 64000;
-            static constexpr int MaxIndices = MaxVertices * 6;
+            static constexpr int MaxIndices = (MaxVertices / 4) * 6;
 
             if (numVertices > MaxVertices)
                 return false;
@@ -511,7 +528,7 @@ namespace Xrd
                 if (SUCCEEDED(pIndexBuffer->Lock(0, 0, (void**)&pData, 0)))
                 {
                     uint16_t* pIndicesData = (uint16_t*)pData;
-                    for (int i = 0; i < MaxVertices; i++)
+                    for (int i = 0; i < MaxVertices / 4; i++)
                     {
                         pIndicesData[i * 6 + 0] = (uint16_t)(i * 4 + 0);
                         pIndicesData[i * 6 + 1] = (uint16_t)(i * 4 + 1);

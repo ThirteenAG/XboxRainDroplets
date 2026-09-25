@@ -360,6 +360,9 @@ namespace XrdTest
             bool active = false;
             bool finished = false;
             bool lensLight = false;     // the world is dark and one light is behind the drop of the check
+            bool startupCheck = false;
+            bool startupFailed = false;
+            std::chrono::steady_clock::time_point frameStart{};
             bool noRefractions = false;
             float dropX = 0.5f;         // where across the frame the drop of the check is placed
             float dropY = 0.25f;        // and where down it, which is what the checks are about
@@ -418,6 +421,8 @@ namespace XrdTest
                 {
                     run.active = true;
                 }
+                else if (wcscmp(argv[i], L"--startup-check") == 0)
+                    run.startupCheck = true;
                 else if (wcscmp(argv[i], L"--frames") == 0 && i + 1 < argc)
                 {
                     run.frameCount = _wtoi(argv[++i]);
@@ -487,6 +492,18 @@ namespace XrdTest
 
             if (!run.active)
                 return;
+
+            run.frameStart = std::chrono::steady_clock::now();
+            if (run.startupCheck && !IsPictureFrame(frameIndex))
+            {
+                // Preparation must happen without drawing a drop, both on a
+                // fresh device and after resources have been invalidated.
+                if (frameIndex == 12) WaterDrops::Reset();
+                WaterDrops::Clear();
+                WaterDrops::bForceRain = false;
+                WaterDrops::ms_rainIntensity = 0.0f;
+                return;
+            }
 
             // The trail view is a handful of drops and a camera that is dragged
             // round in a circle with the mouse, so that what a drop leaves behind
@@ -729,6 +746,24 @@ namespace XrdTest
             if (!run.active)
                 return false;
 
+            if (run.startupCheck)
+            {
+                if (frameIndex == 5 || frameIndex == 20)
+                {
+                    const bool ready = WaterDrops::ms_renderPrepared && WaterDrops::ms_numDrops == 0;
+                    run.startupFailed |= !ready;
+                    printf("[%s] resources prepared on a dry frame%s\n", ready ? "PASS" : "FAIL",
+                        frameIndex == 20 ? " after reset" : "");
+                }
+                if (frameIndex == 0 || frameIndex == run.frameCount - PICTURE_FRAMES + 1)
+                {
+                    const auto ms = std::chrono::duration<double, std::milli>(
+                        std::chrono::steady_clock::now() - run.frameStart).count();
+                    printf("[%s] %s processing through Present: %.3f ms\n", run.app,
+                        frameIndex == 0 ? "dry initialization" : "first droplet", ms);
+                }
+            }
+
             if (IsPictureFrame(frameIndex))
             {
                 Image& image = (frameIndex == run.frameCount - PICTURE_FRAMES) ? run.empty
@@ -769,6 +804,12 @@ namespace XrdTest
 
             if (!run.active)
                 return EXIT_PASSED;
+
+            if (run.startupFailed)
+            {
+                report("FAILED: first-drop resources were not prepared during dry frames");
+                return EXIT_FAILED;
+            }
 
             if (!run.reason.empty())
             {

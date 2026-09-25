@@ -15,6 +15,7 @@
 #include "xrdrender.h"
 #include "xrdshaders.h"
 #include "xrdd3dcompile.h"
+#include "xrdshaderbytecode.h"
 
 #include <d3d11.h>
 
@@ -277,6 +278,24 @@ namespace Xrd
         void SetSceneSampling(bool enabled) override
         {
             sceneSampling = enabled;
+        }
+
+        bool Prepare(int maxVertices) override
+        {
+            (void)maxVertices;
+            if (!pDevice || !EnsureDeviceObjects()) return false;
+            ID3D11RenderTargetView* target = nullptr;
+            ID3D11Resource* resource = nullptr;
+            bool ready = GetTarget(&target, &resource) && resource;
+            if (ready)
+            {
+                D3D11_TEXTURE2D_DESC desc{};
+                ((ID3D11Texture2D*)resource)->GetDesc(&desc);
+                ready = EnsureSceneTexture(desc);
+            }
+            if (resource) resource->Release();
+            if (target) target->Release();
+            return ready;
         }
 
         void Render(const Vertex* pVertices, int numVertices, PrimitiveType primitive) override
@@ -557,20 +576,13 @@ namespace Xrd
             if (!pVertexBuffer)
             {
 
-                ID3DBlob* pVertexBlob = CompileShader(Shaders::D3D11Source, "VSMain", "vs_4_0");                ID3DBlob* pPixelBlob = CompileShader(Shaders::D3D11Source, "PSMain", "ps_4_0");
+                auto pVertexBlob = LoadShaderBytecode(IDR_DROP10VS);
+                auto pPixelBlob = LoadShaderBytecode(IDR_DROP10PS);
 
                 if (!pVertexBlob || !pPixelBlob)
-                {
-                    if (pVertexBlob)
-                        pVertexBlob->Release();
-
-                    if (pPixelBlob)
-                        pPixelBlob->Release();
-
                     return false;
-                }
 
-                const bool bVertexOk = SUCCEEDED(pDevice->CreateVertexShader(pVertexBlob->GetBufferPointer(), pVertexBlob->GetBufferSize(), nullptr, &pVertexShader));
+                const bool bVertexOk = SUCCEEDED(pDevice->CreateVertexShader(pVertexBlob.GetBufferPointer(), pVertexBlob.GetBufferSize(), nullptr, &pVertexShader));
 
                 D3D11_INPUT_ELEMENT_DESC layout[] =
                 {
@@ -580,11 +592,9 @@ namespace Xrd
                     { "TEXCOORD", 1, DXGI_FORMAT_R32G32_FLOAT,       0, offsetof(Vertex, u1),    D3D11_INPUT_PER_VERTEX_DATA, 0 },
                 };
 
-                const bool bLayoutOk = SUCCEEDED(pDevice->CreateInputLayout(layout, ARRAYSIZE(layout), pVertexBlob->GetBufferPointer(), pVertexBlob->GetBufferSize(), &pInputLayout));
-                const bool bPixelOk = SUCCEEDED(pDevice->CreatePixelShader(pPixelBlob->GetBufferPointer(), pPixelBlob->GetBufferSize(), nullptr, &pPixelShader));
+                const bool bLayoutOk = SUCCEEDED(pDevice->CreateInputLayout(layout, ARRAYSIZE(layout), pVertexBlob.GetBufferPointer(), pVertexBlob.GetBufferSize(), &pInputLayout));
+                const bool bPixelOk = SUCCEEDED(pDevice->CreatePixelShader(pPixelBlob.GetBufferPointer(), pPixelBlob.GetBufferSize(), nullptr, &pPixelShader));
 
-                pVertexBlob->Release();
-                pPixelBlob->Release();
 
                 if (!bVertexOk || !bLayoutOk || !bPixelOk)
                     return false;
@@ -604,10 +614,10 @@ namespace Xrd
 
                 vertexBufferSize = bufferDesc.ByteWidth;
 
-                constexpr int MaxIndices = MaxVertices * 6;
+                constexpr int MaxIndices = (MaxVertices / 4) * 6;
 
                 std::vector<uint16_t> indices(MaxIndices);
-                for (int i = 0; i < MaxVertices; i++)
+                for (int i = 0; i < MaxVertices / 4; i++)
                 {
                     indices[i * 6 + 0] = (uint16_t)(i * 4 + 0);
                     indices[i * 6 + 1] = (uint16_t)(i * 4 + 1);

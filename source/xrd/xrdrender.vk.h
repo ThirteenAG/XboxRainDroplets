@@ -409,6 +409,16 @@ namespace Xrd
             sceneSampling = enabled;
         }
 
+        bool Prepare(int maxVertices) override
+        {
+            if (!active || !target.image || !queue || !target.width || !target.height || !frameReadable)
+                return false;
+            const VkDeviceSize bytes = (VkDeviceSize)maxVertices * sizeof(Vertex);
+            return EnsureDeviceObjects() &&
+                (vertexBufferSize >= bytes || CreateVertexBuffer(bytes)) &&
+                EnsureSceneImage() && EnsureTargetViews() && EnsureIndexBuffer(maxVertices);
+        }
+
         void Render(const Vertex* pVertices, int numVertices, PrimitiveType primitive) override
         {
             if (!active || !pVertices || numVertices <= 0 || !target.image || !queue)

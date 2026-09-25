@@ -320,8 +320,8 @@ public:
     static inline bool bOwnFrame = true;
 
     // The renderers that draw the drops with a shader that gathers the light of
-    // the frame around them. Direct3D 9 and above build that shader at runtime,
-    // from the sources in xrdshaders.h, so they are known here; Direct3D 8 builds
+    // the frame around them. Direct3D 9 and above load embedded shader bytecode,
+    // built from xrdshaders.h, so they are known here; Direct3D 8 builds
     // one of its own, out of a device that may not be able to run it at all, and
     // its backend is what answers for it (see xrdrender.d3d8.h).
     static inline bool GatheredLight()
@@ -964,6 +964,8 @@ public:
         ms_fbHeight = 0;
         ms_initialised = false;
         ms_generation = 0;
+        ms_renderPrepared = false;
+        ms_prepareRetry = 0;
         ms_vertices.clear();
 
         // the mask belongs to the device that just went away, the next Init
@@ -1018,6 +1020,8 @@ public:
     static inline float ms_UVYOffset = 0.0f;
     static inline float ms_UVYScale = 1.0f;
     static inline bool ms_initialised = false;
+    static inline bool ms_renderPrepared = false;
+    static inline ULONGLONG ms_prepareRetry = 0;
     static inline uint32_t ms_generation = 0;
     static inline bool ms_atlasUsed = true;
     static inline bool ms_iniRead = false;
@@ -1259,6 +1263,21 @@ public:
         // size of zero a modulo or a division by it is a crash. The next frame
         // tries again.
         ms_initialised = ms_fbWidth > 0 && ms_fbHeight > 0;
+        PrepareRenderer();
+    }
+
+    static inline void PrepareRenderer()
+    {
+        if (!ms_initialised || !ms_maskTex || ms_renderPrepared)
+            return;
+        const auto now = GetTickCount64();
+        if (now < ms_prepareRetry)
+            return;
+        Xrd::SetMaskTexture(ms_maskTex);
+        ms_renderPrepared = Xrd::Prepare(MaxQuads * 4);
+        // A temporarily unavailable target must not trigger expensive retries
+        // every frame. Successful preparation has no recurring allocation cost.
+        ms_prepareRetry = ms_renderPrepared ? 0 : now + 1000;
     }
 
     // The renderer of the game can be switched while it runs, and the backend is
@@ -1272,6 +1291,8 @@ public:
     {
         if (ms_initialised && ms_generation != Xrd::GetBackendGeneration())
         {
+            ms_renderPrepared = false;
+            ms_prepareRetry = 0;
             ms_maskTex = nullptr;
             ms_initialised = false;
             ms_fbWidth = 0;
@@ -1280,6 +1301,8 @@ public:
 
         if (!ms_initialised)
             Init();
+        else
+            PrepareRenderer();
     }
 
     static inline void Shutdown()

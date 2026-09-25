@@ -123,6 +123,27 @@ namespace Xrd
 
         bool UsesD3D9() const { return usingD3D9; }
 
+        bool Prepare(int maxVertices) override
+        {
+            if (!pDevice) return false;
+            usingD3D9 = RenderD3D9(nullptr, maxVertices, PRIMITIVE_TRIANGLES);
+            if (usingD3D9) return true;
+            IDirect3DSurface8* target = nullptr;
+            if (pTargetOverride && pTargetOverride->resource)
+            {
+                target = (IDirect3DSurface8*)pTargetOverride->resource;
+                target->AddRef();
+            }
+            else
+                pDevice->GetRenderTarget(&target);
+            if (!target) return false;
+            D3DSURFACE_DESC desc{};
+            const bool ready = SUCCEEDED(target->GetDesc(&desc)) && EnsureResources(desc, maxVertices) &&
+                (!bShaderDrops || EnsureField(desc));
+            target->Release();
+            return ready;
+        }
+
         bool IsActive() const override
         {
             return pDevice != nullptr;
@@ -682,7 +703,7 @@ namespace Xrd
         bool EnsureResources(const D3DSURFACE_DESC& desc, int numVertices)
         {
             static constexpr int MaxVertices = 64000;
-            static constexpr int MaxIndices = MaxVertices * 6;
+            static constexpr int MaxIndices = (MaxVertices / 4) * 6;
 
             if (numVertices > MaxVertices)
                 return false;
@@ -710,7 +731,7 @@ namespace Xrd
                 if (SUCCEEDED(pIndexBuffer->Lock(0, 0, (BYTE**)&pData, 0)))
                 {
                     uint16_t* pIndicesData = (uint16_t*)pData;
-                    for (int i = 0; i < MaxVertices; i++)
+                    for (int i = 0; i < MaxVertices / 4; i++)
                     {
                         pIndicesData[i * 6 + 0] = (uint16_t)(i * 4 + 0);
                         pIndicesData[i * 6 + 1] = (uint16_t)(i * 4 + 1);
@@ -1498,11 +1519,13 @@ namespace Xrd
             pBackend9->SetSceneUVScale(uvOffsetX, uvScaleX, uvOffsetY, uvScaleY);
             pBackend9->SetSceneComplement(sceneComplement);
             pBackend9->SetSceneSampling(sceneSampling);
-            pBackend9->Render(vertices, count, primitive);
+            const bool ready = vertices ? true : pBackend9->Prepare(count);
+            if (vertices)
+                pBackend9->Render(vertices, count, primitive);
             pBackend9->SetTarget(nullptr);
             if (target9.resource)
                 ((IUnknown*)target9.resource)->Release();
-            return true;
+            return ready;
         }
 
         IDirect3DDevice8* pDevice = nullptr;

@@ -309,21 +309,7 @@ static void InitialiseWaterDrops()
     RegisterWidescreenResetCallback(L"GTAVC.WidescreenFix.asi");
     if (!Xrd::Init(XRD_DEVICE_RENDERER, device)) return;
     WaterDrops::Init();
-    if (!WaterDrops::ms_initialised || !WaterDrops::ms_maskTex) return;
 
-    // Exercise lazy shader/buffer creation during loading. The degenerate quad
-    // covers no pixels; the renderer restores the game's render state.
-    if (SUCCEEDED(device->BeginScene()))
-    {
-        const Xrd::Vertex vertices[4] = {};
-        Xrd::SetMaskTexture(WaterDrops::ms_maskTex);
-        Xrd::SetProjection(Xrd::PROJECTION_SCREEN);
-        Xrd::SetSceneUVScale(0.0f, 1.0f, 0.0f, 1.0f);
-        Xrd::SetSceneSampling(true);
-        Xrd::SetSceneComplement(false);
-        Xrd::Render(vertices, 4, Xrd::PRIMITIVE_TRIANGLES);
-        device->EndScene();
-    }
 }
 
 // the game starts a new game or a new save, the drops of the old one are gone
