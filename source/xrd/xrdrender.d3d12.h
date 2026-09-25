@@ -18,6 +18,7 @@
 #include "xrdrender.h"
 #include "xrdshaders.h"
 #include "xrdd3dcompile.h"
+#include "xrdshaderbytecode.h"
 
 #include <d3d12.h>
 #include <dxgi1_4.h>
@@ -286,6 +287,18 @@ namespace Xrd
             sceneSampling = enabled;
         }
 
+        bool Prepare(int maxVertices) override
+        {
+            if (!IsActive()) return false;
+            auto* target = GetTargetResource();
+            if (!target) return false;
+            const auto desc = target->GetDesc();
+            const bool ready = EnsureDeviceObjects(desc.Format, PRIMITIVE_TRIANGLES) &&
+                EnsureSceneTexture(desc) && EnsureVertexBuffer(maxVertices);
+            target->Release();
+            return ready;
+        }
+
         void Render(const Vertex* pVertices, int numVertices, PrimitiveType primitive) override
         {
             if (!IsActive() || !pVertices || numVertices <= 0)
@@ -362,7 +375,7 @@ namespace Xrd
     private:
         static constexpr int FramesInFlight = 2;
         static constexpr int MaxVertices = 64000;
-        static constexpr int MaxIndices = MaxVertices * 6;
+        static constexpr int MaxIndices = (MaxVertices / 4) * 6;
         static constexpr int DescriptorsPerFrame = 4; // constant buffer and three textures
 
         struct Constants
@@ -563,19 +576,11 @@ namespace Xrd
 
             ReleasePipeline();
 
-            ID3DBlob* pVertexBlob = CompileShader(Shaders::D3D11Source, "VSMain", "vs_5_0");
-            ID3DBlob* pPixelBlob = CompileShader(Shaders::D3D11Source, "PSMain", "ps_5_0");
+            auto pVertexBlob = LoadShaderBytecode(IDR_DROP12VS);
+            auto pPixelBlob = LoadShaderBytecode(IDR_DROP12PS);
 
             if (!pVertexBlob || !pPixelBlob)
-            {
-                if (pVertexBlob)
-                    pVertexBlob->Release();
-
-                if (pPixelBlob)
-                    pPixelBlob->Release();
-
                 return false;
-            }
 
             D3D12_ROOT_PARAMETER parameters[2] = {};
 
@@ -639,8 +644,6 @@ namespace Xrd
 
             if (!bResult)
             {
-                pVertexBlob->Release();
-                pPixelBlob->Release();
                 return false;
             }
 
@@ -680,8 +683,8 @@ namespace Xrd
 
             D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineDesc{};
             pipelineDesc.pRootSignature = pRootSignature;
-            pipelineDesc.VS = { pVertexBlob->GetBufferPointer(), pVertexBlob->GetBufferSize() };
-            pipelineDesc.PS = { pPixelBlob->GetBufferPointer(), pPixelBlob->GetBufferSize() };
+            pipelineDesc.VS = { pVertexBlob.GetBufferPointer(), pVertexBlob.GetBufferSize() };
+            pipelineDesc.PS = { pPixelBlob.GetBufferPointer(), pPixelBlob.GetBufferSize() };
             pipelineDesc.BlendState = blendDesc;
             pipelineDesc.SampleMask = UINT_MAX;
             pipelineDesc.RasterizerState = rasterizerDesc;
@@ -695,8 +698,6 @@ namespace Xrd
 
             bResult = SUCCEEDED(pDevice->CreateGraphicsPipelineState(&pipelineDesc, __uuidof(ID3D12PipelineState), (void**)&pPipelineState));
 
-            pVertexBlob->Release();
-            pPixelBlob->Release();
 
             if (bResult)
                 pipelineFormat = targetFormat;
@@ -794,7 +795,7 @@ namespace Xrd
             pIndexBuffer = pIndexUpload;
 
             std::vector<uint16_t> indices(MaxIndices);
-            for (int i = 0; i < MaxVertices; i++)
+            for (int i = 0; i < MaxVertices / 4; i++)
             {
                 indices[i * 6 + 0] = (uint16_t)(i * 4 + 0);
                 indices[i * 6 + 1] = (uint16_t)(i * 4 + 1);

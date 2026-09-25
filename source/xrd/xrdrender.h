@@ -39,6 +39,11 @@ namespace Xrd
         // resource that depends on the back buffer size has to go.
         virtual void Reset() = 0;
 
+        // Allocate the droplet pipeline and buffers on the render thread as soon
+        // as a valid target exists, including dry frames. Never draw or copy the
+        // game frame here. maxVertices includes the effect's trails.
+        virtual bool Prepare(int maxVertices) = 0;
+
         virtual bool IsActive() const = 0;
         virtual Size GetSize() const = 0;
 
@@ -254,6 +259,11 @@ namespace Xrd
     inline bool IsActive()
     {
         return pBackend && pBackend->IsActive();
+    }
+
+    inline bool Prepare(int maxVertices)
+    {
+        return pBackend && pBackend->Prepare(maxVertices);
     }
 
     inline RendererId GetRenderer()

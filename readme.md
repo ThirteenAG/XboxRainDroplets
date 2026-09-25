@@ -260,6 +260,10 @@ The ini of a plugin is read at startup and again whenever the file is written to
 
 Run `premake5.bat` to generate the Visual Studio solutions in `build`, then build them.
 
+The build compiles the Direct3D droplet shaders from `source/xrd/xrdshaders.h` and embeds their bytecode. Games do not compile these shaders when rain starts. All renderers prepare their droplet resources during effect initialization, including dry frames; resource resets repeat that preparation.
+
+Renderer tests accept `--headless --frames 45 --startup-check --lens-light`. This checks preparation before any drops appear and after a reset, then verifies the first visible drops. Use `--expect-d3d8` or `--expect-d3d9` with the D3D8 test to check native or d3d8to9 rendering.
+
 To deploy to your game automatically after each build, create a `.env` file in the repository root pointing the key of each game at its folder, then run `premake5.bat` again, for example:
 
     GTA_SAN_ANDREAS_DIR=C:\Program Files (x86)\Rockstar Games\GTA San Andreas

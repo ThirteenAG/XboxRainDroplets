@@ -271,6 +271,14 @@ namespace Xrd
             sceneSampling = enabled;
         }
 
+        bool Prepare(int maxVertices) override
+        {
+            if (!IsActive() || !EnsureDeviceObjects() || !EnsureScene()) return false;
+            staging.reserve(maxVertices);
+            indices.reserve((maxVertices / 4) * 6);
+            return EnsureBuffers(maxVertices, (maxVertices / 4) * 6);
+        }
+
         void Render(const Vertex* pVertices, int numVertices, PrimitiveType primitive) override
         {
             if (!IsActive() || !pVertices || numVertices <= 0)

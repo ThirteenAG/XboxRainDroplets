@@ -70,6 +70,8 @@ end
 -- see lightPS8.hlsl and D3D8Backend::EnsureShaders.
 function BuildD3D8Shaders()
    prebuildcommands {
+      'powershell -NoProfile -ExecutionPolicy Bypass -File "' .. path.join(_SCRIPT_DIR, 'tools/CompileDropletShaders.ps1') .. '"',
+      'if errorlevel 1 exit /b 1',
       "for /R \"../source/resources/shaders/ps8/\" %%f in (*.hlsl) do (\"../tools/x86/fxc.exe\" /LD /T ps_1_4 /E main /nologo /Fo \"../source/resources/%%~nf_14.cso\" %%f)",
       "for /R \"../source/resources/shaders/ps8/\" %%f in (*.hlsl) do (\"../tools/x86/fxc.exe\" /LD /T ps_1_1 /D XRD_LIGHT_RAMP=0 /E main /nologo /Fo \"../source/resources/%%~nf_11.cso\" %%f)",
    }

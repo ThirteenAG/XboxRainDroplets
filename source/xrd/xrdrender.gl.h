@@ -504,6 +504,15 @@ namespace Xrd
             sceneSampling = enabled;
         }
 
+        bool Prepare(int maxVertices) override
+        {
+            if (!active || !EnsureDeviceObjects()) return false;
+            const auto size = GetSize();
+            if (size.width <= 0 || size.height <= 0) return false;
+            EnsureIndexArray(maxVertices);
+            return EnsureSceneTexture(size);
+        }
+
         void Render(const Vertex* pVertices, int numVertices, PrimitiveType primitive) override
         {
             if (!active || !pVertices || numVertices <= 0)
@@ -936,7 +945,8 @@ namespace Xrd
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 0, 0, (GLsizei)size.width, (GLsizei)size.height, 0);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)size.width, (GLsizei)size.height,
+                0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
             glBindTexture(GL_TEXTURE_2D, (GLuint)savedTexture);
             GLFunctions::glActiveTexture((GLenum)savedActiveTexture);
