@@ -153,7 +153,8 @@ public:
 
     static inline void Reset()
     {
-        auto SafeRelease = [](auto ppT) {
+        auto SafeRelease = [](auto ppT)
+        {
             if (*ppT)
             {
                 (*ppT)->Release();
@@ -173,7 +174,8 @@ public:
     float X, Y, Z;
 };
 
-class Matrix {
+class Matrix
+{
 public:
     float M[4][4];
 
@@ -195,7 +197,8 @@ public:
     };
 };
 
-class BaseObject {
+class BaseObject
+{
 public:
     Vector GetLocation()
     {
@@ -208,7 +211,8 @@ public:
 };
 
 uintptr_t dw573200 = 0;
-class CharacterObject : public BaseObject {
+class CharacterObject : public BaseObject
+{
 public:
     char IsCharacterInInterior()
     {
@@ -222,7 +226,8 @@ CharacterObject* GetMainCharacter()
     return *(CharacterObject**)(dw825A78);
 }
 
-class Camera : public BaseObject {
+class Camera : public BaseObject
+{
 };
 
 injector::hook_back<int(__cdecl*)(int a1)> hb_PlaySharkNIS;
@@ -364,10 +369,10 @@ void Init()
     WaterDrops::ReadIniSettings();
 
     RegisterFountains();
-    
+
     dw825A78 = *hook::get_pattern<uintptr_t>("A1 ? ? ? ? 85 C0 74 50", 1);
     dw573200 = (uintptr_t)hook::get_pattern("8B 81 ? ? ? ? 85 C0 74 14 8B 80 ? ? ? ? 85 C0 74 0A 50 E8 ? ? ? ? 83 C4 04 C3 32 C0", 0);
-    
+
     auto pattern = hook::pattern("C6 87 ? ? ? ? ? 8B 08 50 FF 51 44 85 C0");
     static LPDIRECT3DDEVICE9* pDev = nullptr;
     struct PresentHook
@@ -405,10 +410,10 @@ void Init()
                     else
                         return nMenuCheck();
                 };
-                
+
                 if (!WaterDrops::ms_initialised || !InMenu())
                     Xrd::Init(XRD_DEVICE_RENDERER, *pDev);
-                    WaterDrops::Process();
+                WaterDrops::Process();
                 WaterDrops::Render();
 
                 if (InMenu())
@@ -420,17 +425,12 @@ void Init()
         }
     }; injector::MakeInline<DrawHook>(pattern.get_first(0)); //0x651383
 
-    pattern = hook::pattern("8B 46 10 8B 08 8D 56 14 52 50 FF 51 40");
-    struct ResetHook
+    pattern = hook::pattern("50 FF 51 ? 3D ? ? ? ? 74 ? 3D");
+    static auto ResetHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext&)
     {
-        void operator()(injector::reg_pack& regs)
-        {
-            regs.eax = *(uint32_t*)(regs.esi + 0x10);
-            regs.ecx = *(uint32_t*)(regs.eax);
-            WaterDrops::Reset();
-            MenuBlur::Reset();
-        }
-    }; injector::MakeInline<ResetHook>(pattern.get_first(0));
+        WaterDrops::Reset();
+        MenuBlur::Reset();
+    });
 
     //Lost Device
     pattern = hook::pattern("75 26 E8 ? ? ? ? 8B 86 ? ? ? ?");
@@ -468,7 +468,7 @@ void Init()
 
     pattern = hook::pattern("E8 ? ? ? ? 83 C4 04 50 E8 ? ? ? ? 83 C4 10 E8 ? ? ? ? C6 46 08 00 89 7E 04");
     hb_PlaySharkNIS.fun = injector::MakeCALL(pattern.get_first(0), PlaySharkNIS, true).get();
-    
+
     pattern = hook::pattern("E8 ? ? ? ? 83 C4 18 5F 5E 83 C4 7C C3");
     hb_CarSoundPlayerRequestImpactLayer.fun = injector::MakeCALL(pattern.get_first(0), CarSoundPlayerRequestImpactLayer, true).get();
     pattern = hook::pattern("52 E8 ? ? ? ? 83 C4 18 5F 5B");
@@ -508,7 +508,7 @@ void Init()
         {
             regs.eax += 0x24;
             regs.ecx = regs.eax;
-            
+
             auto movement = *(uint32_t*)(regs.esi - 0x48 + 0x67A + 4);
             static float amount = 0.0f;
             if (movement)
