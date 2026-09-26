@@ -185,6 +185,8 @@ project "Mafia.XboxRainDroplets"
    setpaths("MAFIA_DIR", "GameV12.exe")
 project "Scarface.XboxRainDroplets"
    setpaths("SCARFACE_DIR", "Scarface.exe")
+project "UltimateSpiderMan.XboxRainDroplets"
+   setpaths("ULTIMATE_SPIDER_MAN_DIR", "USM.exe", "scripts/")
 project "Manhunt.XboxRainDroplets"
    files { "source/xrd/xrdrender.d3d9.cpp" }
    setpaths("MANHUNT_DIR", "manhunt.exe", "scripts/")

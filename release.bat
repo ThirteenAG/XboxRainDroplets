@@ -23,6 +23,7 @@ NFSCarbon.XboxRainDroplets
 NFSMostWanted.XboxRainDroplets
 NFSUnderground2.XboxRainDroplets
 Scarface.XboxRainDroplets
+UltimateSpiderMan.XboxRainDroplets
 Manhunt.XboxRainDroplets
 MaxPayne.XboxRainDroplets
 MaxPayne2.XboxRainDroplets
