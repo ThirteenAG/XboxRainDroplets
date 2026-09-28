@@ -177,6 +177,9 @@ namespace Xrd
         inline void(APIENTRY* glDeleteBuffers)(GLsizei n, const GLuint* buffers) = nullptr;
         inline void(APIENTRY* glBindBuffer)(GLenum target, GLuint buffer) = nullptr;
         inline void(APIENTRY* glBufferData)(GLenum target, ptrdiff_t size, const void* data, GLenum usage) = nullptr;
+        // the chain of the copy of the frame, which a context of version 3 and
+        // newer (or one with the framebuffer object extension) makes itself
+        inline void(APIENTRY* glGenerateMipmap)(GLenum target) = nullptr;
 
         inline void LoadAll()
         {
@@ -222,6 +225,10 @@ namespace Xrd
             glDeleteBuffers = (decltype(glDeleteBuffers))Load("glDeleteBuffers");
             glBindBuffer = (decltype(glBindBuffer))Load("glBindBuffer");
             glBufferData = (decltype(glBufferData))Load("glBufferData");
+            glGenerateMipmap = (decltype(glGenerateMipmap))Load("glGenerateMipmap");
+
+            if (!glGenerateMipmap)
+                glGenerateMipmap = (decltype(glGenerateMipmap))Load("glGenerateMipmapEXT");
         }
 
         inline bool Ready()
@@ -639,6 +646,11 @@ namespace Xrd
             glBindTexture(GL_TEXTURE_2D, (GLuint)(uintptr_t)sceneTexture);
             glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, viewport[0], viewport[1], (GLsizei)size.width, (GLsizei)size.height);
 
+            // the chain of the copy, which is what a drop shows a window of the
+            // frame far larger than itself smoothly with, see EnsureSceneTexture
+            if (sceneMips)
+                GLFunctions::glGenerateMipmap(GL_TEXTURE_2D);
+
             glDisable(GL_DEPTH_TEST);
             glDisable(GL_SCISSOR_TEST);
             glDisable(GL_CULL_FACE);
@@ -955,8 +967,17 @@ namespace Xrd
             GLFunctions::glActiveTexture(GL_TEXTURE0);
             glGetIntegerv(GL_TEXTURE_BINDING_2D, &savedTexture);
 
+            // The copy carries a chain of mip levels where the context can make
+            // one. A drop shows a window of the frame far larger than itself, and
+            // read from the top level alone every pixel of the drop is one pixel
+            // of the frame picked out of hundreds, which is what the noise that
+            // crawled over the drops was: the sampler reads the level whose texels
+            // are the size of the pixels of the drop instead, which is the window
+            // averaged. The chain is made after every copy of the frame, see Render.
+            sceneMips = GLFunctions::glGenerateMipmap != nullptr;
+
             glBindTexture(GL_TEXTURE_2D, id);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, sceneMips ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -1072,6 +1093,8 @@ namespace Xrd
         void* sceneTexture = nullptr;
         int32_t sceneWidth = 0;
         int32_t sceneHeight = 0;
+        // whether the copy of the frame carries a mip chain, see EnsureSceneTexture
+        bool sceneMips = false;
 
         Matrix projectionMatrix = Matrix::Identity();
         float uvOffsetX = 0.0f;

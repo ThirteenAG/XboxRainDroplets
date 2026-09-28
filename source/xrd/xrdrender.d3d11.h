@@ -354,10 +354,18 @@ namespace Xrd
             pContext->PSSetShaderResources(0, 2, pNullViews);
             pContext->VSSetShaderResources(0, 1, pNullViews);
 
+            // Only the top level of the copy is the frame: a copy of the whole
+            // resource wants the same number of levels on both sides, and the copy
+            // of the frame has a chain of them below its top, see EnsureSceneTexture.
             if (desc.SampleDesc.Count > 1)
                 pContext->ResolveSubresource(pSceneTexture, 0, pResource, 0, desc.Format);
             else
-                pContext->CopyResource(pSceneTexture, pResource);
+                pContext->CopySubresourceRegion(pSceneTexture, 0, 0, 0, 0, pResource, 0, nullptr);
+
+            // the chain of the copy, which is what a drop shows a window of the
+            // frame far larger than itself smoothly with
+            if (sceneMips)
+                pContext->GenerateMips(pSceneTextureView);
 
             pResource->Release();
 
@@ -765,7 +773,33 @@ namespace Xrd
             desc.SampleDesc.Count = 1;
             desc.SampleDesc.Quality = 0;
 
-            if (FAILED(pDevice->CreateTexture2D(&desc, nullptr, &pSceneTexture)))
+            // The copy carries a chain of mip levels. A drop shows a window of the
+            // frame far larger than itself, and read from the top level alone every
+            // pixel of the drop is one pixel of the frame picked out of hundreds,
+            // which is what the noise that crawled over the drops was: the sampler
+            // reads the level whose texels are the size of the pixels of the drop
+            // instead, which is the window averaged. The device generates the chain
+            // after every copy, for the formats it can; a format it cannot generate
+            // one for gets a copy of one level, as before.
+            UINT support = 0;
+            sceneMips = SUCCEEDED(pDevice->CheckFormatSupport(viewFormat, &support)) &&
+                (support & D3D11_FORMAT_SUPPORT_MIP_AUTOGEN) && (support & D3D11_FORMAT_SUPPORT_RENDER_TARGET);
+
+            if (sceneMips)
+            {
+                D3D11_TEXTURE2D_DESC chain = desc;
+                chain.MipLevels = 0;
+                chain.BindFlags |= D3D11_BIND_RENDER_TARGET;
+                chain.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
+
+                if (FAILED(pDevice->CreateTexture2D(&chain, nullptr, &pSceneTexture)))
+                {
+                    pSceneTexture = nullptr;
+                    sceneMips = false;
+                }
+            }
+
+            if (!pSceneTexture && FAILED(pDevice->CreateTexture2D(&desc, nullptr, &pSceneTexture)))
             {
                 pSceneTexture = nullptr;
                 return false;
@@ -775,7 +809,7 @@ namespace Xrd
             viewDesc.Format = viewFormat;
             viewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
             viewDesc.Texture2D.MostDetailedMip = 0;
-            viewDesc.Texture2D.MipLevels = 1;
+            viewDesc.Texture2D.MipLevels = sceneMips ? (UINT)-1 : 1;
 
             if (FAILED(pDevice->CreateShaderResourceView(pSceneTexture, &viewDesc, &pSceneTextureView)))
             {
@@ -806,6 +840,7 @@ namespace Xrd
             sceneFormat = DXGI_FORMAT_UNKNOWN;
             sceneWidth = 0;
             sceneHeight = 0;
+            sceneMips = false;
         }
 
         void ReleaseBackBuffer()
@@ -996,6 +1031,8 @@ namespace Xrd
         DXGI_FORMAT sceneFormat = DXGI_FORMAT_UNKNOWN;
         UINT sceneWidth = 0;
         UINT sceneHeight = 0;
+        // whether the copy of the frame carries a mip chain, see EnsureSceneTexture
+        bool sceneMips = false;
 
         D3D11_VIEWPORT viewport{};
 

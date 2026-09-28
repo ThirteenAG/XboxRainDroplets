@@ -52,6 +52,10 @@
 #define IDR_DROP10PS 123
 #define IDR_DROP12VS 124
 #define IDR_DROP12PS 125
+// the mip chain of the copy of the frame on Direct3D 12, which draws its own,
+// see D3D12Backend::GenerateSceneMips
+#define IDR_MIP12VS 126
+#define IDR_MIP12PS 127
 
 namespace Xrd
 {
