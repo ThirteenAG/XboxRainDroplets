@@ -204,6 +204,10 @@ public:
     // quickly has a short tail and one whose water stays has a long one.
     float traceTtl = 0.0f;
 
+    // The water a bead left behind it, see NewTrace. It is drawn like any drop
+    // but it is not a lens: a film of water on the glass gathers no light.
+    bool isTrace = false;
+
     bool active;
     bool fades;
     void Fade();
@@ -238,11 +242,14 @@ public:
     static inline auto ms_dropsMoving = std::vector<WaterDropMoving>(MaxDropsMoving);
     static inline int32_t ms_numDrops;
     static inline int32_t ms_numDropsMoving;
+    // how many of the drops of the pool are the water of trails, see NewTrace
+    static inline int32_t ms_numTraces;
+    // where the search for a free place in the pool goes on from, see AcquireSlot
+    static inline int32_t ms_nextFree;
 
     static inline bool ms_enabled;
     static inline bool ms_movingEnabled;
 
-    static inline float ms_distMoved;
     static inline float ms_vecLen;
     static inline float ms_rainStrength;
     static inline float ms_rainIntensity = 1.0f;
@@ -300,6 +307,32 @@ public:
     // One bead in two is held where it is by the surface tension and never runs
     // down the glass, and it is not the small ones: see PlaceNew.
     static constexpr float HangingShare = 0.5f;
+    // The share of the pool the water of the trails may not fill: the rain has to
+    // be able to go on in a downpour, and a drop of it may take the place of the
+    // water of a trail when nothing else is free, see AcquireSlot.
+    static constexpr float PoolReserveShare = 0.2f;
+
+    // The pixels of the frame one pixel of the 480 lines the effect was made for
+    // is. The sizes of the drops have always been scaled by it; the speeds they
+    // run and drift at, the window of the frame they show and the life of their
+    // water are scaled by it too, so the rain behaves the same on a screen of any
+    // size instead of crawling on a large one.
+    static inline float Scale()
+    {
+        return ms_scaling > 0.0f ? ms_scaling : 1.0f;
+    }
+
+    // How much of a second this frame is, capped so that a stall of the game does
+    // not turn into a burst of rain: what the rain of a frame is measured by.
+    static inline float FrameSeconds()
+    {
+        const float elapsed = GetFrameTimeSeconds();
+
+        if (!(elapsed > 0.0f) || !std::isfinite(elapsed))
+            return 0.0f;
+
+        return (std::min)(elapsed, 0.1f);
+    }
 
     // A drop of clear water is a lens: the shaders that draw the drops give it
     // the colour of the light of the frame around it, see source/shaders and
@@ -340,7 +373,7 @@ public:
 
     static inline bool IsLens(const WaterDrop* drop)
     {
-        return drop->r == drop->g && drop->g == drop->b && GatheredLight();
+        return !drop->isTrace && drop->r == drop->g && drop->g == drop->b && GatheredLight();
     }
 
     // A game that is not raining spawns no drops at all, which is what the effect is for and
@@ -416,6 +449,11 @@ public:
         }
 
         EnsureDevice();
+
+        // A game that is paused has stopped its clock, and the glass stops with
+        // it: what is on it stays as it is until the game goes on.
+        if (isPaused)
+            return;
 
         ProcessGlobalEmitters();
         CalculateMovement();
@@ -503,15 +541,13 @@ public:
             RwV3d dist;
             RwV3dSub(&dist, &it.first, &WaterDrops::pos);
             if (RwV3dDotProduct(&dist, &dist) <= 50.0f)
-                WaterDrops::FillScreenMoving(it.second);
+                WaterDrops::FillScreenMovingRate(it.second);
         }
     }
 
     static inline void CalculateMovement()
     {
         RwV3dSub(&ms_posDelta, &pos, &ms_lastPos);
-        ms_distMoved = RwV3dDotProduct(&ms_posDelta, &ms_posDelta);
-        ms_distMoved = sqrt(ms_distMoved) * GetTimeStepInMilliseconds();
 
         if (fSpeedAdjuster)
         {
@@ -540,7 +576,11 @@ public:
             ms_vec.y = RwV3dDotProduct(&at, &ms_posDelta);
             ms_vec.z = RwV3dDotProduct(&up, &ms_posDelta);
         }
-        RwV3dScale(&ms_vec, &ms_vec, 10.0f);
+        // The drift the camera gives the drops is in pixels of the frame, and it
+        // has always been measured for the 480 lines the effect comes from: on a
+        // screen of more lines it is scaled with everything else, or the drops of
+        // a large screen would crawl.
+        RwV3dScale(&ms_vec, &ms_vec, 10.0f * Scale());
         ms_vecLen = sqrt(ms_vec.y * ms_vec.y + ms_vec.x * ms_vec.x);
 
         ms_enabled = true; //!istopdown && !carlookdirection;
@@ -552,6 +592,56 @@ public:
         ms_rainStrength = (float)RAD2DEG(acos(c));
     }
 
+    // -----------------------------------------------------------------------
+    // the rain of a frame
+    //
+    // The rain is a rate and not a count: a frame adds the drops of its own share
+    // of a second and carries what is left over into the next one, so twice the
+    // frames a second is not twice the rain, and a light rain that adds less than
+    // a drop a frame still adds its drops. The amount is what the games have
+    // always handed over, and the number of drops it stood for in one frame of
+    // sixty a second is what it still stands for.
+    // -----------------------------------------------------------------------
+    static inline float ms_spawnRemainder = 0.0f;
+    static inline float ms_bloodRemainder = 0.0f;
+
+    // the number of drops an amount stands for in one frame of sixty a second
+    static inline float DropsOfAmount(float amount)
+    {
+        return (ms_vec.z <= 5.0f * Scale() ? 1.0f : 1.5f) * amount * 20.0f;
+    }
+
+    // The rain of one frame: the amount is spread over the time the frame took,
+    // see above. A game that keeps a spray going hands this over every frame,
+    // and a splash of the camera is one burst of FillScreenMoving instead.
+    static inline void FillScreenMovingRate(float amount, bool isBlood = false)
+    {
+        if (!ms_initialised || ms_fbWidth <= 0 || ms_fbHeight <= 0)
+            return;
+
+        if (ms_StaticRain)
+            amount = 1.0f;
+
+        // see FillScreenMoving: the amount is not trusted to be a sane count
+        if (!(amount > 0.0f))
+            return;
+
+        float& remainder = isBlood ? ms_bloodRemainder : ms_spawnRemainder;
+        const float perFrame = DropsOfAmount(amount);
+        remainder = (std::min)(remainder + perFrame * FrameSeconds() * 60.0f, perFrame * 4.0f + 1.0f);
+
+        if (remainder < 1.0f)
+            return;
+
+        const float whole = floorf(remainder);
+        remainder -= whole;
+
+        if (isBlood)
+            SpawnDrops((int32_t)whole, 0xFF, 0x00, 0x00);
+        else
+            SpawnDrops((int32_t)whole, 0xFF, 0xFF, 0xFF);
+    }
+
     static inline void SprayDrops()
     {
         // A rain intensity that is negative or not a number at all is not rain. The
@@ -561,26 +651,52 @@ public:
         {
             auto tmp = (int32_t)(180.0f - ms_rainStrength);
             if (tmp < 40) tmp = 40;
-            FillScreenMoving((tmp - 40.0f) / 150.0f * (bForceRain ? 1.0f : ms_rainIntensity) * 0.5f);
+            FillScreenMovingRate((tmp - 40.0f) / 150.0f * (bForceRain ? 1.0f : ms_rainIntensity) * 0.5f);
         }
         if (sprayWater)
-            FillScreenMoving(0.5f, false);
+            FillScreenMovingRate(0.5f, false);
         if (sprayBlood)
-            FillScreenMoving(0.5f, true);
+            FillScreenMovingRate(0.5f, true);
         if (ms_splashDuration >= 0)
         {
-            if (ms_numDrops < int32_t(ms_drops.capacity() - 1))
-            {
-                RwV3d dist;
-                RwV3dSub(&dist, &ms_splashPoint, &ms_lastPos);
-                float f = RwV3dDotProduct(&dist, &dist);
-                f = sqrt(f);
-                if (f <= ms_splashDistance)
-                    FillScreenMoving(1.0f);
-                else if (ms_splashRemovalDistance > 0.0f && f >= ms_splashRemovalDistance)
-                    ms_splashDuration = -1;
-            }
+            RwV3d dist;
+            RwV3dSub(&dist, &ms_splashPoint, &ms_lastPos);
+            float f = RwV3dDotProduct(&dist, &dist);
+            f = sqrt(f);
+            if (f <= ms_splashDistance)
+                FillScreenMovingRate(1.0f);
+            else if (ms_splashRemovalDistance > 0.0f && f >= ms_splashRemovalDistance)
+                ms_splashDuration = -1;
             ms_splashDuration--;
+        }
+    }
+
+    // A number of drops of the rain, placed at random over the glass, of sizes
+    // between the smallest and the largest the ini asks for, and with lives
+    // between one and four seconds of the effect.
+    static inline void SpawnDrops(int32_t n, int R, int G, int B)
+    {
+        if (!ms_initialised || ms_fbWidth <= 0 || ms_fbHeight <= 0)
+            return;
+
+        const int32_t room = RoomForNewDrops();
+
+        if (n > room)
+            n = room;
+
+        const float smallest = (float)SC(MinSize);
+        const float biggest = (float)(std::max)(SC(MaxSize), SC(MinSize));
+
+        for (int32_t i = 0; i < n; i++)
+        {
+            const float x = GetRandomFloat((float)ms_fbWidth);
+            const float y = GetRandomFloat((float)ms_fbHeight);
+            const float size = smallest + GetRandomFloat(biggest - smallest);
+            const float ttl = 2000.0f + GetRandomFloat(6000.0f);
+            WaterDrop* drop = PlaceNew(x, y, size, ttl, 1, R, G, B);
+
+            if (drop)
+                NewDropMoving(drop);
         }
     }
 
@@ -589,12 +705,9 @@ public:
     // MoveDrop distributes these deposits along the path, with bounded density.
     static inline void NewTrace(WaterDrop* drop, float x, float y, float velocityX, float velocityY)
     {
-        if (ms_numDrops >= int32_t(ms_drops.size() - 1))
-            return;
-
         // A shrinking parent cannot leave a bead larger than itself.
         const float size = (std::min)((float)SC(MinSize), drop->size * 0.65f);
-        auto* trace = PlaceNew(x, y, size, drop->traceTtl, true, drop->r, drop->g, drop->b);
+        auto* trace = PlaceNew(x, y, size, drop->traceTtl, true, drop->r, drop->g, drop->b, true);
 
         if (!trace)
             return;
@@ -680,10 +793,12 @@ public:
         // Equivalent to the old 60 Hz shrink rate, integrated independently of FPS.
         drop->size *= shrink;
 
+        // A drop that left the glass is gone: it would otherwise keep its place in
+        // the pool until it faded, drawn where nobody sees it.
         if (drop->x < -(float)(SC(MaxSize)) || drop->y < -(float)(SC(MaxSize)) ||
             drop->x >(ms_fbWidth + SC(MaxSize)) || drop->y >(ms_fbHeight + SC(MaxSize)))
         {
-            DetachMoving(drop);
+            Expire(drop);
         }
     }
 
@@ -711,66 +826,145 @@ public:
                 drop.Fade();
     }
 
-    static inline WaterDrop* PlaceNew(float x, float y, float size, float ttl, bool fades, int R = 0xFF, int G = 0xFF, int B = 0xFF)
+    // the places of the pool the water of the trails leaves to the rain
+    static inline int32_t TraceReserve()
+    {
+        return (std::max)(64, (int32_t)((float)ms_drops.size() * PoolReserveShare));
+    }
+
+    // A free place in the pool, searched from where the last search ended so that
+    // a nearly full pool is not walked from its start for every drop. Nothing is
+    // free for the water of a trail once the trails hold their share of the pool,
+    // and a drop of the rain takes the place of the water of a trail when nothing
+    // else is free: the rain has to go on in a downpour.
+    static inline int32_t AcquireSlot(bool forTrace)
+    {
+        const int32_t count = (int32_t)ms_drops.size();
+
+        if (count <= 0)
+            return -1;
+
+        if (forTrace && ms_numTraces >= count - TraceReserve())
+            return -1;
+
+        for (int32_t i = 0; i < count; i++)
+        {
+            const int32_t index = (ms_nextFree + i) % count;
+
+            if (!ms_drops[index].active)
+            {
+                ms_nextFree = (index + 1) % count;
+                return index;
+            }
+        }
+
+        if (forTrace)
+            return -1;
+
+        for (int32_t i = 0; i < count; i++)
+        {
+            const int32_t index = (ms_nextFree + i) % count;
+            WaterDrop& other = ms_drops[index];
+
+            if (other.active && other.isTrace)
+            {
+                Expire(&other);
+                ms_nextFree = (index + 1) % count;
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    // A drop the effect is done with. It is taken out of the list of the drops that
+    // move before its place in the pool is handed out again: an entry that still
+    // pointed at it would move and age whichever drop takes the place next, which
+    // is what a drop that runs at twice the speed looks like.
+    static inline void Expire(WaterDrop* drop)
+    {
+        if (!drop->active)
+            return;
+
+        drop->active = 0;
+        ms_numDrops--;
+
+        if (drop->isTrace)
+            ms_numTraces--;
+        else
+            DetachMoving(drop);
+    }
+
+    static inline WaterDrop* PlaceNew(float x, float y, float size, float ttl, bool fades, int R = 0xFF, int G = 0xFF, int B = 0xFF, bool isTrace = false)
     {
         if (NoDrops())
             return NULL;
 
-        for (auto& drop : ms_drops)
+        const int32_t index = AcquireSlot(isTrace);
+
+        if (index < 0)
+            return NULL;
+
+        WaterDrop& drop = ms_drops[index];
+        ms_numDrops++;
+
+        if (isTrace)
+            ms_numTraces++;
+
+        drop.x = x;
+        drop.y = y;
+        drop.size = size;
+        drop.uv_index = ms_atlasUsed ? GetRandomInt(3) : 4; //sizeof(uv) - 2 || uv[last]
+        // A size past the range of the ini (a test, a splash of a game) would
+        // otherwise turn the window of the frame the drop shows inside out.
+        drop.uvsize = std::clamp((SC(MaxSize) - size + 1.0f) / (SC(MaxSize) - SC(MinSize) + 1.0f), 0.0f, 1.0f);
+        drop.fades = fades;
+        drop.active = 1;
+        drop.isTrace = isTrace;
+        drop.r = R;
+        drop.g = G;
+        drop.b = B;
+        drop.alpha = 0xFF;
+        drop.alpha0 = 0xFF;
+        drop.time = 0.0f;
+        drop.ttl = ttl;
+
+        // Whether this bead runs down the glass at all is one bead in two,
+        // and which one it is is decided here and by nothing else about the
+        // bead: beads of every size are then seen both hanging where they
+        // are and running down, which is what rain on a pane of glass looks
+        // like. How fast a bead that does run then goes follows how much
+        // water there is in it, and it keeps that speed: a bead that is
+        // running is not a bead that changes its mind on every frame. The
+        // water a bead leaves behind it never runs.
+        drop.slide = 0.0f;
+
+        if (bGravity && !isTrace && GetRandomFloat(1.0f) >= HangingShare)
         {
-            if (drop.active == 0)
-            {
-                ms_numDrops++;
-                drop.x = x;
-                drop.y = y;
-                drop.size = size;
-                drop.uv_index = ms_atlasUsed ? GetRandomInt(3) : 4; //sizeof(uv) - 2 || uv[last]
-                drop.uvsize = (SC(MaxSize) - size + 1.0f) / (SC(MaxSize) - SC(MinSize) + 1.0f);
-                drop.fades = fades;
-                drop.active = 1;
-                drop.r = R;
-                drop.g = G;
-                drop.b = B;
-                drop.alpha = 0xFF;
-                drop.alpha0 = 0xFF;
-                drop.time = 0.0f;
-                drop.ttl = ttl;
+            // pixels of a frame of sixty a second at the 480 lines the effect
+            // comes from, scaled to the frame, see Scale
+            const float slowest = gravity / gdivmin * Scale();
+            const float fastest = gravity / gdivmax * Scale();
+            const float weight = drop.size / (float)(std::max)(1, SC(MaxSize));
 
-                // Whether this bead runs down the glass at all is one bead in two,
-                // and which one it is is decided here and by nothing else about the
-                // bead: beads of every size are then seen both hanging where they
-                // are and running down, which is what rain on a pane of glass looks
-                // like. How fast a bead that does run then goes follows how much
-                // water there is in it, and it keeps that speed: a bead that is
-                // running is not a bead that changes its mind on every frame.
-                drop.slide = 0.0f;
-
-                if (bGravity && GetRandomFloat(1.0f) >= HangingShare)
-                {
-                    const float slowest = gravity / gdivmin;
-                    const float fastest = gravity / gdivmax;
-                    const float weight = drop.size / (float)(std::max)(1, SC(MaxSize));
-
-                    drop.slide = slowest + (fastest - slowest) * (0.3f + 0.7f * weight);
-                }
-
-                // The water a drop leaves is the path it has run, over the time that
-                // water stays on the glass: it is rolled for every drop of the rain
-                // on its own, so no two drops leave a tail of the same length.
-                drop.traceTtl = (drop.ttl / (float)(std::max)(1, SC(4)) * TraceLifeBase)
-                    * (TraceLifeMin + GetRandomFloat(TraceLifeMax - TraceLifeMin));
-                drop.shapeX = drop.shapeY = 0.0f;
-
-                return &drop;
-            }
+            drop.slide = slowest + (fastest - slowest) * (0.3f + 0.7f * weight);
         }
-        return NULL;
+
+        // The water a drop leaves is the path it has run, over the time that
+        // water stays on the glass: it is rolled for every drop of the rain
+        // on its own, so no two drops leave a tail of the same length. The
+        // life of a bead has always been divided by four for this at the 480
+        // lines the effect comes from, and it is the same share of the life
+        // of the bead on a screen of any size.
+        drop.traceTtl = (drop.ttl / 4.0f * TraceLifeBase)
+            * (TraceLifeMin + GetRandomFloat(TraceLifeMax - TraceLifeMin));
+        drop.shapeX = drop.shapeY = 0.0f;
+
+        return &drop;
     }
 
     // A drop the effect is done with is taken out of the list of the drops that
-    // move before its place in the pool is handed out again: an entry that still
-    // points at it would move and age whichever drop takes the place next, which
-    // is what a drop that runs at twice the speed looks like.
+    // move before its place in the pool is handed out again, see Expire.
     static inline void DetachMoving(WaterDrop* drop)
     {
         for (auto& moving : ms_dropsMoving)
@@ -804,7 +998,11 @@ public:
     // more than the room there is.
     static inline int32_t RoomForNewDrops()
     {
-        int32_t room = int32_t(ms_drops.capacity()) - ms_numDrops;
+        // The water of the trails does not count against the rain: a drop of the
+        // rain takes the place of a drop of a trail when nothing else is free, see
+        // AcquireSlot.
+        const int32_t heads = ms_numDrops - ms_numTraces;
+        int32_t room = int32_t(ms_drops.capacity()) - heads;
         const int32_t moving = int32_t(ms_dropsMoving.capacity()) - ms_numDropsMoving;
 
         if (moving < room)
@@ -835,32 +1033,10 @@ public:
         if (!(amount > 0.0f))
             return;
 
-        int32_t n = int32_t((ms_vec.z <= 5.0f ? 1.0f : 1.5f) * amount * 20.0f);
-        const int32_t room = RoomForNewDrops();
-
-        if (n > room)
-            n = room;
-
-        WaterDrop* drop;
-
-        for (int32_t i = 0; i < n; i++)
-        {
-            if (ms_numDrops < int32_t(ms_drops.capacity() - 1) && ms_numDropsMoving < int32_t(ms_dropsMoving.capacity() - 1))
-            {
-                float x = GetRandomFloat((float)ms_fbWidth);
-                float y = GetRandomFloat((float)ms_fbHeight);
-                float size = GetRandomFloat((float)(SC(MaxSize) - SC(MinSize)) + SC(MinSize));
-                float ttl = GetRandomFloat((float)(8000.0f));
-                if (ttl < 2000.0f)
-                    ttl = 2000.0f;
-                if (!isBlood)
-                    drop = PlaceNew(x, y, size, ttl, 1);
-                else
-                    drop = PlaceNew(x, y, size, ttl, 1, 0xFF, 0x00, 0x00);
-                if (drop)
-                    NewDropMoving(drop);
-            }
-        }
+        if (isBlood)
+            SpawnDrops((int32_t)DropsOfAmount(amount), 0xFF, 0x00, 0x00);
+        else
+            SpawnDrops((int32_t)DropsOfAmount(amount), 0xFF, 0xFF, 0xFF);
     }
 
     static inline void FillScreenMovingColor(float amount, int R = 0xFF, int G = 0xFF, int B = 0xFF)
@@ -876,29 +1052,7 @@ public:
         if (!(amount > 0.0f))
             return;
 
-        int32_t n = int32_t((ms_vec.z <= 5.0f ? 1.0f : 1.5f) * amount * 20.0f);
-        const int32_t room = RoomForNewDrops();
-
-        if (n > room)
-            n = room;
-
-        WaterDrop* drop;
-
-        for (int32_t i = 0; i < n; i++)
-        {
-            if (ms_numDrops < int32_t(ms_drops.capacity() - 1) && ms_numDropsMoving < int32_t(ms_dropsMoving.capacity() - 1))
-            {
-                float x = GetRandomFloat((float)ms_fbWidth);
-                float y = GetRandomFloat((float)ms_fbHeight);
-                float size = GetRandomFloat((float)(SC(MaxSize) - SC(MinSize)) + SC(MinSize));
-                float ttl = GetRandomFloat((float)(8000.0f));
-                if (ttl < 2000.0f)
-                    ttl = 2000.0f;
-                    drop = PlaceNew(x, y, size, ttl, 1, R,G,B);
-                if (drop)
-                    NewDropMoving(drop);
-            }
-        }
+        SpawnDrops((int32_t)DropsOfAmount(amount), R, G, B);
     }
 
     static inline void FillScreen(int n)
@@ -951,6 +1105,10 @@ public:
 
         ms_numDrops = 0;
         ms_numDropsMoving = 0;
+        ms_numTraces = 0;
+        ms_nextFree = 0;
+        ms_spawnRemainder = 0.0f;
+        ms_bloodRemainder = 0.0f;
     }
 
     static inline void Reset()
@@ -1333,7 +1491,9 @@ public:
         float v1_1, v1_2;
         float tmp;
 
-        tmp = uvsize * (300.0f - 40.0f) + 40.0f;
+        // pixels of the 480 lines the effect comes from, scaled to the frame: the
+        // window of a drop is the same part of the picture on a screen of any size
+        tmp = (uvsize * (300.0f - 40.0f) + 40.0f) * Scale();
         u1_1 = x + ms_xOff - tmp * ms_xScale;
         v1_1 = y + ms_yOff - tmp;
         u1_2 = x + ms_xOff + tmp * ms_xScale;
@@ -1351,7 +1511,7 @@ public:
         // renderer that draws the drops without that shader gets the atlas
         // coordinate untouched and is left exactly as it was. The water a bead
         // left behind it does not gather any light: a film of water on the glass
-        // is not a lens.
+        // is not a lens, see IsLens.
         const float scale = size * 0.5f;
         const float speed = sqrtf(velocityX * velocityX + velocityY * velocityY);
         const float stretch = 1.0f + (std::min)(0.45f, speed * 0.012f / (std::max)(size, 1.0f));
@@ -1436,13 +1596,10 @@ void WaterDrop::Fade()
     this->time += delta;
     if (this->time >= this->ttl)
     {
-        WaterDrops::ms_numDrops--;
-        this->active = 0;
-
         // Spawning runs before the drops are moved on the next frame, so the place
         // this drop sits in can already be handed to another one by then, see
-        // DetachMoving.
-        WaterDrops::DetachMoving(this);
+        // DetachMoving, which Expire takes care of.
+        WaterDrops::Expire(this);
     }
     else if (this->fades)
         this->alpha = (uint8_t)(this->alpha0 * (1.0f - std::clamp(this->time / this->ttl, 0.0f, 1.0f)));

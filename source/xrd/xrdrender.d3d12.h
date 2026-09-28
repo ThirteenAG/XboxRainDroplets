@@ -375,6 +375,8 @@ namespace Xrd
         static constexpr int MaxVertices = 64000;
         static constexpr int MaxIndices = (MaxVertices / 4) * 6;
         static constexpr int DescriptorsPerFrame = 4; // constant buffer and three textures
+        // the most levels the chain of the copy of the frame has, see EnsureSceneTexture
+        static constexpr UINT MaxMipLevels = 16;
 
         struct Constants
         {
@@ -703,6 +705,26 @@ namespace Xrd
             return bResult;
         }
 
+        // The concrete format a view of a texture of this format is made with, see
+        // the Direct3D 11 backend: a typeless texture has no format of its own to
+        // be read or drawn as.
+        static DXGI_FORMAT ConcreteFormat(DXGI_FORMAT format)
+        {
+            switch (format)
+            {
+            case DXGI_FORMAT_R32G32B32A32_TYPELESS: return DXGI_FORMAT_R32G32B32A32_FLOAT;
+            case DXGI_FORMAT_R16G16B16A16_TYPELESS: return DXGI_FORMAT_R16G16B16A16_FLOAT;
+            case DXGI_FORMAT_R10G10B10A2_TYPELESS:  return DXGI_FORMAT_R10G10B10A2_UNORM;
+            case DXGI_FORMAT_R8G8B8A8_TYPELESS:     return DXGI_FORMAT_R8G8B8A8_UNORM;
+            case DXGI_FORMAT_B8G8R8A8_TYPELESS:     return DXGI_FORMAT_B8G8R8A8_UNORM;
+            case DXGI_FORMAT_B8G8R8X8_TYPELESS:     return DXGI_FORMAT_B8G8R8X8_UNORM;
+            default:
+                break;
+            }
+
+            return format;
+        }
+
         bool EnsureSceneTexture(const D3D12_RESOURCE_DESC& target)
         {
             if (pSceneTexture && sceneFormat == target.Format && sceneWidth == target.Width && sceneHeight == target.Height)
@@ -720,18 +742,296 @@ namespace Xrd
             desc.SampleDesc.Quality = 0;
             desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
+            // The copy carries a chain of mip levels. A drop shows a window of the
+            // frame far larger than itself, and read from the top level alone every
+            // pixel of the drop is one pixel of the frame picked out of hundreds,
+            // which is what the noise that crawled over the drops was: the sampler
+            // reads the level whose texels are the size of the pixels of the drop
+            // instead, which is the window averaged. Direct3D 12 has no call that
+            // makes a chain, so every level of it is drawn out of the level above
+            // after every copy, see GenerateSceneMips, which needs the copy to be a
+            // render target and its format to be one that can be drawn into and
+            // sampled with a filter.
+            const DXGI_FORMAT viewFormat = ConcreteFormat(target.Format);
+
+            D3D12_FEATURE_DATA_FORMAT_SUPPORT support{};
+            support.Format = viewFormat;
+
+            const D3D12_FORMAT_SUPPORT1 needed = D3D12_FORMAT_SUPPORT1_RENDER_TARGET | D3D12_FORMAT_SUPPORT1_SHADER_SAMPLE | D3D12_FORMAT_SUPPORT1_MIP;
+            sceneMips = SUCCEEDED(pDevice->CheckFeatureSupport(D3D12_FEATURE_FORMAT_SUPPORT, &support, sizeof(support))) &&
+                (support.Support1 & needed) == needed && EnsureMipPipeline(viewFormat);
+
+            sceneMipLevels = 1;
+
+            if (sceneMips)
+            {
+                UINT64 largest = target.Width > target.Height ? target.Width : target.Height;
+
+                while (largest > 1 && sceneMipLevels < MaxMipLevels)
+                {
+                    largest /= 2;
+                    sceneMipLevels++;
+                }
+
+                desc.MipLevels = (UINT16)sceneMipLevels;
+                desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+            }
+
             if (FAILED(pDevice->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
                 (D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
                 nullptr, __uuidof(ID3D12Resource), (void**)&pSceneTexture)))
             {
                 pSceneTexture = nullptr;
-                return false;
+
+                // a chain the device would not make is not what keeps the drops off the frame
+                if (!sceneMips)
+                    return false;
+
+                sceneMips = false;
+                sceneMipLevels = 1;
+                desc.MipLevels = 1;
+                desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+                if (FAILED(pDevice->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc,
+                    (D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
+                    nullptr, __uuidof(ID3D12Resource), (void**)&pSceneTexture)))
+                {
+                    pSceneTexture = nullptr;
+                    return false;
+                }
             }
 
             sceneFormat = target.Format;
             sceneWidth = target.Width;
             sceneHeight = target.Height;
+
+            // one view of every level to read it by and one to draw it by, for the chain
+            if (sceneMips && !EnsureMipViews(viewFormat))
+            {
+                // the chain is not made, the copy is read at its top level
+                sceneMips = false;
+            }
+
             return true;
+        }
+
+        // The root signature and the pipeline that draw a level of the chain out
+        // of the level above it: one texture to read and a sampler that averages
+        // four of its texels, see source/shaders/d3d10/mips.hlsl.
+        bool EnsureMipPipeline(DXGI_FORMAT viewFormat)
+        {
+            if (pMipPipelineState && pMipRootSignature && mipPipelineFormat == viewFormat)
+                return true;
+
+            ReleaseMipPipeline();
+
+            auto pVertexBlob = LoadShaderBytecode(IDR_MIP12VS);
+            auto pPixelBlob = LoadShaderBytecode(IDR_MIP12PS);
+
+            if (!pVertexBlob || !pPixelBlob)
+                return false;
+
+            D3D12_DESCRIPTOR_RANGE range{};
+            range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+            range.NumDescriptors = 1;
+            range.BaseShaderRegister = 0;
+
+            D3D12_ROOT_PARAMETER parameter{};
+            parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+            parameter.DescriptorTable.NumDescriptorRanges = 1;
+            parameter.DescriptorTable.pDescriptorRanges = &range;
+            parameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+            D3D12_STATIC_SAMPLER_DESC sampler{};
+            sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+            sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+            sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+            sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+            sampler.MaxLOD = D3D12_FLOAT32_MAX;
+            sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+            D3D12_ROOT_SIGNATURE_DESC rootDesc{};
+            rootDesc.NumParameters = 1;
+            rootDesc.pParameters = &parameter;
+            rootDesc.NumStaticSamplers = 1;
+            rootDesc.pStaticSamplers = &sampler;
+
+            using SerializeFn = long(WINAPI*)(const D3D12_ROOT_SIGNATURE_DESC*, D3D_ROOT_SIGNATURE_VERSION, ID3DBlob**, ID3DBlob**);
+
+            HMODULE hD3D12 = GetModuleHandleW(L"d3d12.dll");
+            auto fnSerialize = hD3D12 ? (SerializeFn)GetProcAddress(hD3D12, "D3D12SerializeRootSignature") : nullptr;
+
+            ID3DBlob* pSignatureBlob = nullptr;
+            ID3DBlob* pErrorBlob = nullptr;
+            bool bResult = false;
+
+            if (fnSerialize && SUCCEEDED(fnSerialize(&rootDesc, D3D_ROOT_SIGNATURE_VERSION_1, &pSignatureBlob, &pErrorBlob)) && pSignatureBlob)
+                bResult = SUCCEEDED(pDevice->CreateRootSignature(0, pSignatureBlob->GetBufferPointer(), pSignatureBlob->GetBufferSize(), __uuidof(ID3D12RootSignature), (void**)&pMipRootSignature));
+
+            if (pErrorBlob)
+                pErrorBlob->Release();
+
+            if (pSignatureBlob)
+                pSignatureBlob->Release();
+
+            if (!bResult)
+                return false;
+
+            D3D12_RASTERIZER_DESC rasterizerDesc{};
+            rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
+            rasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
+            rasterizerDesc.DepthClipEnable = FALSE;
+
+            D3D12_BLEND_DESC blendDesc{};
+            blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+
+            D3D12_DEPTH_STENCIL_DESC depthDesc{};
+            depthDesc.DepthEnable = FALSE;
+            depthDesc.StencilEnable = FALSE;
+
+            D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineDesc{};
+            pipelineDesc.pRootSignature = pMipRootSignature;
+            pipelineDesc.VS = { pVertexBlob.GetBufferPointer(), pVertexBlob.GetBufferSize() };
+            pipelineDesc.PS = { pPixelBlob.GetBufferPointer(), pPixelBlob.GetBufferSize() };
+            pipelineDesc.BlendState = blendDesc;
+            pipelineDesc.SampleMask = UINT_MAX;
+            pipelineDesc.RasterizerState = rasterizerDesc;
+            pipelineDesc.DepthStencilState = depthDesc;
+            pipelineDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+            pipelineDesc.NumRenderTargets = 1;
+            pipelineDesc.RTVFormats[0] = viewFormat;
+            pipelineDesc.SampleDesc.Count = 1;
+
+            if (FAILED(pDevice->CreateGraphicsPipelineState(&pipelineDesc, __uuidof(ID3D12PipelineState), (void**)&pMipPipelineState)))
+            {
+                ReleaseMipPipeline();
+                return false;
+            }
+
+            mipPipelineFormat = viewFormat;
+            return true;
+        }
+
+        // A view of every level of the chain to read it by, in a heap the shader
+        // can see, and one to draw it by.
+        bool EnsureMipViews(DXGI_FORMAT viewFormat)
+        {
+            if (!pMipSrvHeap)
+            {
+                D3D12_DESCRIPTOR_HEAP_DESC heapDesc{};
+                heapDesc.NumDescriptors = MaxMipLevels;
+                heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+                heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
+                if (FAILED(pDevice->CreateDescriptorHeap(&heapDesc, __uuidof(ID3D12DescriptorHeap), (void**)&pMipSrvHeap)))
+                    return false;
+            }
+
+            if (!pMipRtvHeap)
+            {
+                D3D12_DESCRIPTOR_HEAP_DESC heapDesc{};
+                heapDesc.NumDescriptors = MaxMipLevels;
+                heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+
+                if (FAILED(pDevice->CreateDescriptorHeap(&heapDesc, __uuidof(ID3D12DescriptorHeap), (void**)&pMipRtvHeap)))
+                    return false;
+            }
+
+            const UINT srvSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+            const UINT rtvSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+            for (UINT level = 0; level < sceneMipLevels; level++)
+            {
+                D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+                srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+                srvDesc.Format = viewFormat;
+                srvDesc.Texture2D.MostDetailedMip = level;
+                srvDesc.Texture2D.MipLevels = 1;
+
+                D3D12_CPU_DESCRIPTOR_HANDLE srv = pMipSrvHeap->GetCPUDescriptorHandleForHeapStart();
+                srv.ptr += (SIZE_T)level * srvSize;
+                pDevice->CreateShaderResourceView(pSceneTexture, &srvDesc, srv);
+
+                D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
+                rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+                rtvDesc.Format = viewFormat;
+                rtvDesc.Texture2D.MipSlice = level;
+
+                D3D12_CPU_DESCRIPTOR_HANDLE rtv = pMipRtvHeap->GetCPUDescriptorHandleForHeapStart();
+                rtv.ptr += (SIZE_T)level * rtvSize;
+                pDevice->CreateRenderTargetView(pSceneTexture, &rtvDesc, rtv);
+            }
+
+            return true;
+        }
+
+        // The chain of the copy of the frame, drawn level by level out of the level
+        // above, once the top level holds the frame. Every level is a render target
+        // while it is drawn and is read by the shaders otherwise, like the top one.
+        void GenerateSceneMips()
+        {
+            if (!sceneMips || sceneMipLevels <= 1 || !pMipPipelineState || !pMipRootSignature || !pMipSrvHeap || !pMipRtvHeap)
+                return;
+
+            const UINT srvSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+            const UINT rtvSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+            pCommandList->SetGraphicsRootSignature(pMipRootSignature);
+            pCommandList->SetPipelineState(pMipPipelineState);
+
+            ID3D12DescriptorHeap* pHeaps[] = { pMipSrvHeap };
+            pCommandList->SetDescriptorHeaps(1, pHeaps);
+            pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+            UINT width = (UINT)sceneWidth;
+            UINT height = (UINT)sceneHeight;
+
+            for (UINT level = 1; level < sceneMipLevels; level++)
+            {
+                width = width > 1 ? width / 2 : 1;
+                height = height > 1 ? height / 2 : 1;
+
+                D3D12_RESOURCE_BARRIER barrier{};
+                barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+                barrier.Transition.pResource = pSceneTexture;
+                barrier.Transition.Subresource = level;
+                barrier.Transition.StateBefore = (D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+                barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+                pCommandList->ResourceBarrier(1, &barrier);
+
+                D3D12_CPU_DESCRIPTOR_HANDLE rtv = pMipRtvHeap->GetCPUDescriptorHandleForHeapStart();
+                rtv.ptr += (SIZE_T)level * rtvSize;
+                pCommandList->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
+
+                D3D12_VIEWPORT viewport{};
+                viewport.Width = (float)width;
+                viewport.Height = (float)height;
+                viewport.MaxDepth = 1.0f;
+                pCommandList->RSSetViewports(1, &viewport);
+
+                D3D12_RECT scissor{};
+                scissor.right = (LONG)width;
+                scissor.bottom = (LONG)height;
+                pCommandList->RSSetScissorRects(1, &scissor);
+
+                D3D12_GPU_DESCRIPTOR_HANDLE srv = pMipSrvHeap->GetGPUDescriptorHandleForHeapStart();
+                srv.ptr += (UINT64)(level - 1) * srvSize;
+                pCommandList->SetGraphicsRootDescriptorTable(0, srv);
+
+                pCommandList->DrawInstanced(3, 1, 0, 0);
+
+                barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+                barrier.Transition.StateAfter = (D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+                pCommandList->ResourceBarrier(1, &barrier);
+            }
+        }
+
+        void ReleaseMipPipeline()
+        {
+            if (pMipPipelineState) { pMipPipelineState->Release(); pMipPipelineState = nullptr; }
+            if (pMipRootSignature) { pMipRootSignature->Release(); pMipRootSignature = nullptr; }
+            mipPipelineFormat = DXGI_FORMAT_UNKNOWN;
         }
 
         bool EnsureVertexBuffer(int numVertices)
@@ -854,13 +1154,14 @@ namespace Xrd
             D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
             srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
             srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-            srvDesc.Texture2D.MipLevels = 1;
+            srvDesc.Texture2D.MipLevels = sceneMips ? (UINT)-1 : 1;
 
             srvDesc.Format = sceneFormat;
             pDevice->CreateShaderResourceView(pSceneTexture, &srvDesc, srvHandle);
 
             srvHandle.ptr += descriptorSize;
             srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+            srvDesc.Texture2D.MipLevels = 1;
 
             if (pMaskTexture && pMaskTexture->resource)
                 pDevice->CreateShaderResourceView((ID3D12Resource*)pMaskTexture->resource, &srvDesc, srvHandle);
@@ -908,24 +1209,46 @@ namespace Xrd
             barriers[0].Transition.StateBefore = stateBefore;
             barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
 
+            // only the top level of the copy is the frame, the chain below it is
+            // drawn out of it afterwards, see GenerateSceneMips
             barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
             barriers[1].Transition.pResource = pSceneTexture;
-            barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            barriers[1].Transition.Subresource = 0;
             barriers[1].Transition.StateBefore = (D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
             barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
 
             pCommandList->ResourceBarrier(2, barriers);
-            pCommandList->CopyResource(pSceneTexture, pTarget);
+
+            // A copy of the whole resource wants the same number of levels on both
+            // sides, and the copy of the frame has a chain of them: the top level
+            // is copied on its own.
+            D3D12_TEXTURE_COPY_LOCATION destination{};
+            destination.pResource = pSceneTexture;
+            destination.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+            destination.SubresourceIndex = 0;
+
+            D3D12_TEXTURE_COPY_LOCATION source{};
+            source.pResource = pTarget;
+            source.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+            source.SubresourceIndex = 0;
+
+            pCommandList->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
 
             barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
             barriers[0].Transition.StateAfter = (D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
             barriers[0].Transition.pResource = pSceneTexture;
+            barriers[0].Transition.Subresource = 0;
 
             barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
             barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
             barriers[1].Transition.pResource = pTarget;
+            barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
             pCommandList->ResourceBarrier(2, barriers);
+
+            // the chain of the copy, which is what a drop shows a window of the
+            // frame far larger than itself smoothly with
+            GenerateSceneMips();
 
             D3D12_CPU_DESCRIPTOR_HANDLE rtv = GetRenderTargetView(pTarget);
             pCommandList->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
@@ -1012,9 +1335,14 @@ namespace Xrd
                 pSceneTexture = nullptr;
             }
 
+            if (pMipSrvHeap) { pMipSrvHeap->Release(); pMipSrvHeap = nullptr; }
+            if (pMipRtvHeap) { pMipRtvHeap->Release(); pMipRtvHeap = nullptr; }
+
             sceneFormat = DXGI_FORMAT_UNKNOWN;
             sceneWidth = 0;
             sceneHeight = 0;
+            sceneMips = false;
+            sceneMipLevels = 1;
         }
 
         void ReleaseDeviceObjects()
@@ -1042,6 +1370,7 @@ namespace Xrd
             if (pPipelineState) { pPipelineState->Release(); pPipelineState = nullptr; }
             if (pRootSignature) { pRootSignature->Release(); pRootSignature = nullptr; }
             pipelineFormat = DXGI_FORMAT_UNKNOWN;
+            ReleaseMipPipeline();
         }
 
         void ReleaseResources()
@@ -1087,6 +1416,14 @@ namespace Xrd
         DXGI_FORMAT sceneFormat = DXGI_FORMAT_UNKNOWN;
         UINT64 sceneWidth = 0;
         UINT64 sceneHeight = 0;
+        // the chain of the copy of the frame, see EnsureSceneTexture and GenerateSceneMips
+        bool sceneMips = false;
+        UINT sceneMipLevels = 1;
+        ID3D12RootSignature* pMipRootSignature = nullptr;
+        ID3D12PipelineState* pMipPipelineState = nullptr;
+        DXGI_FORMAT mipPipelineFormat = DXGI_FORMAT_UNKNOWN;
+        ID3D12DescriptorHeap* pMipSrvHeap = nullptr;
+        ID3D12DescriptorHeap* pMipRtvHeap = nullptr;
 
         ID3D12Resource* pVertexBufferUpload = nullptr;
         ID3D12Resource* pConstantBufferUpload = nullptr;

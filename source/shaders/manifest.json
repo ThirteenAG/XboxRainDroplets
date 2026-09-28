@@ -224,6 +224,30 @@
       ]
     },
     {
+      "kind": "fxc",
+      "sources": [
+        "d3d10/mips.hlsl"
+      ],
+      "output": "d3d12/mipVS12.cso",
+      "profile": "vs_5_0",
+      "entry": "VSMain",
+      "flags": [
+        "/O3"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d10/mips.hlsl"
+      ],
+      "output": "d3d12/mipPS12.cso",
+      "profile": "ps_5_0",
+      "entry": "PSMain",
+      "flags": [
+        "/O3"
+      ]
+    },
+    {
       "kind": "spirv",
       "sources": [
         "vulkan/drops.hlsl"

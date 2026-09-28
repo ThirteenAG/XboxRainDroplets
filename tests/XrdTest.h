@@ -365,7 +365,11 @@ namespace XrdTest
             std::chrono::steady_clock::time_point frameStart{};
             bool noRefractions = false;
             float dropX = 0.5f;         // where across the frame the drop of the check is placed
-            float dropY = 0.25f;        // and where down it, which is what the checks are about
+            // And where down it, which is what the checks are about. A drop shows
+            // the frame around it and little else, so it is placed over the skyline
+            // of the test scene, where the frame has something to show, and not
+            // over the flat sky above it.
+            float dropY = 0.35f;
             bool trailCheck = false;    // no device at all, only the CPU side of the effect
             bool trailView = false;     // drops the camera drags in a circle, and the water they leave
             int frameCount = 180;

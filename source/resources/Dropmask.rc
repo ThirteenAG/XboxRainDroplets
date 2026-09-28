@@ -16,6 +16,8 @@
 #define IDR_DROP10PS 123
 #define IDR_DROP12VS 124
 #define IDR_DROP12PS 125
+#define IDR_MIP12VS 126
+#define IDR_MIP12PS 127
 
 IDR_DROPMASK RCDATA "dropmask.png"
 IDR_SNOWDROPMASK RCDATA "snowdropmask.png"
@@ -35,3 +37,5 @@ IDR_DROP10VS RCDATA "../shaders/generated/d3d10/dropVS10.cso"
 IDR_DROP10PS RCDATA "../shaders/generated/d3d10/dropPS10.cso"
 IDR_DROP12VS RCDATA "../shaders/generated/d3d12/dropVS12.cso"
 IDR_DROP12PS RCDATA "../shaders/generated/d3d12/dropPS12.cso"
+IDR_MIP12VS RCDATA "../shaders/generated/d3d12/mipVS12.cso"
+IDR_MIP12PS RCDATA "../shaders/generated/d3d12/mipPS12.cso"

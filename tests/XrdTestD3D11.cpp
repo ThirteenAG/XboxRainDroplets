@@ -395,8 +395,9 @@ namespace
 
         const int32_t smallest = (int32_t)(D::MinSize * D::ms_scaling);
         const int32_t biggest = (int32_t)(D::MaxSize * D::ms_scaling);
-        const float slowest = D::gravity / D::gdivmin;
-        const float fastest = D::gravity / D::gdivmax;
+        // pixels of a frame of sixty a second at 480 lines, scaled to the frame
+        const float slowest = D::gravity / D::gdivmin * D::ms_scaling;
+        const float fastest = D::gravity / D::gdivmax * D::ms_scaling;
 
         // What runs down the glass and what hangs on it: one bead in two is held
         // where it is by the surface tension and never runs, whatever its size is,
@@ -696,11 +697,11 @@ namespace
 
         auto* replacement = D::PlaceNew(960.0f, 540.0f, (float)biggest, 20000.0f, true);
         D::NewDropMoving(replacement);
-        check(replacement == expired && D::ms_numDropsMoving == 1,
-            "the drop that takes the place of an expired one moves once, not twice");
+        check(replacement != nullptr && D::ms_numDrops == 1 && D::ms_numDropsMoving == 1,
+            "the drop that comes after an expired one moves once, not twice");
 
         D::Clear();
-        check(D::ms_numDrops == 0 && D::ms_numDropsMoving == 0 && D::ms_dropsMoving[0].drop == nullptr,
+        check(D::ms_numDrops == 0 && D::ms_numDropsMoving == 0 && D::ms_numTraces == 0 && D::ms_dropsMoving[0].drop == nullptr,
             "clearing the drops clears the list of the drops that move as well");
 
         // Every bead of the rain is given the water it leaves of its own when it is
@@ -866,6 +867,65 @@ namespace
         check(sweep->y == stoppedY, "disabling gravity also stops existing runners");
         D::bGravity = true;
 
+        // The drops of the rain are of the sizes the ini asks for, from the
+        // smallest to the largest, and live between one and four seconds.
+        D::Clear();
+        D::ms_initialised = true;
+        D::ms_vec = {};
+        D::FillScreenMoving(2.0f);
+
+        bool sizesOk = D::ms_numDrops > 0;
+        float smallestSeen = 1.0e9f;
+
+        for (const auto& d : D::ms_drops)
+            if (d.active)
+            {
+                sizesOk &= d.size >= (float)smallest - 0.001f && d.size <= (float)biggest + 0.001f && d.ttl >= 2000.0f && d.ttl <= 8000.0f;
+                smallestSeen = (std::min)(smallestSeen, d.size);
+            }
+
+        check(sizesOk, "the drops of the rain are of the sizes the ini asks for and live between one and four seconds");
+
+        // The rain is a rate: a frame adds its share of a second, whatever the
+        // frame rate is, and a light rain still adds its drops over time.
+        const auto rainFor = [&](int hz, float amount)
+        {
+            D::Clear();
+            timeStep = 1.0f / hz;
+            D::ms_vec = {};
+            for (int i = 0; i < hz; ++i)
+                D::FillScreenMovingRate(amount);
+            return D::ms_numDrops;
+        };
+        const int rain30 = rainFor(30, 0.2f), rain144 = rainFor(144, 0.2f), drizzle = rainFor(60, 0.02f);
+        printf("[d3d11] a second of rain at 30 and 144 Hz: %d and %d drops, and %d of a drizzle\n", rain30, rain144, drizzle);
+        check(rain30 > 0 && abs(rain30 - rain144) <= (std::max)(rain30, rain144) / 4,
+            "a second of rain is the same rain at 30 and at 144 frames a second");
+        check(drizzle > 0, "and a drizzle that adds less than a drop a frame still rains");
+
+        // The water of the trails leaves a share of the pool to the rain, and the
+        // rain takes the place of the water of a trail when nothing else is free.
+        D::Clear();
+        timeStep = 1.0f / 60;
+        auto* source = D::PlaceNew(960.0f, 540.0f, (float)biggest, 20000.0f, true);
+        const int32_t pool = (int32_t)D::ms_drops.size();
+
+        for (int32_t i = 0; i < pool * 2; i++)
+            D::PlaceNew(100.0f, 100.0f, (float)smallest, 20000.0f, true, source->r, source->g, source->b, true);
+
+        check(D::ms_numTraces == pool - D::TraceReserve(), "the water of the trails fills the pool up to the share it leaves to the rain");
+
+        int32_t placed = 0;
+
+        for (int32_t i = 0; i < pool; i++)
+            if (D::PlaceNew(200.0f, 200.0f, (float)biggest, 20000.0f, true))
+                placed++;
+
+        check(placed == pool - 1 && D::ms_numDrops == pool && D::ms_numTraces == 0,
+            "and a drop of the rain takes the place of the water of a trail when nothing else is free");
+
+        D::Clear();
+        D::ms_initialised = false;
         D::fps = 0;
         D::ms_vec = {};
         D::MinSize = 4;

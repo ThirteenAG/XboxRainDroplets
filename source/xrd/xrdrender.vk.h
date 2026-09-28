@@ -502,6 +502,11 @@ namespace Xrd
             copy.extent = { target.width, target.height, 1 };
             vkCmdCopyImage(commands, target.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, sceneImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
 
+            // the chain of the copy, every level blitted out of the one above it,
+            // which is what a drop shows a window of the frame far larger than
+            // itself smoothly with
+            GenerateSceneMips(commands);
+
             // the copy is the scene the drops refract from here on
             TransitionScene(commands, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -642,6 +647,7 @@ namespace Xrd
             XRD_VK_LOAD(vkEndCommandBuffer);
             XRD_VK_LOAD(vkCmdPipelineBarrier);
             XRD_VK_LOAD(vkCmdCopyImage);
+            XRD_VK_LOAD(vkCmdBlitImage);
             XRD_VK_LOAD(vkCmdCopyBuffer);
             XRD_VK_LOAD(vkCmdCopyBufferToImage);
             XRD_VK_LOAD(vkCmdBeginRenderPass);
@@ -672,6 +678,15 @@ namespace Xrd
 
             if (!vkGetPhysicalDeviceMemoryProperties)
                 vkGetPhysicalDeviceMemoryProperties = (PFN_vkGetPhysicalDeviceMemoryProperties)GetProcAddress(VulkanLoader::Module(), "vkGetPhysicalDeviceMemoryProperties");
+
+            // whether the format of the frame can be blitted, for the chain of the
+            // copy of the frame, see GenerateSceneMips: an instance level function
+            // like the one above
+            if (instance)
+                vkGetPhysicalDeviceFormatProperties = VulkanLoader::LoadInstance<PFN_vkGetPhysicalDeviceFormatProperties>("vkGetPhysicalDeviceFormatProperties", instance);
+
+            if (!vkGetPhysicalDeviceFormatProperties)
+                vkGetPhysicalDeviceFormatProperties = (PFN_vkGetPhysicalDeviceFormatProperties)GetProcAddress(VulkanLoader::Module(), "vkGetPhysicalDeviceFormatProperties");
 
             return vkCreateImage && vkCmdPipelineBarrier && vkQueueSubmit && vkCreateGraphicsPipelines && vkGetPhysicalDeviceMemoryProperties;
         }
@@ -709,14 +724,14 @@ namespace Xrd
             return true;
         }
 
-        bool CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImage& image, VkDeviceMemory& memory)
+        bool CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkImage& image, VkDeviceMemory& memory, uint32_t mipLevels = 1)
         {
             VkImageCreateInfo info{};
             info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
             info.imageType = VK_IMAGE_TYPE_2D;
             info.format = format;
             info.extent = { width, height, 1 };
-            info.mipLevels = 1;
+            info.mipLevels = mipLevels;
             info.arrayLayers = 1;
             info.samples = VK_SAMPLE_COUNT_1_BIT;
             info.tiling = VK_IMAGE_TILING_OPTIMAL;
@@ -746,7 +761,7 @@ namespace Xrd
             return true;
         }
 
-        bool CreateImageView(VkImage image, VkFormat format, VkImageView& view)
+        bool CreateImageView(VkImage image, VkFormat format, VkImageView& view, uint32_t mipLevels = 1)
         {
             VkImageViewCreateInfo info{};
             info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -754,7 +769,7 @@ namespace Xrd
             info.viewType = VK_IMAGE_VIEW_TYPE_2D;
             info.format = format;
             info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            info.subresourceRange.levelCount = 1;
+            info.subresourceRange.levelCount = mipLevels;
             info.subresourceRange.layerCount = 1;
 
             return vkCreateImageView(device, &info, nullptr, &view) == VK_SUCCESS;
@@ -847,6 +862,8 @@ namespace Xrd
             vkResetFences(device, 1, &fence);
         }
 
+        // every level of the copy of the frame at once, see GenerateSceneMips for
+        // the levels one by one
         void TransitionScene(VkCommandBuffer commands, VkImageLayout from, VkImageLayout to)
         {
             if (sceneLayout == to)
@@ -854,11 +871,50 @@ namespace Xrd
 
             // the tracked layout is the one the image is actually in, unless the
             // image was just created
-            TransitionImage(commands, sceneImage, sceneLayout == VK_IMAGE_LAYOUT_UNDEFINED ? VK_IMAGE_LAYOUT_UNDEFINED : from, to);
+            TransitionImage(commands, sceneImage, sceneLayout == VK_IMAGE_LAYOUT_UNDEFINED ? VK_IMAGE_LAYOUT_UNDEFINED : from, to, 0, sceneMipLevels);
             sceneLayout = to;
         }
 
-        void TransitionImage(VkCommandBuffer commands, VkImage image, VkImageLayout from, VkImageLayout to)
+        // The chain of the copy of the frame: every level is blitted out of the
+        // level above it, which the blit filters down to half the size, so a level
+        // is the average of the one above. The copy is in the transfer destination
+        // layout as a whole when this is called and is left in it, level by level:
+        // a level that was read from is moved back once its own level is done.
+        void GenerateSceneMips(VkCommandBuffer commands)
+        {
+            if (sceneMipLevels <= 1 || !vkCmdBlitImage)
+                return;
+
+            uint32_t width = sceneWidth;
+            uint32_t height = sceneHeight;
+
+            for (uint32_t level = 1; level < sceneMipLevels; level++)
+            {
+                const uint32_t nextWidth = width > 1 ? width / 2 : 1;
+                const uint32_t nextHeight = height > 1 ? height / 2 : 1;
+
+                TransitionImage(commands, sceneImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, level - 1, 1);
+
+                VkImageBlit blit{};
+                blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                blit.srcSubresource.mipLevel = level - 1;
+                blit.srcSubresource.layerCount = 1;
+                blit.srcOffsets[1] = { (int32_t)width, (int32_t)height, 1 };
+                blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                blit.dstSubresource.mipLevel = level;
+                blit.dstSubresource.layerCount = 1;
+                blit.dstOffsets[1] = { (int32_t)nextWidth, (int32_t)nextHeight, 1 };
+
+                vkCmdBlitImage(commands, sceneImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, sceneImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
+
+                TransitionImage(commands, sceneImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, level - 1, 1);
+
+                width = nextWidth;
+                height = nextHeight;
+            }
+        }
+
+        void TransitionImage(VkCommandBuffer commands, VkImage image, VkImageLayout from, VkImageLayout to, uint32_t baseLevel = 0, uint32_t levelCount = 1)
         {
             VkImageMemoryBarrier barrier{};
             barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -868,7 +924,8 @@ namespace Xrd
             barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
             barrier.image = image;
             barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            barrier.subresourceRange.levelCount = 1;
+            barrier.subresourceRange.baseMipLevel = baseLevel;
+            barrier.subresourceRange.levelCount = levelCount;
             barrier.subresourceRange.layerCount = 1;
 
             VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -1128,11 +1185,13 @@ namespace Xrd
             info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
             info.magFilter = VK_FILTER_LINEAR;
             info.minFilter = VK_FILTER_LINEAR;
-            info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+            // the copy of the frame is read through its chain, and the atlas of
+            // the drop shapes has one level, which the same sampler reads as it is
+            info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
             info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
             info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
             info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-            info.maxLod = 0.25f;
+            info.maxLod = VK_LOD_CLAMP_NONE;
 
             return vkCreateSampler(device, &info, nullptr, &sampler) == VK_SUCCESS;
         }
@@ -1252,11 +1311,50 @@ namespace Xrd
 
             ReleaseSceneImage();
 
-            if (!CreateImage(target.width, target.height, target.format,
-                VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, sceneImage, sceneImageMemory))
-                return false;
+            // The copy carries a chain of mip levels where its format can be
+            // blitted. A drop shows a window of the frame far larger than itself,
+            // and read from the top level alone every pixel of the drop is one
+            // pixel of the frame picked out of hundreds, which is what the noise
+            // that crawled over the drops was: the sampler reads the level whose
+            // texels are the size of the pixels of the drop instead, which is the
+            // window averaged. The chain is made out of the top level after every
+            // copy, see GenerateSceneMips.
+            sceneMipLevels = 1;
 
-            if (!CreateImageView(sceneImage, target.format, sceneView))
+            if (vkCmdBlitImage && vkGetPhysicalDeviceFormatProperties && physicalDevice)
+            {
+                VkFormatProperties properties{};
+                vkGetPhysicalDeviceFormatProperties(physicalDevice, target.format, &properties);
+
+                const VkFormatFeatureFlags needed = VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT |
+                    VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
+
+                if ((properties.optimalTilingFeatures & needed) == needed)
+                {
+                    uint32_t largest = target.width > target.height ? target.width : target.height;
+
+                    while (largest > 1)
+                    {
+                        largest /= 2;
+                        sceneMipLevels++;
+                    }
+                }
+            }
+
+            const VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+                (sceneMipLevels > 1 ? VK_IMAGE_USAGE_TRANSFER_SRC_BIT : 0);
+
+            if (!CreateImage(target.width, target.height, target.format, usage, sceneImage, sceneImageMemory, sceneMipLevels))
+            {
+                // a chain the device would not make is not what keeps the drops off the frame
+                if (sceneMipLevels <= 1 || !CreateImage(target.width, target.height, target.format,
+                    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, sceneImage, sceneImageMemory))
+                    return false;
+
+                sceneMipLevels = 1;
+            }
+
+            if (!CreateImageView(sceneImage, target.format, sceneView, sceneMipLevels))
                 return false;
 
             sceneLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -1371,6 +1469,7 @@ namespace Xrd
 
             sceneWidth = 0;
             sceneHeight = 0;
+            sceneMipLevels = 1;
             sceneLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         }
 
@@ -1438,6 +1537,7 @@ namespace Xrd
         bool frameReadable = true;
 
         PFN_vkGetPhysicalDeviceMemoryProperties vkGetPhysicalDeviceMemoryProperties = nullptr;
+        PFN_vkGetPhysicalDeviceFormatProperties vkGetPhysicalDeviceFormatProperties = nullptr;
 
         PFN_vkDestroyImage vkDestroyImage = nullptr;
         PFN_vkDestroyImageView vkDestroyImageView = nullptr;
@@ -1483,6 +1583,7 @@ namespace Xrd
         PFN_vkEndCommandBuffer vkEndCommandBuffer = nullptr;
         PFN_vkCmdPipelineBarrier vkCmdPipelineBarrier = nullptr;
         PFN_vkCmdCopyImage vkCmdCopyImage = nullptr;
+        PFN_vkCmdBlitImage vkCmdBlitImage = nullptr;
         PFN_vkCmdCopyBuffer vkCmdCopyBuffer = nullptr;
         PFN_vkCmdCopyBufferToImage vkCmdCopyBufferToImage = nullptr;
         PFN_vkCmdBeginRenderPass vkCmdBeginRenderPass = nullptr;
@@ -1532,6 +1633,8 @@ namespace Xrd
         VkImageLayout sceneLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         uint32_t sceneWidth = 0;
         uint32_t sceneHeight = 0;
+        // the levels of the chain of the copy, one when there is none, see EnsureSceneImage
+        uint32_t sceneMipLevels = 1;
 
         std::vector<TargetViewEntry> targetViews;
         VkFramebuffer targetFramebuffer = VK_NULL_HANDLE;

@@ -90,6 +90,16 @@
         "outputHash":  "tozg77sBNtn4uCzRmYkSKEIXRDcwsUWSujl3xNOS6LU="
     },
     {
+        "output":  "d3d12/mipVS12.cso",
+        "inputHash":  "Xd9WI4k96b5bf3etEClHvZETh88mbkCrb6TAK4cEQfw=",
+        "outputHash":  "HaFnydVSLLWvKC4m4QBoSK1dG2pEgEf+Pvc8mvJLqK0="
+    },
+    {
+        "output":  "d3d12/mipPS12.cso",
+        "inputHash":  "pTcnoabYWp5fkhBiCGbvkiuU8PXxaJy7HmwL4lpPCj0=",
+        "outputHash":  "PGs88PHOHKEEf0lj+GuGXrp1K87wOwksX5OI/qRmLmM="
+    },
+    {
         "output":  "vulkan/spirv.h",
         "inputHash":  "wAwF+vhLwjyezrlXfg4zAu74llozxQ8Tpx6mNpTbXj4=",
         "outputHash":  "bE1oE706PWE+ikTcM+Y6cr3+xXO2HBrAoUKzYNvA9+k="

@@ -304,6 +304,12 @@ namespace Xrd
             const bool bMultisampled = desc.MultiSampleType != D3DMULTISAMPLE_NONE;
             pDevice->StretchRect(pTarget, nullptr, pSceneSurface, nullptr, bMultisampled ? D3DTEXF_NONE : D3DTEXF_LINEAR);
 
+            // the chain of the copy, which is what a drop shows a window of the
+            // frame far larger than itself smoothly with: the device makes it out
+            // of the top level, see EnsureResources
+            if (sceneMips)
+                pSceneTexture->GenerateMipSubLevels();
+
             SavedState state{};
             CaptureState(state);
 
@@ -480,6 +486,7 @@ namespace Xrd
             sceneFormat = D3DFMT_UNKNOWN;
             sceneWidth = 0;
             sceneHeight = 0;
+            sceneMips = false;
         }
 
         bool EnsureResources(const D3DSURFACE_DESC& desc, int numVertices)
@@ -592,7 +599,21 @@ namespace Xrd
                 pSceneTexture = nullptr;
             }
 
-            if (FAILED(pDevice->CreateTexture(desc.Width, desc.Height, 1, D3DUSAGE_RENDERTARGET, desc.Format, D3DPOOL_DEFAULT, &pSceneTexture, nullptr)))
+            // The copy carries a chain of mip levels the device generates out of
+            // its top level. A drop shows a window of the frame far larger than
+            // itself, and read from the top level alone every pixel of the drop is
+            // one pixel of the frame picked out of hundreds, which is what the noise
+            // that crawled over the drops was: the sampler reads the level whose
+            // texels are the size of the pixels of the drop instead, which is the
+            // window averaged. A device or a format that will not make a chain gets
+            // a copy of one level, as before.
+            sceneMips = SUCCEEDED(pDevice->CreateTexture(desc.Width, desc.Height, 0, D3DUSAGE_RENDERTARGET | D3DUSAGE_AUTOGENMIPMAP,
+                desc.Format, D3DPOOL_DEFAULT, &pSceneTexture, nullptr)) && pSceneTexture;
+
+            if (sceneMips)
+                pSceneTexture->SetAutoGenFilterType(D3DTEXF_LINEAR);
+
+            if (!sceneMips && FAILED(pDevice->CreateTexture(desc.Width, desc.Height, 1, D3DUSAGE_RENDERTARGET, desc.Format, D3DPOOL_DEFAULT, &pSceneTexture, nullptr)))
                 return false;
 
             if (FAILED(pSceneTexture->GetSurfaceLevel(0, &pSceneSurface)))
@@ -690,7 +711,8 @@ namespace Xrd
                 pDevice->SetSamplerState(stage, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
                 pDevice->SetSamplerState(stage, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
                 pDevice->SetSamplerState(stage, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-                pDevice->SetSamplerState(stage, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+                // the copy of the frame is read through its chain, the atlas has none
+                pDevice->SetSamplerState(stage, D3DSAMP_MIPFILTER, (stage == 1 && sceneMips) ? D3DTEXF_LINEAR : D3DTEXF_NONE);
             }
 
             pDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
@@ -885,6 +907,8 @@ namespace Xrd
         D3DFORMAT sceneFormat = D3DFMT_UNKNOWN;
         UINT sceneWidth = 0;
         UINT sceneHeight = 0;
+        // whether the copy of the frame carries a mip chain, see EnsureResources
+        bool sceneMips = false;
 
         IDirect3DVertexBuffer9* pVertexBuffer = nullptr;
         IDirect3DIndexBuffer9* pIndexBuffer = nullptr;
