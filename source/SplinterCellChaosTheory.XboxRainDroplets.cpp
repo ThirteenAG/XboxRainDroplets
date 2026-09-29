@@ -115,41 +115,36 @@ void Init()
     pattern = hook::pattern("8B 88 ? ? ? ? 8B 6E");
     shAPlayerController__Tick = safetyhook::create_inline(pattern.get_first(-10), APlayerController__Tick);
 
-    pattern = hook::pattern("8B 08 8D 9E 3C 4D 00 00");
-    static auto CreateDeviceHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
+    // This is the game's shared resource teardown, called before both Reset
+    // and device destruction. Releasing at CreateDevice is too late for Reset.
+    pattern = hook::pattern("53 55 56 57 8B F1 E8 ? ? ? ? 8B 86 3C 4D 00 00 8B 08 33 ED 55 50 FF 91 70 01 00 00");
+    static auto ReleaseDeviceResourcesHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext&)
     {
         WaterDrops::Reset();
+        // The game may release/recreate the device when Reset fails. Forget the
+        // old pointer even if the allocator reuses its address on recreation.
+        Xrd::Shutdown();
+    });
 
-        auto SafeRelease = [](auto ppT)
+    // All three shader/HDR paths return through these epilogues in the
+    // post-process dispatcher. The old hooks ran inside the combine pass (or
+    // before HDR history was copied), feeding our output into later game passes.
+    // ESI still holds the renderer here, before the epilogue restores it.
+    pattern = hook::pattern("5E 88 1D ? ? ? ? 5B 83 C4 10 C2 08 00");
+    pattern.count(3);
+    static std::array<SafetyHookMid, 3> PostProcessHooks;
+    for (size_t i = 0; i < PostProcessHooks.size(); ++i)
+    {
+        PostProcessHooks[i] = safetyhook::create_mid(pattern.get(i).get<void>(0), [](SafetyHookContext& regs)
         {
-            if (*ppT)
-            {
-                (*ppT)->Release();
-                *ppT = NULL;
-            }
-        };
-
-    });
-
-    pattern = hook::pattern("8B 10 51 50 FF 92 ? ? ? ? 8B 86 ? ? ? ? 6A 04 8D 54 24 ? 52 C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? C7 44 24 ? ? ? ? ? 8B 80 ? ? ? ? 8B 08 6A 00 50 FF 91 ? ? ? ? 8B CE E8 ? ? ? ? 8B 8E");
-    static auto RenderHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
-    {
-        IDirect3DDevice9* pDevice = (IDirect3DDevice9*)(regs.eax);
-        Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
-        WaterDrops::Process();
-        WaterDrops::Render();
-        WaterDrops::ms_rainIntensity = 0.0f;
-    });
-
-    pattern = hook::pattern("8B 10 6A ? 50 FF 92 ? ? ? ? 8B 86 ? ? ? ? 39 A8 ? ? ? ? 74 ? 55 89 A8 ? ? ? ? 8B 80 ? ? ? ? ? ? 6A 04");
-    static auto RenderHookHDR = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
-    {
-        IDirect3DDevice9* pDevice = (IDirect3DDevice9*)(regs.eax);
-        Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
-        WaterDrops::Process();
-        WaterDrops::Render();
-        WaterDrops::ms_rainIntensity = 0.0f;
-    });
+            auto* renderDevice = *reinterpret_cast<uint8_t**>(regs.esi + 0x1A4);
+            auto* pDevice = *reinterpret_cast<IDirect3DDevice9**>(renderDevice + 0x4D3C);
+            Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+            WaterDrops::Process();
+            WaterDrops::Render();
+            WaterDrops::ms_rainIntensity = 0.0f;
+        });
+    }
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()
