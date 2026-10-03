@@ -326,10 +326,31 @@ int __cdecl sub_49C480(char* a1)
     return hb_sub_49C480.fun(a1);
 }
 
+// The game's NIS start/finish paths set this flag through sub_5EE6E0.
+// Share the existing rain check with blood emitters, which also fire in cinematics.
+uint8_t* bCutsceneCheck = nullptr;
+
+bool IsCutscenePlaying()
+{
+    return bCutsceneCheck && *bCutsceneCheck;
+}
+
+void ClearCutsceneBlood()
+{
+    if (!IsCutscenePlaying())
+        return;
+
+    // FillScreenMoving(..., true) creates red drops; traces retain that colour.
+    // Expire also detaches moving drops and updates the pool counters.
+    for (auto& drop : WaterDrops::ms_drops)
+        if (drop.active && drop.r == 0xFF && drop.g == 0 && drop.b == 0)
+            WaterDrops::Expire(&drop);
+}
+
 injector::hook_back<void(__fastcall*)(void* _this, void* edx, int a2, float* hitPosition, float* rayDir, char isNotMainCharacter)> hb_PlayShotEffect;
 void __fastcall PlayShotEffect(void* _this, void* edx, int a2, float* hitPosition, float* rayDir, char isNotMainCharacter)
 {
-    if (WaterDrops::bBloodDrops)
+    if (WaterDrops::bBloodDrops && !IsCutscenePlaying())
     {
         RwV3d prt_pos = { hitPosition[2], hitPosition[0], hitPosition[1] };
         auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(prt_pos);
@@ -344,7 +365,7 @@ void __fastcall PlayShotEffect(void* _this, void* edx, int a2, float* hitPositio
 injector::hook_back<void(__fastcall*)(void* _this, void* edx, float* position)> hb_PlayGoreBloodExplosionEffect;
 void __fastcall PlayGoreBloodExplosionEffect(void* _this, void* edx, float* position)
 {
-    if (WaterDrops::bBloodDrops)
+    if (WaterDrops::bBloodDrops && !IsCutscenePlaying())
     {
         RwV3d prt_pos = { position[2], position[0], position[1] };
         auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(prt_pos);
@@ -386,7 +407,7 @@ void Init()
 
     static auto nMenuCheck = (bool(*)())injector::GetBranchDestination(hook::get_pattern("E8 ? ? ? ? 84 C0 75 A4")).as_int();
     static auto nMenuCheck2 = *(uint8_t**)(injector::GetBranchDestination(hook::get_pattern("E8 ? ? ? ? 6A 00 E8 ? ? ? ? 83 C4 04 84 C0")).as_int() + 2);
-    static auto bCutsceneCheck = *(uint8_t**)hook::get_pattern("38 1D ? ? ? ? 74 18", 2);
+    bCutsceneCheck = *(uint8_t**)hook::get_pattern("38 1D ? ? ? ? 74 18", 2);
     pattern = hook::pattern("A1 ? ? ? ? 53 55 56 57 8B E9 8B 48 1C 6A 01");
     static auto dword_8111D0 = pattern.get_first(1);
     pattern = hook::pattern("E8 ? ? ? ? 8B 87 ? ? ? ? 83 C4 04");
@@ -396,7 +417,8 @@ void Init()
         {
             if (pDev)
             {
-                if (!GetMainCharacter()->IsCharacterInInterior() && !*bCutsceneCheck)
+                auto mainCharacter = GetMainCharacter();
+                if (mainCharacter && !mainCharacter->IsCharacterInInterior() && !IsCutscenePlaying())
                     WaterDrops::ms_rainIntensity = (float)*(uint8_t*)((*(uintptr_t*)(**(uintptr_t**)dword_8111D0 + 0x1C)) + 0x44);
                 else
                     WaterDrops::ms_rainIntensity = 0.0f;
@@ -413,6 +435,7 @@ void Init()
 
                 if (!WaterDrops::ms_initialised || !InMenu())
                     Xrd::Init(XRD_DEVICE_RENDERER, *pDev);
+                ClearCutsceneBlood();
                 WaterDrops::Process();
                 WaterDrops::Render();
 
