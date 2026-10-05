@@ -291,6 +291,21 @@ namespace Xrd
             sceneComplement = enabled;
         }
 
+        // kept for the backend of Direct3D 9 the drops may be drawn with, see
+        // RenderD3D9
+        void SetSceneBlur(float blur, float atlasTiles, float refraction, float maskSize) override
+        {
+            sceneBlur = blur;
+            sceneAtlasTiles = atlasTiles;
+            sceneRefraction = refraction;
+            sceneMaskSize = maskSize;
+        }
+
+        void SetSceneFrost(float milk) override
+        {
+            sceneFrost = milk;
+        }
+
         void SetSceneSampling(bool enabled) override
         {
             sceneSampling = enabled;
@@ -418,6 +433,9 @@ namespace Xrd
                     // the field the light was gathered into, on the third stage
                     pDevice->SetTexture(2, pLightField);
                     SetStageSampler(2);
+
+                    // (a flake of snow samples the frame like a drop of water,
+                    // through the small window of WaterDrops::SnowRefractionReach)
                 }
                 else
                 {
@@ -452,7 +470,19 @@ namespace Xrd
                             pDst[i].z = 0.0f;
                             pDst[i].rhw = 1.0f;
                             pDst[i].color = pVertices[i].color;
-                            pDst[i].lens = lens ? 0xFFFFFFFF : 0x00000000;
+                            // The second colour of the vertex: how much of the
+                            // light of the frame around it the drop takes in its
+                            // alpha, and the milk of a flake of snow in its colour,
+                            // see dropPS8.hlsl. A flake takes the light around it
+                            // half as much as a drop of clear water does, so a flake
+                            // by a lamp glows in its colour.
+                            if (sceneFrost > 0.0f)
+                            {
+                                const uint32_t milk = (uint32_t)(std::clamp(sceneFrost, 0.0f, 1.0f) * 255.0f);
+                                pDst[i].lens = 0x80000000 | (milk << 16) | (milk << 8) | milk;
+                            }
+                            else
+                                pDst[i].lens = lens ? 0xFF000000 : 0x00000000;
                             pDst[i].u0 = lens ? pVertices[i].u0 + AtlasLightMarker : pVertices[i].u0;
                             pDst[i].v0 = pVertices[i].v0;
                             pDst[i].u1 = pVertices[i].u1 * uvScaleX + uvOffsetX;
@@ -476,6 +506,8 @@ namespace Xrd
                                 ? pVertices[i].x * 0.125f / (float)fieldWidth + HalfTexelX() : 0.0f;
                             pDst[i].v2 = targetSize.height > 0
                                 ? pVertices[i].y * 0.125f / (float)fieldHeight + HalfTexelY() : 0.0f;
+
+
                         }
 
                         pDevice->SetVertexShader(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_SPECULAR | D3DFVF_TEX3);
@@ -1519,6 +1551,7 @@ namespace Xrd
             pBackend9->SetSceneUVScale(uvOffsetX, uvScaleX, uvOffsetY, uvScaleY);
             pBackend9->SetSceneComplement(sceneComplement);
             pBackend9->SetSceneSampling(sceneSampling);
+            pBackend9->SetSceneBlur(sceneBlur, sceneAtlasTiles, sceneRefraction, sceneMaskSize);
             const bool ready = vertices ? true : pBackend9->Prepare(count);
             if (vertices)
                 pBackend9->Render(vertices, count, primitive);
@@ -1590,6 +1623,12 @@ namespace Xrd
         float uvOffsetX = 0.0f, uvScaleX = 1.0f;
         float uvOffsetY = 0.0f, uvScaleY = 1.0f;
         bool sceneComplement = false;
+        float sceneBlur = 1.0f;
+        float sceneAtlasTiles = 1.0f;
+        float sceneRefraction = 7.0f;
+        float sceneMaskSize = 256.0f;
+        // how milky a flake of snow is, see SetSceneFrost
+        float sceneFrost = 0.0f;
         bool sceneSampling = true;
 
         Size targetSize{};

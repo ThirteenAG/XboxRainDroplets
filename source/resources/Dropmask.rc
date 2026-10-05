@@ -19,8 +19,8 @@
 #define IDR_MIP12VS 126
 #define IDR_MIP12PS 127
 
-IDR_DROPMASK RCDATA "dropmask.png"
-IDR_SNOWDROPMASK RCDATA "snowdropmask.png"
+IDR_DROPMASK RCDATA "lensdrops.png"
+IDR_SNOWDROPMASK RCDATA "lenssnow.png"
 IDR_BLURPS RCDATA "../shaders/generated/d3d9/blurPS.cso"
 IDR_BLURVS RCDATA "../shaders/generated/d3d9/blurVS.cso"
 IDR_DROP8PS14 RCDATA "../shaders/generated/d3d8/dropPS8_14.cso"

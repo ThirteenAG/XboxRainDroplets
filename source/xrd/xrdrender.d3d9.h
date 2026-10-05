@@ -257,6 +257,14 @@ namespace Xrd
             sceneSampling = enabled;
         }
 
+        void SetSceneBlur(float blur, float atlasTiles, float refraction, float maskSize) override
+        {
+            sceneBlur = blur;
+            sceneAtlasTiles = atlasTiles;
+            sceneRefraction = refraction;
+            sceneMaskSize = maskSize;
+        }
+
         void Render(const Vertex* pVertices, int numVertices, PrimitiveType primitive) override
         {
             if (!pDevice || !pVertices || numVertices <= 0)
@@ -390,6 +398,13 @@ namespace Xrd
                 const float constants[4] = { 1.0f / desc.Width, 1.0f / desc.Height,
                     sceneSampling ? 1.0f : 0.0f, sceneComplement ? 1.0f : 0.0f };
                 pDevice->SetPixelShaderConstantF(0, constants, 1);
+                // how blurred the drops are, see source/shaders/d3d9/drops.hlsl
+                // how the drops are drawn, see source/shaders/d3d9/drops.hlsl
+                const float drop[12] = {
+                    sceneBlur * 2.0f, sceneBlur, sceneAtlasTiles, sceneRefraction,
+                    uvScaleX, uvScaleY, uvOffsetX, uvOffsetY,
+                    1.0f / sceneMaskSize, 1.0f / sceneMaskSize, 0.0f, 0.0f };
+                pDevice->SetPixelShaderConstantF(1, drop, 3);
                 pDevice->SetTexture(2, pLightTexture);
                 pDevice->SetSamplerState(2, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
                 pDevice->SetSamplerState(2, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
@@ -424,6 +439,7 @@ namespace Xrd
             DWORD fvf = 0;
             IDirect3DVertexDeclaration9* pDeclaration = nullptr;
             float pixelConstant[4]{};
+            float pixelConstant1[12]{};
             IDirect3DVertexShader9* pVertexShader = nullptr;
             IDirect3DPixelShader9* pPixelShader = nullptr;
             IDirect3DVertexBuffer9* pVertexBuffer = nullptr;
@@ -637,6 +653,7 @@ namespace Xrd
             pDevice->GetFVF(&state.fvf);
             pDevice->GetVertexDeclaration(&state.pDeclaration);
             pDevice->GetPixelShaderConstantF(0, state.pixelConstant, 1);
+            pDevice->GetPixelShaderConstantF(1, state.pixelConstant1, 3);
             pDevice->GetVertexShader(&state.pVertexShader);
             pDevice->GetPixelShader(&state.pPixelShader);
             pDevice->GetStreamSource(0, &state.pVertexBuffer, &state.vertexOffset, &state.vertexStride);
@@ -745,6 +762,7 @@ namespace Xrd
             pDevice->SetFVF(state.fvf);
             pDevice->SetVertexDeclaration(state.pDeclaration);
             pDevice->SetPixelShaderConstantF(0, state.pixelConstant, 1);
+            pDevice->SetPixelShaderConstantF(1, state.pixelConstant1, 3);
             pDevice->SetVertexShader(state.pVertexShader);
             pDevice->SetPixelShader(state.pPixelShader);
 
@@ -924,6 +942,11 @@ namespace Xrd
         float uvOffsetX = 0.0f, uvScaleX = 1.0f;
         float uvOffsetY = 0.0f, uvScaleY = 1.0f;
         bool sceneComplement = false;
+        // how blurred the drops are drawn and the shapes along a side of the atlas, see SetSceneBlur
+        float sceneBlur = 0.0f;
+        float sceneAtlasTiles = 2.0f;
+        float sceneRefraction = 7.0f;
+        float sceneMaskSize = 256.0f;
         bool sceneSampling = true;
 
         Size targetSize{};
