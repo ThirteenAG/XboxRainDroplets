@@ -260,12 +260,20 @@ bool UpdateDroplets()
         return false;
     }
 
-    if (!pXRData)
+    // A reset/ELF transition may rebase the module without presenting a frame
+    // while the VM is stopped. Resolve the current export rather than retaining
+    // an address from the previous module generation.
+    const auto sym = GetPluginSymbolAddr ? GetPluginSymbolAddr(GUEST_PLUGIN_PATH, "XboxRainDropletsData") : 0;
+    const auto eeSize = GetEEMainMemorySize ? GetEEMainMemorySize() : 0;
+    if (!sym || sym >= eeSize || sizeof(XRData) > eeSize - sym)
     {
-        auto sym = GetPluginSymbolAddr ? GetPluginSymbolAddr(GUEST_PLUGIN_PATH, "XboxRainDropletsData") : 0;
-        if (sym)
-            pXRData = (XRData*)(eeStart + sym);
-
+        pXRData = nullptr;
+        return false;
+    }
+    auto* current = reinterpret_cast<XRData*>(eeStart + sym);
+    if (pXRData != current)
+    {
+        pXRData = current;
         return false;
     }
 
