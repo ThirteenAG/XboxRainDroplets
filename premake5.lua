@@ -340,7 +340,7 @@ project "PPSSPP.XboxRainDroplets"
    includedirs { "external/ppsspp" }
 project "PCSX2F.XboxRainDroplets"
    location "build/x64"
-   setpaths("PCSX2F_DIR", "pcsx2-qtx64-clang.exe", "")
+   setpaths("PCSX2F_DIR", "pcsx2-qtx64.exe", "")
 -- Tests: one small application per renderer, each one draws its own scene and
 -- its own UI, the drops go in between so it is visible that they end up behind
 -- what the application draws last.
