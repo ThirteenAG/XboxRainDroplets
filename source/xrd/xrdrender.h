@@ -116,6 +116,24 @@ namespace Xrd
         // sampling off is the same as clearing the second texture stage.
         virtual void SetSceneSampling(bool enabled) = 0;
 
+        // How blurred a drop is drawn, from zero (a drop of clear water that shows
+        // the frame around it in every detail) to one (a drop that is out of
+        // focus: a soft disc of the light of the whole of its surroundings). The
+        // tiles are how many shapes the atlas holds along one of its sides, which
+        // is what the shader softens the shape of a drop by. Only the renderers
+        // that draw the drops with a shader out of a chain of mip levels of the
+        // frame do this, the rest draw the drops clear whatever is asked.
+        // The scale of the refraction is how far the frame is bent through a drop,
+        // and the size of the mask is what the slope of a drop is measured with.
+        virtual void SetSceneBlur(float /*blur*/, float /*atlasTiles*/, float /*refraction*/ = 7.0f, float /*maskSize*/ = 256.0f) {}
+
+        // How milky a flake of snow is, from zero (a drop of clear water) up: the
+        // renderers that cannot blur the frame a flake shows lift it towards white
+        // by this much and let the light around it glow through. Only Direct3D 8
+        // draws its flakes this way, the shaders of Direct3D 9 and above frost them
+        // themselves.
+        virtual void SetSceneFrost(float /*milk*/) {}
+
         // A frame that is presented has been turned over to be the right way up
         // on the screen, and a copy of it that is read out of the window is the
         // other way round than the frame itself: an OpenGL window lies the other
@@ -368,6 +386,20 @@ namespace Xrd
     {
         if (pBackend)
             pBackend->SetSceneSampling(enabled);
+    }
+
+    // How blurred the drops are drawn, see Backend::SetSceneBlur.
+    inline void SetSceneBlur(float blur, float atlasTiles, float refraction = 7.0f, float maskSize = 256.0f)
+    {
+        if (pBackend)
+            pBackend->SetSceneBlur(blur, atlasTiles, refraction, maskSize);
+    }
+
+    // How milky a flake of snow is, see Backend::SetSceneFrost.
+    inline void SetSceneFrost(float milk)
+    {
+        if (pBackend)
+            pBackend->SetSceneFrost(milk);
     }
 
     // Whether the drops are drawn with a shader that gathers the light of the

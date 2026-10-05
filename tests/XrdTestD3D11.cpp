@@ -34,6 +34,8 @@ namespace
     ID3D11Buffer* pVertexBuffer = nullptr;
     ID3D11Buffer* pConstantBuffer = nullptr;
     ID3D11BlendState* pBlendState = nullptr;
+    // the mock of the drive sorts and culls its own faces, nothing is culled here
+    ID3D11RasterizerState* pRasterizerState = nullptr;
 
     XrdTest::Window window;
     XrdTest::Camera camera;
@@ -141,12 +143,28 @@ namespace
         blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
         bResult = bResult && SUCCEEDED(pDevice->CreateBlendState(&blendDesc, &pBlendState));
 
+        D3D11_RASTERIZER_DESC rasterizerDesc{};
+        rasterizerDesc.FillMode = D3D11_FILL_SOLID;
+        rasterizerDesc.CullMode = D3D11_CULL_NONE;
+        rasterizerDesc.DepthClipEnable = TRUE;
+        bResult = bResult && SUCCEEDED(pDevice->CreateRasterizerState(&rasterizerDesc, &pRasterizerState));
+
         return bResult;
     }
 
-    void DrawRects(const XrdTest::Rect* pRects, int count)
+    // quads of the window, four corners each, drawn in the order they come
+    void DrawQuads(const XrdTest::Mock::Quad* pQuads, int count)
     {
-        if (count <= 0 || count * 6 > MaxVertices)
+        // more than the buffer holds goes in several draws
+        while (count * 4 > MaxVertices)
+        {
+            const int part = MaxVertices / 4;
+            DrawQuads(pQuads, part);
+            pQuads += part;
+            count -= part;
+        }
+
+        if (count <= 0)
             return;
 
         D3D11_MAPPED_SUBRESOURCE mapped{};
@@ -158,19 +176,10 @@ namespace
 
         for (int i = 0; i < count; i++)
         {
-            const XrdTest::Rect& rect = pRects[i];
-            const uint32_t color = Xrd::ColorFloat(rect.color.r, rect.color.g, rect.color.b, rect.color.a);
-
-            const SimpleVertex quad[4] =
-            {
-                { rect.x,                    rect.y,                    0.0f, color },
-                { rect.x + rect.width,       rect.y,                    0.0f, color },
-                { rect.x + rect.width,       rect.y + rect.height,      0.0f, color },
-                { rect.x,                    rect.y + rect.height,      0.0f, color },
-            };
+            const XrdTest::Mock::Quad& quad = pQuads[i];
 
             for (int v = 0; v < 4; v++)
-                pVertices[n++] = quad[v];
+                pVertices[n++] = { quad.x[v], quad.y[v], 0.0f, Xrd::ColorFloat(quad.color[v].r, quad.color[v].g, quad.color[v].b, quad.color[v].a) };
         }
 
         pContext->Unmap(pVertexBuffer, 0);
@@ -223,11 +232,47 @@ namespace
 
         pContext->IASetIndexBuffer(pIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
         pContext->OMSetBlendState(pBlendState, nullptr, 0xFFFFFFFF);
+        pContext->RSSetState(pRasterizerState);
         pContext->DrawIndexed(count * 6, 0, 0);
+    }
+
+    void DrawRects(const XrdTest::Rect* pRects, int count)
+    {
+        std::vector<XrdTest::Mock::Quad> quads;
+        quads.reserve((size_t)(std::max)(count, 0));
+
+        for (int i = 0; i < count; i++)
+        {
+            const XrdTest::Rect& rect = pRects[i];
+            quads.push_back({ { rect.x, rect.x + rect.width, rect.x + rect.width, rect.x },
+                { rect.y, rect.y, rect.y + rect.height, rect.y + rect.height }, { rect.color, rect.color, rect.color, rect.color }, 0.0f });
+        }
+
+        DrawQuads(quads.data(), (int)quads.size());
+    }
+
+    // the mock of a drive, see XrdTest::Mock
+    XrdTest::Mock::World mock;
+
+    void DrawMockWorld()
+    {
+        static std::vector<XrdTest::Mock::Quad> flat;
+        static std::vector<XrdTest::Mock::Quad> scene;
+        flat.clear();
+        scene.clear();
+        XrdTest::Mock::Build(mock, camera, window.width, window.height, flat, scene);
+        DrawQuads(flat.data(), (int)flat.size());
+        DrawQuads(scene.data(), (int)scene.size());
     }
 
     void DrawWorld()
     {
+        if (mock.active)
+        {
+            DrawMockWorld();
+            return;
+        }
+
         std::vector<XrdTest::Rect> rects;
 
         rects.push_back({ 0.0f, 0.0f, (float)window.width, (float)window.height * 0.62f, { 0.35f, 0.45f, 0.65f, 1.0f } });
@@ -344,29 +389,30 @@ namespace
     {
         const float cosPitch = cosf(camera.pitch);
 
-        WaterDrops::right = { cosf(camera.yaw), 0.0f, -sinf(camera.yaw) };
+        // the right vector the way the games hand it over: RenderWare's, which
+        // points to the left of the screen
+        WaterDrops::right = { -cosf(camera.yaw), 0.0f, sinf(camera.yaw) };
         WaterDrops::up = { -sinf(camera.yaw) * sinf(camera.pitch), cosPitch, -cosf(camera.yaw) * sinf(camera.pitch) };
         WaterDrops::at = { sinf(camera.yaw) * cosPitch, sinf(camera.pitch), cosf(camera.yaw) * cosPitch };
         WaterDrops::pos = { camera.x, camera.y, camera.z };
     }
 
     // -----------------------------------------------------------------------
-    // the water a running drop leaves behind it, without a device
+    // --trail-check: the model of the drops, without a device
     //
-    // Three things the effect has to get right do not need a graphics API to be
-    // looked at, only the drops it makes and the vertices they become:
+    // The drops are the lens rain of Forza Horizon 4, taken from a capture of
+    // the game (see the air over the lens in xrd.h). What it does does not need
+    // a graphics API to be looked at, only the drops the effect makes:
     //
-    //   - what runs down the glass and what hangs on it is decided by how much
-    //     water there is in a bead, and never by a setting,
-    //   - the water a bead leaves is only ever a part of how visible the bead is,
-    //     so a bead that has almost faded out can not leave a trail that shows up
-    //     brighter than the bead itself. The original code drew every trace at
-    //     full opacity, which is why a drop that was about to fade out painted a
-    //     bright smear as soon as the camera moved,
-    //   - a place in the pool that is free again is not still being moved, see
-    //     WaterDrops::DetachMoving. The original code left the entry that points
-    //     at a drop behind when the drop expired, and the next drop to take that
-    //     place was moved twice.
+    //   - a drop lands at rest, lives one second and fades from the moment it lands
+    //     lands, and seven drops in eight are small,
+    //   - a drop sits while the camera stands, runs outwards from the middle of
+    //     the picture while the camera drives, faster and faster and the faster
+    //     the bigger it is, and inwards while it backs up,
+    //   - the camera that moves sideways or turns pushes the drops sideways, and
+    //     they come to rest again when it stops turning, some of them leaving a
+    //     little water behind them,
+    //   - a place in the pool that is free again is not still being moved.
     // -----------------------------------------------------------------------
     int CheckTrails()
     {
@@ -392,509 +438,378 @@ namespace
         D::bEnableSnow = false;
         D::bRefractions = true;
         D::fTimeStep = &timeStep;
+        D::MinSize = 4;
+        D::MaxSize = 19;
 
-        const int32_t smallest = (int32_t)(D::MinSize * D::ms_scaling);
-        const int32_t biggest = (int32_t)(D::MaxSize * D::ms_scaling);
-        // pixels of a frame of sixty a second at 480 lines, scaled to the frame
-        const float slowest = D::gravity / D::gdivmin * D::ms_scaling;
-        const float fastest = D::gravity / D::gdivmax * D::ms_scaling;
+        const float scale = D::ms_scaling;
+        const int32_t smallest = (int32_t)(D::MinSize * scale);
+        const int32_t biggest = (int32_t)(D::MaxSize * scale);
 
-        // What runs down the glass and what hangs on it: one bead in two is held
-        // where it is by the surface tension and never runs, whatever its size is,
-        // which is what makes beads of every size be seen both hanging and
-        // running. The only thing that then moves a bead that hangs is the camera.
-        int32_t hangingBeads = 0;
-        int32_t runningBeads = 0;
-        float slowestRunner = 1000.0f;
-        float fastestRunner = 0.0f;
-
-        D::Clear();
-
-        for (int i = 0; i < 400; i++)
+        const auto air = [&](float x, float y, float z)
         {
-            auto* bead = D::PlaceNew(960.0f, 540.0f, (float)((i % 2) ? smallest : biggest), 20000.0f, true);
+            D::ms_air[0] = x;
+            D::ms_air[1] = y;
+            D::ms_air[2] = z;
+            D::ms_lookAir[0] = D::ms_lookAir[1] = 0.0f;
+        };
 
-            if (bead->slide == 0.0f)
+        const auto calm = [&]()
+        {
+            D::ms_vec = {};
+            D::ms_vecLen = 0.0f;
+            air(0.0f, 0.0f, 0.0f);
+            D::Clear();
+        };
+
+        // a drop of a known make: whether it leaves water is what the check asks
+        const auto drop = [&](float x, float y, float size, bool trail)
+        {
+            auto* d = D::PlaceNew(x, y, size, 2000.0f, true);
+
+            if (d)
             {
-                hangingBeads++;
+                d->trail = trail;
+                d->fallTop = 0.0f;  // no gravity, see the check of it
+                d->time = 1000.0f;  // past its splash
+                D::NewDropMoving(d);
             }
-            else
-            {
-                runningBeads++;
 
-                if (bead->slide < slowestRunner)
-                    slowestRunner = bead->slide;
+            return d;
+        };
 
-                if (bead->slide > fastestRunner)
-                    fastestRunner = bead->slide;
-            }
+        const auto run = [&](int frames)
+        {
+            for (int i = 0; i < frames; i++)
+                D::ProcessMoving();
+        };
+
+        // the rain itself: what lands and how
+        calm();
+        D::ms_initialised = true;
+        D::SpawnDrops(2000, 0xFF, 0xFF, 0xFF);
+
+        int32_t landed = 0, smallCount = 0, bigCount = 0, still = 0, oneSecond = 0;
+        float minRotation = 10.0f, maxRotation = -10.0f;
+        const float smallTop = smallest + (biggest - smallest) * 0.32f + 0.01f;
+        const float bigBottom = smallest + (biggest - smallest) * 0.62f - 0.01f;
+
+        for (const auto& d : D::ms_drops)
+        {
+            if (!d.active)
+                continue;
+
+            landed++;
+            smallCount += d.size >= smallest - 0.01f && d.size <= smallTop ? 1 : 0;
+            bigCount += d.size >= bigBottom && d.size <= biggest + 0.01f ? 1 : 0;
+            still += d.vel[0] == 0.0f && d.vel[1] == 0.0f && d.vel[2] == 0.0f ? 1 : 0;
+            oneSecond += d.ttl >= D::LifeMinSeconds * 2000.0f && d.ttl <= D::LifeMaxSeconds * 2000.0f ? 1 : 0;
+            minRotation = (std::min)(minRotation, d.rotation);
+            maxRotation = (std::max)(maxRotation, d.rotation);
         }
 
-        check(hangingBeads > 400 / 4 && hangingBeads < 400 * 3 / 4,
-            "about one bead in two hangs on the glass where it is");
-        check(runningBeads > 400 / 4 && runningBeads < 400 * 3 / 4,
-            "and the other one runs down it");
-        check(slowestRunner >= slowest - 0.001f && fastestRunner <= fastest + 0.001f,
-            "how fast a bead runs is in the range the effect has always given a drop");
+        printf("[d3d11] %d drops landed: %d small, %d big\n", landed, smallCount, bigCount);
+        check(landed > 400 && smallCount + bigCount == landed, "a drop of the rain is either a small one or a big one");
+        check(bigCount > landed / 20 && bigCount < landed / 4, "and about one in eight is bigCount");
+        check(still == landed && oneSecond == landed, "every drop lands at rest and lives one second");
+        check(minRotation < -2.5f && maxRotation > 2.5f, "and lands turned any way");
 
-        // both halves of the beads are of every size, and not the small ones that
-        // hang and the big ones that run
-        D::Clear();
+        // The rain of the weather lands in the middle of the picture at about a
+        // fifth of the density it lands with further out, the way Forza's does;
+        // a splash of the game lands anywhere.
+        float inMiddle = 0.0f, nearEdge = 0.0f;
+        for (int round = 0; round < 12; round++)
+        {
+            calm();
+            D::SpawnDrops(2000, 0xFF, 0xFF, 0xFF, true);
+            for (const auto& d : D::ms_drops)
+            {
+                if (!d.active) continue;
+                const float r = hypotf(d.x / 960.0f - 1.0f, d.y / 540.0f - 1.0f);
+                inMiddle += r < 0.2f ? 1.0f : 0.0f;
+                nearEdge += r >= 0.8f && r < 1.0f ? 1.0f : 0.0f;
+            }
+        }
+        // per area of the two rings
+        const float middleDensity = inMiddle / (0.2f * 0.2f);
+        const float edgeDensity = nearEdge / (1.0f - 0.64f);
+        printf("[d3d11] the rain lands in the middle at %.2f of the density near the edge\n", middleDensity / (std::max)(edgeDensity, 1.0f));
+        check(middleDensity > edgeDensity * 0.08f && middleDensity < edgeDensity * 0.35f,
+            "the rain of the weather lands thinly in the middle of the picture, and fully further out");
+        calm();
+        D::SpawnDrops(1500, 0xFF, 0xFF, 0xFF, false);
+        int32_t splashMiddle = 0;
+        for (const auto& d : D::ms_drops)
+            splashMiddle += d.active && hypotf(d.x / 960.0f - 1.0f, d.y / 540.0f - 1.0f) < 0.3f ? 1 : 0;
+        check(splashMiddle > 10, "and a splash of the game lands in the middle as well");
 
-        int32_t hangingSmall = 0;
-        int32_t runningSmall = 0;
-        int32_t hangingBig = 0;
-        int32_t runningBig = 0;
+        // A drop fades from the moment it lands until it is gone.
+        calm();
+        auto* fading = D::PlaceNew(960.0f, 540.0f, (float)biggest, 2000.0f, true);
+        timeStep = 0.25f;
+        D::Fade();
+        const uint8_t quarter = fading->alpha;
+        D::Fade();
+        const uint8_t half = fading->alpha;
+        timeStep = 1.0f / 60.0f;
+        check(quarter > 180 && quarter < 200 && half > 120 && half < 135, "a drop fades from the moment it lands, a quarter of the way in a quarter of a second");
 
+        // And it splashes, bigger for the first moment.
+        calm();
+        auto* splash = D::PlaceNew(960.0f, 540.0f, 40.0f, 2000.0f, true);
+        const float atLanding = D::DrawnSize(splash);
+        splash->time = 100.0f;
+        check(atLanding > 40.0f * 1.35f && D::DrawnSize(splash) == 40.0f, "a drop is bigger the moment it lands and its own size a frame later");
+
+        // A camera that stands leaves the drops where they are.
+        calm();
+        auto* sitting = drop(700.0f, 300.0f, (float)biggest, false);
+        run(60);
+        check(sitting->x == 700.0f && sitting->y == 300.0f, "a drop sits where it landed while the camera stands");
+
+        // A camera that drives makes the drops run outwards from the middle,
+        // faster and faster, and the big ones faster than the small ones.
+        calm();
+        air(0.0f, 0.0f, -30.0f);
+        auto* left = drop(500.0f, 540.0f, (float)biggest, false);
+        auto* right = drop(1500.0f, 540.0f, (float)biggest, false);
+        auto* top = drop(960.0f, 200.0f, (float)biggest, false);
+        auto* little = drop(500.0f, 800.0f, (float)smallest, false);
+        run(15);
+        const float leftEarly = 500.0f - left->x;
+        run(15);
+        const float leftLate = 500.0f - left->x - leftEarly;
+        printf("[d3d11] at 30 units a second a big drop ran %.1f px in a quarter of a second and %.1f px in the next\n", leftEarly, leftLate);
+        check(left->x < 500.0f && right->x > 1500.0f && top->y < 200.0f, "a camera that drives makes the drops run outwards from the middle of the picture");
+        check(fabsf(left->y - 540.0f) < 0.5f && fabsf(right->y - 540.0f) < 0.5f, "and straight outwards");
+        check(leftLate > leftEarly * 2.0f, "faster and faster");
+        check(500.0f - little->x < (500.0f - left->x) * 0.5f, "and a small drop well behind a big one");
+
+        calm();
+        air(0.0f, 0.0f, 30.0f);
+        auto* backing = drop(400.0f, 540.0f, (float)biggest, false);
+        run(30);
+        check(backing->x > 400.0f, "air from behind the lens would draw the drops in");
+
+        // but a camera that backs up, or looks back while driving, has its lens
+        // in the lee: no air comes at it from behind and the drops stay put
+        calm();
+        D::bRadial = false;
+        D::right = { -1.0f, 0.0f, 0.0f };
+        D::up = { 0.0f, 1.0f, 0.0f };
+        D::at = { 0.0f, 0.0f, 1.0f };
+        D::pos = { 0.0f, 0.0f, 0.0f };
+        D::ms_haveLastFwd = false;
+        D::CalculateMovement();
+        D::pos = { 0.0f, 0.0f, -30.0f * timeStep };
+        D::CalculateMovement();
+        check(D::ms_air[2] == 0.0f, "a camera that goes backwards has no air come at its lens from behind");
+        D::ms_haveLastFwd = false;
+
+        // A camera that goes to the right has the air come from the right and
+        // pushes the drops to the left; one that goes up pushes them down.
+        calm();
+        air(-30.0f, 0.0f, 0.0f);
+        auto* pushed = drop(960.0f, 540.0f, (float)biggest, false);
+        run(30);
+        check(pushed->x < 950.0f && fabsf(pushed->y - 540.0f) < 0.5f, "air from the right pushes a drop to the left");
+        calm();
+        air(0.0f, -30.0f, 0.0f);
+        auto* dropped = drop(960.0f, 540.0f, (float)biggest, false);
+        run(30);
+        check(dropped->y > 550.0f && fabsf(dropped->x - 960.0f) < 0.5f, "air from above pushes a drop down");
+
+        // What the camera does is what the air is measured from.
+        calm();
+        D::bRadial = false;
+        D::fSpeedAdjuster = 1.0f;
+        // the right vector the way the games hand it over, pointing to the left
+        // of the screen: the right of the screen is +x here
+        D::right = { -1.0f, 0.0f, 0.0f };
+        D::up = { 0.0f, 1.0f, 0.0f };
+        D::at = { 0.0f, 0.0f, 1.0f };
+        D::pos = { 0.0f, 0.0f, 0.0f };
+        D::ms_haveLastFwd = false;
+        D::CalculateMovement();
+        D::pos = { 0.0f, 0.0f, 20.0f * timeStep };
+        D::CalculateMovement();
+        check(fabsf(D::ms_air[2] + 20.0f) < 0.01f && fabsf(D::ms_air[0]) < 0.01f, "a camera that drives forward has the air come at the lens head on");
+        D::pos = { D::pos.x + 5.0f * timeStep, 0.0f, D::pos.z };
+        D::CalculateMovement();
+        // sideways to the way it looks, so half of it, see the facing in CalculateMovement
+        check(fabsf(D::ms_air[0] + 2.5f) < 0.01f && fabsf(D::ms_air[2]) < 0.01f, "and one that goes to the right has it come from the right, half of it");
+
+        D::CalculateMovement();
+        const float angle = 0.02f;
+        D::right = { -cosf(angle), 0.0f, sinf(angle) };
+        D::at = { sinf(angle), 0.0f, cosf(angle) };
+        D::CalculateMovement();
+        const float expected = angle * D::LookArm / timeStep;
+        printf("[d3d11] a view that turns right by %.3f rad in a frame makes air of %.1f units/s, expected %.1f\n", angle, D::ms_air[0], expected);
+        check(D::ms_air[0] > expected * 0.9f && D::ms_air[0] < expected * 1.1f && D::ms_lookAir[0] == D::ms_air[0],
+            "a view that turns to the right swings the lens through the air, so the drops go right");
+        D::right = { -1.0f, 0.0f, 0.0f };
+        D::at = { 0.0f, 0.0f, 1.0f };
+        D::ms_haveLastFwd = false;
+
+        // A drop the turning camera shoved comes to rest again when the turning
+        // stops, and a drop that leaves water leaves it while it is dragged.
+        calm();
+        auto* shoved = drop(960.0f, 540.0f, (float)biggest, true);
+        auto* clean = drop(960.0f, 300.0f, (float)biggest, false);
+        // the air of a turn of the camera, at the length of the arm it swings on,
+        // see LookArm
+        for (int i = 0; i < 20; i++)
+        {
+            air(900.0f, 0.0f, 0.0f);
+            D::ms_lookAir[0] = 900.0f;
+            D::ProcessMoving();
+        }
+        const float shovedTo = shoved->x;
+        int32_t water = 0;
+        for (auto& d : D::ms_drops)
+            water += d.active && d.isTrace ? 1 : 0;
+        air(0.0f, 0.0f, 0.0f);
+        run(60);
+        const float coasted = shoved->x - shovedTo;
+        run(60);
+        printf("[d3d11] a turn moved a drop %.1f px, it coasted %.1f px after and %.2f px in the second after that; it left %d drops of water\n",
+            shovedTo - 960.0f, coasted, shoved->x - shovedTo - coasted, water);
+        check(shovedTo > 980.0f && clean->x > 980.0f, "the turning camera drags the drops sideways");
+        check(shoved->x - shovedTo - coasted < 1.0f, "and they come to rest again when it stops");
+        check(water > 2, "a drop that leaves water leaves a trail of it when it is dragged");
+
+        int32_t cleanWater = 0;
+        for (auto& d : D::ms_drops)
+            if (d.active && d.isTrace && fabsf(d.y - 300.0f) < 5.0f)
+                cleanWater++;
+        check(cleanWater == 0, "and one that leaves none leaves none");
+
+        // a drop that runs outwards in the stream leaves no water
+        calm();
+        air(0.0f, 0.0f, -40.0f);
+        drop(400.0f, 540.0f, (float)biggest, true);
+        run(40);
+        int32_t streamWater = 0;
+        for (auto& d : D::ms_drops)
+            streamWater += d.active && d.isTrace ? 1 : 0;
+        check(streamWater == 0, "a drop that the stream of a drive blows outwards leaves no water");
+
+        // Trails come from some of the drops, more of the big ones.
+        calm();
+        int32_t trailSmall = 0, trailBig = 0;
         for (int i = 0; i < 400; i++)
         {
-            const bool tiny = (i % 2) != 0;
-            auto* bead = D::PlaceNew(960.0f, 540.0f, (float)(tiny ? smallest : biggest), 20000.0f, true);
-
-            if (tiny)
-                (bead->slide == 0.0f ? hangingSmall : runningSmall)++;
-            else
-                (bead->slide == 0.0f ? hangingBig : runningBig)++;
+            auto* d = D::PlaceNew(960.0f, 540.0f, (float)((i % 2) ? smallest : biggest), 2000.0f, true);
+            ((i % 2) ? trailSmall : trailBig) += d->trail ? 1 : 0;
+            D::Clear();
         }
+        check(trailSmall > 10 && trailSmall < 100 && trailBig > trailSmall && trailBig < 180, "some drops leave water when dragged, more of the big ones, not all");
 
-        check(hangingSmall > 200 / 4 && runningSmall > 200 / 4 && hangingBig > 200 / 4 && runningBig > 200 / 4,
-            "the beads that hang and the beads that run are of every size");
-
+        // With gravity on, a share of the drops, picked at random, runs slowly
+        // down the glass; with it off, none does.
+        calm();
+        int32_t falling = 0, fallingSmall = 0, fallingBig = 0;
+        float fastestFall = 0.0f;
+        for (int i = 0; i < 400; i++)
+        {
+            auto* d = D::PlaceNew(960.0f, 540.0f, (float)((i % 2) ? smallest : biggest), 2000.0f, true);
+            if (d->fallTop > 0.0f)
+            {
+                falling++;
+                ((i % 2) ? fallingSmall : fallingBig)++;
+                fastestFall = (std::max)(fastestFall, d->fallTop);
+            }
+            D::Clear();
+        }
+        check(falling > 400 / 5 && falling < 400 / 2 && fallingSmall > 30 && fallingBig > 30,
+            "with gravity on, about a third of the drops, of every size, run down the glass");
+        check(fastestFall <= D::GravityFastest * scale + 0.01f, "and slowly");
+        calm();
+        auto* runner = drop(960.0f, 300.0f, (float)biggest, false);
+        runner->fallTop = D::GravityFastest * scale;
+        run(60);
+        check(runner->y > 300.0f + D::GravityFastest * scale * 0.6f && fabsf(runner->x - 960.0f) < 0.01f, "a drop gravity has runs down the glass");
+        {
+            calm();
+            auto* draining = drop(960.0f, 200.0f, (float)biggest, true);
+            draining->fallTop = D::GravityFastest * scale;
+            const float full = draining->size;
+            run(60);
+            check(draining->size < full && draining->size >= D::TrailSmallest * (float)smallest - 0.01f,
+                "a drop that leaves a trail loses the water it leaves, and gets smaller");
+        }
         D::bGravity = false;
-        D::Clear();
-        auto* weightless = D::PlaceNew(400.0f, 540.0f, (float)biggest, 20000.0f, true);
-        check(weightless->slide == 0.0f, "nothing runs down the glass while gravity is turned off");
+        const float stoppedAt = runner->y;
+        run(30);
+        check(runner->y == stoppedAt, "and nothing runs once gravity is turned off");
         D::bGravity = true;
 
-        // A bead leaves a drop of water where it has been, and it is a drop of the
-        // rain like any other: it is put in the pool and drawn by the same code as
-        // the bead it came from, with the shape and the colour of it. Which one of
-        // the beads runs is not known in advance, so a bead that runs is asked for
-        // until one is there.
-        D::ms_vec = {};
-        D::Clear();
-        auto* bead = D::PlaceNew(960.0f, 300.0f, (float)biggest, 20000.0f, true);
-
-        for (int i = 0; i < 200 && bead->slide == 0.0f; i++)
-        {
-            D::Clear();
-            bead = D::PlaceNew(960.0f, 300.0f, (float)biggest, 20000.0f, true);
-        }
-
-        D::NewDropMoving(bead);
-
-        for (int i = 0; i < 5; i++)
-            D::ProcessMoving();
-
-        WaterDrop* trace = nullptr;
-
-        for (auto& drop : D::ms_drops)
-            if (drop.active && &drop != bead)
-                trace = &drop;
-
-        check(D::ms_numDrops > 1, "a bead that runs down the glass leaves drops of water behind it");
-        check(trace && trace->size == (float)(D::MinSize * D::ms_scaling),
-            "and what it leaves is a drop of the smallest size the rain has");
-        check(trace && trace->r == bead->r && trace->g == bead->g && trace->b == bead->b,
-            "drawn in the colour of the drop it came from");
-        check(trace && trace->slide == 0.0f && trace->alpha == 255,
-            "and what is on the glass does not run down it");
-
-        // It is not one of the drops that move, so it never travels and it never
-        // leaves anything of its own: a tail of the rain is a chain of drops and not
-        // a haze of drops of drops.
-        int32_t movers = 0;
-
-        for (auto& moving : D::ms_dropsMoving)
-            if (moving.drop == trace)
-                movers++;
-
-        check(movers == 0, "the drop a bead left is not one of the drops that move");
-
-        const float leftAt = trace ? trace->x : 0.0f;
-
-        D::ms_vec = { -5.0f, 2.0f, 0.0f };
-
-        for (int i = 0; i < 20; i++)
-            D::ProcessMoving();
-
-        D::ms_vec = {};
-
-        check(trace && trace->x == leftAt,
-            "and the glass holds it where it was left while the bead runs on from it");
-
-        // The water a drop leaves is that drop and never brighter than it: a drop that
-        // has almost faded out leaves water that is as faded as it is, which is what
-        // the trails of a drop that is nearly gone looked like before.
-        D::Clear();
-        D::ms_vec = {};
-        D::ms_vecLen = 0.0f;
-        auto* faint = D::PlaceNew(600.0f, 300.0f, (float)biggest, 20000.0f, true);
-
-        if (faint)
-        {
-            faint->slide = D::gravity / D::gdivmax;
-            faint->alpha = 24;
-            D::NewDropMoving(faint);
-
-            for (int i = 0; i < 20; i++)
-                D::ProcessMoving();
-
-            uint8_t brightestWater = 0;
-
-            for (auto& drop : D::ms_drops)
-                if (drop.active && &drop != faint)
-                    brightestWater = (std::max)(brightestWater, drop.alpha);
-
-            check(D::ms_numDrops > 1 && brightestWater <= 24,
-                "and the water a bead that has almost faded out leaves is as faint as the bead is");
-        }
-
-        // Every drop that moves leaves water behind it, however short its own life is:
-        // how much of a tail a drop has is how long the water it left stays on the
-        // glass, and not how long the drop itself lives.
-        D::Clear();
-        D::ms_vec = {};
-        D::ms_vecLen = 0.0f;
-        auto* shortLived = D::PlaceNew(600.0f, 300.0f, (float)biggest, 2000.0f, true);
-
-        if (shortLived)
-        {
-            shortLived->slide = D::gravity / D::gdivmax;
-            D::NewDropMoving(shortLived);
-
-            for (int i = 0; i < 20; i++)
-                D::ProcessMoving();
-
-            check(D::ms_numDrops > 1, "and a bead that lives for a short time leaves water while it is there");
-        }
-
-        // The tail of a bead is a chain of drops along the path it has run, and a
-        // bead the camera drags across the screen is followed by the whole of that
-        // path: what the eye reads as a streak is the chain itself.
-        D::Clear();
-        D::ms_vec = {};
-        D::ms_vecLen = 0.0f;
-        auto* dragged = D::PlaceNew(1200.0f, 540.0f, (float)biggest, 20000.0f, true);
-        D::NewDropMoving(dragged);
-
-        const float right = dragged->x;
-
-        for (int32_t i = 0; i < 8; i++)
-        {
-            D::ms_vec = { 40.0f, 0.0f, 0.0f };
-            // what CalculateMovement measures the camera with, which a check that
-            // moves the drops by hand has to hand over itself
-            D::ms_vecLen = 40.0f;
-            D::ProcessMoving();
-        }
-
-        D::ms_vec = {};
-        D::ms_vecLen = 0.0f;
-
-        int32_t onTheGlass = 0;
-        int32_t alongPath = 0;
-        float nearest = 0.0f;
-        float farthest = 0.0f;
-
-        for (auto& drop : D::ms_drops)
-            if (drop.active && &drop != dragged)
-            {
-                onTheGlass++;
-                alongPath += drop.x >= dragged->x - 0.001f && drop.x <= right + 0.001f ? 1 : 0;
-                nearest = (std::max)(nearest, drop.x);
-                farthest = farthest == 0.0f ? drop.x : (std::min)(farthest, drop.x);
-            }
-
-        check(onTheGlass > 1 && alongPath == onTheGlass,
-            "the path a bead is dragged over is left as a chain of drops along it, not one dot behind it");
-        check(farthest < nearest && right - farthest > (right - dragged->x) * 0.3f,
-            "and the chain of it reaches back over the path the bead was dragged");
-
-        // How long the water of a bead stays on the glass is the length of the tail
-        // of that bead, and it is rolled for every bead of the rain on its own: a
-        // bead whose water dries quickly is followed by a short chain and one whose
-        // water stays is followed by a long one.
-        D::Clear();
-        D::ms_vec = {};
-        D::ms_vecLen = 0.0f;
-        auto* shortTailed = D::PlaceNew(400.0f, 300.0f, (float)biggest, 20000.0f, true);
-        auto* longTailed = D::PlaceNew(400.0f, 900.0f, (float)biggest, 20000.0f, true);
-
-        shortTailed->traceTtl = 200.0f;
-        longTailed->traceTtl = 4000.0f;
-        shortTailed->slide = D::gravity / D::gdivmax;
-        longTailed->slide = D::gravity / D::gdivmax;
-
-        D::NewDropMoving(shortTailed);
-        D::NewDropMoving(longTailed);
-
-        for (int32_t i = 0; i < 4; i++)
-            D::ProcessMoving();
-
-        int32_t shortDrops = 0;
-        int32_t longDrops = 0;
-
-        for (auto& drop : D::ms_drops)
-            if (drop.active && &drop != shortTailed && &drop != longTailed)
-                (drop.y < 600.0f ? shortDrops : longDrops)++;
-
-        // the water is no longer being added to: what is on the glass now is what
-        // there was, and all that is left to happen to it is that it dries
-        shortTailed->slide = 0.0f;
-        longTailed->slide = 0.0f;
-
-        for (int32_t i = 0; i < 30; i++)
-        {
-            D::ProcessMoving();
-            D::Fade();
-        }
-
-        int32_t shortLeft = 0;
-        int32_t longLeft = 0;
-
-        for (auto& drop : D::ms_drops)
-            if (drop.active && &drop != shortTailed && &drop != longTailed)
-                (drop.y < 600.0f ? shortLeft : longLeft)++;
-
-        printf("[d3d11] a bead whose water dries quickly left %d of %d drops of a tail, one whose water stays left %d of %d\n",
-            shortLeft, shortDrops, longLeft, longDrops);
-
-        check(shortDrops > 0 && longDrops > 0, "a bead that runs leaves a chain of drops of water behind it");
-        check(shortLeft == 0 && longLeft == longDrops,
-            "the water of a bead dries out, and the tail of a bead whose water dries quickly is gone while the other is still there");
-
-        // A bead that neither runs nor is moved leaves nothing at all: what is left
-        // behind is the path of the bead, and it has none.
-        D::ms_vec = {};
-        D::ms_vecLen = 0.0f;
-        D::Clear();
-        auto* hangingStill = D::PlaceNew(960.0f, 540.0f, (float)biggest, 20000.0f, true);
-
-        for (int i = 0; i < 200 && hangingStill->slide != 0.0f; i++)
-        {
-            D::Clear();
-            hangingStill = D::PlaceNew(960.0f, 540.0f, (float)biggest, 20000.0f, true);
-        }
-
-        D::NewDropMoving(hangingStill);
-
-        for (int i = 0; i < 400; i++)
-            D::ProcessMoving();
-
-        check(D::ms_numDrops == 1 && hangingStill->x == 960.0f,
-            "a bead that hangs on the glass leaves no water while the camera is still");
+        // A drop that leaves the picture is gone.
+        calm();
+        air(0.0f, 0.0f, -60.0f);
+        auto* leaving = drop(30.0f, 540.0f, (float)biggest, false);
+        run(120);
+        check(!leaving->active && D::ms_numDropsMoving == 0, "a drop that runs off the picture is gone");
 
         // a drop that expired is not moved any more: the place it had in the pool
         // is handed to the drop below, which must not then move twice per frame
-        D::Clear();
-        D::ms_vec = {};
+        calm();
         auto* expired = D::PlaceNew(960.0f, 540.0f, (float)biggest, 1.0f, true);
         D::NewDropMoving(expired);
         D::Fade();
-
         check(D::ms_numDropsMoving == 0, "a drop that expired is taken out of the list of the drops that move");
-
-        auto* replacement = D::PlaceNew(960.0f, 540.0f, (float)biggest, 20000.0f, true);
+        auto* replacement = D::PlaceNew(960.0f, 540.0f, (float)biggest, 2000.0f, true);
         D::NewDropMoving(replacement);
         check(replacement != nullptr && D::ms_numDrops == 1 && D::ms_numDropsMoving == 1,
             "the drop that comes after an expired one moves once, not twice");
-
         D::Clear();
         check(D::ms_numDrops == 0 && D::ms_numDropsMoving == 0 && D::ms_numTraces == 0 && D::ms_dropsMoving[0].drop == nullptr,
             "clearing the drops clears the list of the drops that move as well");
 
-        // Every bead of the rain is given the water it leaves of its own when it is
-        // placed, and it is rolled for every one of them: the tails of one shower
-        // are of every length there is and no two beads look the same.
-        float shortest = 1.0e9f;
-        float longest = 0.0f;
-
-        for (int32_t i = 0; i < 500; i++)
-        {
-            D::Clear();
-            auto* rolled = D::PlaceNew(960.0f, 540.0f, (float)biggest, 20000.0f, true);
-
-            shortest = (std::min)(shortest, rolled->traceTtl);
-            longest = (std::max)(longest, rolled->traceTtl);
-        }
-
-        check(shortest > 0.0f && longest > shortest * 3.0f,
-            "the water one bead leaves is on the glass for several times as long as the water of another");
-
-        // Every drop of the effect, the water of the drops included, is one quad of
-        // the vertex buffer of a backend, so a pool of drops that fits in it is a
-        // buffer that can not be written past its end, see MaxQuads.
-        D::Clear();
-        D::ms_vec = {};
-        D::ms_vecLen = 0.0f;
-
-        const int32_t dense = 400;
-
-        for (int32_t i = 0; i < dense; i++)
-        {
-            auto* denseBead = D::PlaceNew(120.0f + (float)(i % 20) * 52.0f, 150.0f + (float)(i / 20) * 26.0f,
-                (float)biggest, 20000.0f, true);
-
-            if (!denseBead)
-                break;
-
-            D::NewDropMoving(denseBead);
-        }
-
-        for (int32_t i = 0; i < 120; i++)
-        {
-            D::ms_vec = { 11.0f, 3.0f, 0.0f };
-            D::ms_vecLen = 11.0f;
-            D::ProcessMoving();
-        }
-
-        D::ms_vec = {};
-        D::ms_vecLen = 0.0f;
-
-        D::ms_vertices.clear();
-
-        for (auto& drop : D::ms_drops)
-            if (drop.active)
-                D::AddToRenderList(&drop);
-
-        const int32_t quads = (int32_t)(D::ms_vertices.size() / 4);
-
-        check(quads == D::ms_numDrops, "every drop of the rain, the water it left included, is one quad of the buffer");
-        check(quads <= D::MaxQuads, "and a screen full of drops and of their water fits in the vertex buffer of a backend");
-
-        // A bead of the size a game on a console or in an emulator runs with travels
-        // a small part of itself in a second, and what it leaves is the chain of the
-        // drops of the path it has run: the step of the ini is what says how close
-        // together they are, and the chain is what the eye reads as a streak. The
-        // frame time is a real one here, and the camera does not move, so the only
-        // thing that moves the bead is the bead itself.
-        D::fps = 60;
-        D::ms_vec = {};
-        D::ms_vecLen = 0.0f;
-        D::ms_fbWidth = 1920.0f;
-        D::ms_fbHeight = 1080.0f;
-        D::ms_scaling = D::ms_fbHeight / 480.0f;
-        // the drops of the ini of PPSSPP, which is the biggest a host is set to
-        D::MinSize = 50;
-        D::MaxSize = 50;
-        D::Clear();
-
-        auto* runner = D::PlaceNew(D::ms_fbWidth * 0.5f, D::ms_fbHeight * 0.4f, D::MaxSize * D::ms_scaling, 20000.0f, true);
-
-        if (runner)
-        {
-            runner->slide = D::gravity / D::gdivmax;
-            runner->traceTtl = 1000.0f;
-            D::NewDropMoving(runner);
-
-            for (int i = 0; i < 60; i++)
-                D::ProcessMoving();
-
-            int32_t behind = 0;
-            float farthestBehind = 0.0f;
-
-            for (auto& drop : D::ms_drops)
-                if (drop.active && &drop != runner)
-                {
-                    behind++;
-                    farthestBehind = (std::max)(farthestBehind, runner->y - drop.y);
-                }
-
-            printf("[d3d11] a bead of %.0f px that ran for 60 frames of %.1f ms left %d drops behind it, %.0f px of water\n",
-                runner->size, D::GetTimeStepInMilliseconds(), behind, farthestBehind);
-
-            check(behind >= 8, "a bead that only runs down the glass is followed by a chain of drops and not by nothing");
-            check(farthestBehind > 8.0f, "and the chain of it reaches back over the path the bead has run");
-        }
-
-        // Equal elapsed time must give equal motion, including above 120 Hz.
-        D::MinSize = 4;
-        D::MaxSize = 15;
-        struct MotionResult { float x, y, size; int traces; };
+        // The same air moves a drop about the same way at any frame rate.
         const auto simulate = [&](int hz)
         {
-            D::Clear();
+            calm();
             timeStep = 1.0f / hz;
-            D::ms_vec = { -30.0f / hz, 0, 0 };
-            auto* d = D::PlaceNew(600, 300, 30, 20000, true);
-            d->slide = 0.25f;
-            D::NewDropMoving(d);
-            for (int i = 0; i < hz; ++i) D::ProcessMoving();
-            return MotionResult{d->x, d->y, d->size, D::ms_numDrops - 1};
+            air(0.0f, 0.0f, -30.0f);
+            auto* d = drop(600.0f, 400.0f, (float)biggest, false);
+            for (int i = 0; i < hz / 2; ++i)
+                D::ProcessMoving();
+            return std::pair<float, float>(d->x, d->y);
         };
         const auto at30 = simulate(30), at60 = simulate(60), at144 = simulate(144);
-        check(fabsf(at30.x - at144.x) < 0.02f && fabsf(at30.y - at144.y) < 0.02f
-            && fabsf(at60.size - at144.size) < 0.01f,
-            "camera travel, gravity and shrink agree at 30, 60 and 144 Hz");
-        check(abs(at30.traces - at144.traces) <= 1 && abs(at60.traces - at144.traces) <= 1,
-            "trail density follows distance rather than frame rate");
+        printf("[d3d11] half a second of the same drive at 30, 60 and 144 Hz: x %.1f %.1f %.1f\n", at30.first, at60.first, at144.first);
+        check(fabsf(at30.first - at144.first) < (600.0f - at144.first) * 0.12f + 0.5f,
+            "the drive moves a drop about the same way at 30, 60 and 144 Hz");
+        timeStep = 1.0f / 60.0f;
 
-        D::Clear();
-        timeStep = 1.0f / 60;
-        D::ms_vec = { -100, 0, 0 };
-        auto* sweep = D::PlaceNew(600, 300, 30, 20000, true);
-        sweep->slide = 0;
-        D::NewDropMoving(sweep);
-        D::ProcessMoving();
-        int deposits = D::ms_numDrops - 1;
-        float first = 10000, last = 0;
-        bool sameShape = true;
-        for (const auto& d : D::ms_drops)
-            if (d.active && &d != sweep)
-            {
-                first = (std::min)(first, d.x);
-                last = (std::max)(last, d.x);
-                sameShape &= d.uv_index == sweep->uv_index;
-            }
-        check(deposits > 1 && deposits <= 8 && last - first > 70 && sameShape,
-            "fast sweeps cover the path with bounded deposits and a consistent atlas shape");
-        D::ms_vec = {};
-        D::ProcessMoving();
-        check(D::ms_numDrops - 1 == deposits, "stopping leaves no deferred burst of traces");
-        const float stoppedX = sweep->x, stoppedSize = sweep->size;
-        timeStep = 0;
-        D::ms_vec = { -100, 100, 0 };
-        D::ProcessMoving();
-        check(sweep->x == stoppedX && sweep->size == stoppedSize && D::ms_numDrops - 1 == deposits,
-            "zero elapsed time neither moves drops nor creates traces");
-        timeStep = 1.0f / 60;
-        D::ms_vec = {};
-        sweep->slide = 0.25f;
-        D::bGravity = false;
-        const float stoppedY = sweep->y;
-        D::ProcessMoving();
-        check(sweep->y == stoppedY, "disabling gravity also stops existing runners");
-        D::bGravity = true;
-
-        // The drops of the rain are of the sizes the ini asks for, from the
-        // smallest to the largest, and live between one and four seconds.
-        D::Clear();
-        D::ms_initialised = true;
-        D::ms_vec = {};
-        D::FillScreenMoving(2.0f);
-
-        bool sizesOk = D::ms_numDrops > 0;
-        float smallestSeen = 1.0e9f;
-
-        for (const auto& d : D::ms_drops)
+        // Every drop of the effect, the water of the drops included, is one quad of
+        // the vertex buffer of a backend, see MaxQuads.
+        calm();
+        for (int32_t i = 0; i < 400; i++)
+            drop(120.0f + (float)(i % 20) * 52.0f, 150.0f + (float)(i / 20) * 26.0f, (float)biggest, true);
+        for (int32_t i = 0; i < 60; i++)
+        {
+            air(80.0f, 20.0f, 0.0f);
+            D::ms_lookAir[0] = 80.0f;
+            D::ProcessMoving();
+        }
+        D::ms_vertices.clear();
+        for (auto& d : D::ms_drops)
             if (d.active)
-            {
-                sizesOk &= d.size >= (float)smallest - 0.001f && d.size <= (float)biggest + 0.001f && d.ttl >= 2000.0f && d.ttl <= 8000.0f;
-                smallestSeen = (std::min)(smallestSeen, d.size);
-            }
-
-        check(sizesOk, "the drops of the rain are of the sizes the ini asks for and live between one and four seconds");
+                D::AddToRenderList(&d);
+        const int32_t quads = (int32_t)(D::ms_vertices.size() / 4);
+        check(quads == D::ms_numDrops, "every drop of the rain, the water it left included, is one quad of the buffer");
+        check(quads <= D::MaxQuads, "and a screen full of drops and of their water fits in the vertex buffer of a backend");
 
         // The rain is a rate: a frame adds its share of a second, whatever the
         // frame rate is, and a light rain still adds its drops over time.
         const auto rainFor = [&](int hz, float amount)
         {
-            D::Clear();
+            calm();
             timeStep = 1.0f / hz;
-            D::ms_vec = {};
             for (int i = 0; i < hz; ++i)
-                D::FillScreenMovingRate(amount);
+                D::FillScreenMovingRate(amount, false, true);
             return D::ms_numDrops;
         };
         const int rain30 = rainFor(30, 0.2f), rain144 = rainFor(144, 0.2f), drizzle = rainFor(60, 0.02f);
@@ -902,25 +817,64 @@ namespace
         check(rain30 > 0 && abs(rain30 - rain144) <= (std::max)(rain30, rain144) / 4,
             "a second of rain is the same rain at 30 and at 144 frames a second");
         check(drizzle > 0, "and a drizzle that adds less than a drop a frame still rains");
+        D::ms_forwardSpeed = 30.0f;
+        const int driven = rainFor(60, 0.2f);
+        D::ms_forwardSpeed = 0.0f;
+        const int standing = rainFor(60, 0.2f);
+        printf("[d3d11] a second of rain standing and driving: %d and %d drops\n", standing, driven);
+        check(driven == standing, "Forza's rain lands at a rate of its own, whatever the speed of the camera");
+
+        // A splash of a game is the drops it asks for, standing or driving.
+        calm();
+        D::FillScreenMoving(1.0f);
+        const int32_t splashStanding = D::ms_numDrops;
+        check(splashStanding >= 19, "a splash of a game is as many drops standing as driving");
+
+        // A flake of snow sticks where it lands: nothing moves it.
+        calm();
+        D::bEnableSnow = true;
+        D::SpawnDrops(40, 235, 235, 235, true);
+        check(D::ms_numDrops > 0 && D::ms_numDropsMoving == 0, "snow lands on the lens and nothing moves it");
+        D::bEnableSnow = false;
+
+        // Blood sticks where it lands, leaves nothing behind and fades away.
+        calm();
+        timeStep = 1.0f / 60.0f;
+        D::FillScreenMoving(1.0f, true);
+        WaterDrop* splat = nullptr;
+        for (auto& d : D::ms_drops)
+            if (d.active) { splat = &d; break; }
+        check(splat && splat->blood && D::ms_numDropsMoving == 0, "blood lands on the lens and nothing moves it");
+        if (splat)
+        {
+            const float sx = splat->x, sy = splat->y;
+            air(0.0f, 0.0f, -60.0f);
+            D::ms_lookAir[0] = 80.0f;
+            for (int i = 0; i < 60; i++)
+            {
+                D::ProcessMoving();
+                D::Fade();
+            }
+            check(splat->x == sx && splat->y == sy && splat->alpha == 255 && D::ms_numTraces == 0,
+                "the air and the turning camera do not move blood, and it stays whole for a while");
+            for (int i = 0; i < 60 * 6; i++)
+                D::Fade();
+            check(!splat->active, "and then it fades away");
+        }
 
         // The water of the trails leaves a share of the pool to the rain, and the
         // rain takes the place of the water of a trail when nothing else is free.
-        D::Clear();
+        calm();
         timeStep = 1.0f / 60;
         auto* source = D::PlaceNew(960.0f, 540.0f, (float)biggest, 20000.0f, true);
         const int32_t pool = (int32_t)D::ms_drops.size();
-
         for (int32_t i = 0; i < pool * 2; i++)
             D::PlaceNew(100.0f, 100.0f, (float)smallest, 20000.0f, true, source->r, source->g, source->b, true);
-
         check(D::ms_numTraces == pool - D::TraceReserve(), "the water of the trails fills the pool up to the share it leaves to the rain");
-
         int32_t placed = 0;
-
         for (int32_t i = 0; i < pool; i++)
             if (D::PlaceNew(200.0f, 200.0f, (float)biggest, 20000.0f, true))
                 placed++;
-
         check(placed == pool - 1 && D::ms_numDrops == pool && D::ms_numTraces == 0,
             "and a drop of the rain takes the place of the water of a trail when nothing else is free");
 
@@ -928,8 +882,9 @@ namespace
         D::ms_initialised = false;
         D::fps = 0;
         D::ms_vec = {};
+        air(0.0f, 0.0f, 0.0f);
         D::MinSize = 4;
-        D::MaxSize = 15;
+        D::MaxSize = 19;
         D::fTimeStep = nullptr;
         return passed ? 0 : 1;
     }
@@ -958,8 +913,35 @@ int main()
     // the games read this from the weather, a test wants a lot of rain
     WaterDrops::ms_rainIntensity = 4.0f;
 
-    bool active[4] = { true, false, true, false };
-    ui.Build(XrdTest::g_uiLabels, 4, active, (float)window.width);
+    bool active[5] = { true, false, true, false, false };
+
+    // --drive: the mock of the car and its road, see XrdTest::Mock
+    if (XrdTest::Headless::State().drive)
+    {
+        mock.active = true;
+        mock.speed = XrdTest::Headless::State().driveSpeed;
+        mock.swing = XrdTest::Headless::State().swing;
+        active[4] = true;
+    }
+
+    if (XrdTest::Headless::State().snow)
+    {
+        WaterDrops::SetSnow(true);
+        active[0] = false;
+        active[1] = true;
+    }
+
+    const auto enterDrive = [&]()
+    {
+        camera.yaw = 0.0f;
+        camera.pitch = -0.07f;
+        mock.active = true;
+    };
+
+    if (mock.active)
+        enterDrive();
+
+    ui.Build(XrdTest::g_uiLabels, 5, active, (float)window.width);
 
     auto previous = std::chrono::high_resolution_clock::now();
     auto lastReport = previous;
@@ -988,6 +970,24 @@ int main()
 
         camera.Update(window, deltaTime);
 
+        // the drive: the car goes on and the camera hangs behind it, see XrdTest::Mock.
+        // The rain of it is the rain of a game and not the downpour of a test.
+        // --snow: the ini is read on the first frame and says what the drops are,
+        // so the snow is asked for again until it holds
+        if (XrdTest::Headless::State().snow && !WaterDrops::bEnableSnow)
+            WaterDrops::SetSnow(true);
+
+        if (mock.active)
+        {
+            XrdTest::Mock::Update(mock, camera, window, deltaTime, XrdTest::Headless::Active());
+            // the camera of the mock looks along the road, which the effect takes
+            // for a camera that looks up into the rain, so a game's worth of rain
+            // is a third of what the games hand over at their heaviest
+            WaterDrops::ms_rainIntensity = 0.6f;
+        }
+        else
+            WaterDrops::ms_rainIntensity = 4.0f;
+
         if (window.clicked)
         {
             const int hit = ui.HitTest(window.mouseX, window.mouseY);
@@ -1002,9 +1002,17 @@ int main()
                 case 1: active[0] = false; active[1] = true;  WaterDrops::SetSnow(true); break;
                 case 2: active[2] = !active[2]; WaterDrops::bGravity = active[2]; break;
                 case 3: active[3] = !active[3]; WaterDrops::isPaused = active[3]; break;
+                case 4:
+                    active[4] = !active[4];
+                    mock.active = active[4];
+                    if (mock.active)
+                        enterDrive();
+                    else
+                        camera.autoMove = true;
+                    break;
                 }
 
-                ui.Build(XrdTest::g_uiLabels, 4, active, (float)window.width);
+                ui.Build(XrdTest::g_uiLabels, 5, active, (float)window.width);
             }
 
             window.clicked = false;
@@ -1062,7 +1070,7 @@ int main()
 
         if (std::chrono::duration<float>(now - lastReport).count() >= 1.0f)
         {
-            sprintf_s(extra, "camera %.1f %.1f %.1f", camera.x, camera.y, camera.z);
+            sprintf_s(extra, "camera %.1f %.1f %.1f  traces %d", camera.x, camera.y, camera.z, WaterDrops::ms_numTraces);
             XrdTest::PrintStatus("d3d11", WaterDrops::ms_numDrops, frames, WaterDrops::bEnableSnow, extra);
 
             wchar_t title[160]{};

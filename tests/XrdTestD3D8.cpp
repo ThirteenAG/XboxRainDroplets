@@ -266,7 +266,9 @@ namespace
     {
         const float cosPitch = cosf(camera.pitch);
 
-        WaterDrops::right = { cosf(camera.yaw), 0.0f, -sinf(camera.yaw) };
+        // the right vector the way the games hand it over: RenderWare's, which
+        // points to the left of the screen
+        WaterDrops::right = { -cosf(camera.yaw), 0.0f, sinf(camera.yaw) };
         WaterDrops::up = { -sinf(camera.yaw) * sinf(camera.pitch), cosPitch, -cosf(camera.yaw) * sinf(camera.pitch) };
         WaterDrops::at = { sinf(camera.yaw) * cosPitch, sinf(camera.pitch), cosf(camera.yaw) * cosPitch };
         WaterDrops::pos = { camera.x, camera.y, camera.z };
@@ -390,6 +392,11 @@ int main()
 
 
             XrdTest::Headless::PrepareDrops(frameIndex, window.width, window.height);
+
+            // --snow: the ini is read on the first frame, so the snow is asked
+            // for again until it holds
+            if (XrdTest::Headless::State().snow && !WaterDrops::bEnableSnow)
+                WaterDrops::SetSnow(true);
 
             WaterDrops::Process();
 

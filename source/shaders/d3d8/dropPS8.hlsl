@@ -12,7 +12,10 @@
 // blurPS8.hlsl) and this shader reads that field with one tap.
 //
 //   COLOR0     the colour and the alpha of the drop
-//   COLOR1.w   1 when the drop is a lens, 0 when it is not
+//   COLOR1.w   how much of the light around it the drop takes: 1 for a lens,
+//              0 for a drop that is not one, a half for a flake of snow
+//   COLOR1.rgb the milk of a flake of snow, which lifts it towards white; none
+//              for a drop of water
 //   TEXCOORD0  the shape of the drop in the atlas of shapes
 //   TEXCOORD1  where in the copy of the frame behind the drop it samples
 //   TEXCOORD2  where on the screen the drop is, which is where its light is
@@ -28,7 +31,7 @@ float4 main(float4 color : COLOR0, float4 lens : COLOR1, float4 atlas : TEXCOORD
 {
     float4 mask = tex2D(maskSampler, atlas.xy);
     float3 frame = tex2D(sceneSampler, scene.xy).rgb;
-    float3 light = tex2D(lightSampler, screen.xy).rgb * lens.w;
+    float3 light = tex2D(lightSampler, screen.xy).rgb * lens.w + lens.rgb;
 
     // How much of the light of the frame a drop of clear water takes: the 1.6 of
     // the renderers of Direct3D 9 and above does not fit in a constant of a

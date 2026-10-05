@@ -183,6 +183,14 @@ namespace Xrd
             sceneSampling = enabled;
         }
 
+        void SetSceneBlur(float blur, float atlasTiles, float refraction, float maskSize) override
+        {
+            sceneBlur = blur;
+            sceneAtlasTiles = atlasTiles;
+            sceneRefraction = refraction;
+            sceneMaskSize = maskSize;
+        }
+
         bool Prepare(int maxVertices) override
         {
             (void)maxVertices;
@@ -307,6 +315,10 @@ namespace Xrd
                 constants.uvScale[1] = uvScaleY;
                 constants.sceneComplement[0] = sceneComplement ? 1.0f : 0.0f;
             constants.sceneComplement[1] = sceneSampling ? 1.0f : 0.0f;
+            constants.sceneComplement[2] = sceneBlur * 2.0f;
+            constants.sceneComplement[3] = sceneRefraction;
+            constants.uvScale[2] = sceneAtlasTiles;
+            constants.uvScale[3] = sceneBlur;
 
                 pDevice->UpdateSubresource(pConstantBuffer, 0, nullptr, &constants, 0, 0);
 
@@ -749,6 +761,11 @@ namespace Xrd
         float uvOffsetX = 0.0f, uvScaleX = 1.0f;
         float uvOffsetY = 0.0f, uvScaleY = 1.0f;
         bool sceneComplement = false;
+        // how blurred the drops are drawn and the shapes along a side of the atlas, see SetSceneBlur
+        float sceneBlur = 0.0f;
+        float sceneAtlasTiles = 2.0f;
+        float sceneRefraction = 7.0f;
+        float sceneMaskSize = 256.0f;
         bool sceneSampling = true;
 
         Size targetSize{};
