@@ -271,3 +271,5 @@ To deploy to your game automatically after each build, create a `.env` file in t
     GTA_SAN_ANDREAS_DIR=C:\Program Files (x86)\Rockstar Games\GTA San Andreas
 
 The keys are the ones of the games above (`GTAIII_DIR`, `GRAND_THEFT_AUTO_VICE_CITY_DIR`, `GTA_SAN_ANDREAS_DIR`, `GTA_SAN_ANDREAS_DEFINITIVE_EDITION_DIR`, `SAINTS_ROW_2_DIR` and so on, see `premake5.lua`). The build copies the built `.asi` into the folder of that game and debugging starts the game from there. The `.env` file is ignored by git, only a plugin that is already installed is replaced, and a game without a key is not deployed at all.
+
+The PPSSPP and PCSX2F releases also need the plugin that runs inside the game: `source/console` holds it, and the `XboxRainDropletsPS2` and `XboxRainDropletsPSP` solutions in `build/console` build it with the MIPS toolchains of the `external/ps2sdk` and `external/pspsdk` submodules (`git submodule update --init --recursive`), into `bin/PLUGINS` and `bin/memstick`, and copy it into the emulator that `PCSX2F_DIR` or `PPSSPP_DIR` names.
