@@ -17,14 +17,15 @@ before_build:
 
     msbuild -m build/XboxRainDroplets64.slnx /property:Configuration=Release /property:Platform=x64
 
+    msbuild -m build/console/XboxRainDropletsPS2.slnx /property:Configuration=Release /property:Platform=PS2
+
+    msbuild -m build/console/XboxRainDropletsPSP.slnx /property:Configuration=Release /property:Platform=PSP
+
 
     Start-FileDownload https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/download/Win32-latest/version-Win32.zip
 
     Start-FileDownload https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/download/x64-latest/dinput8-x64.zip
 
-    Start-FileDownload https://github.com/ThirteenAG/WidescreenFixesPack/releases/download/xrd/PCSX2F.XboxRainDroplets.zip
-
-    Start-FileDownload https://github.com/ThirteenAG/WidescreenFixesPack/releases/download/xrd/PPSSPP.XboxRainDroplets.zip
 build:
   project: build/XboxRainDroplets.slnx
   verbosity: minimal
@@ -34,17 +35,10 @@ before_package:
 
     7z x dinput8-x64.zip -obin/ -y
 
-    7z x PCSX2F.XboxRainDroplets.zip -obin/ -y
-
-    7z x PPSSPP.XboxRainDroplets.zip -obin/ -y
-
     del version-Win32.zip
 
     del dinput8-x64.zip
 
-    del PCSX2F.XboxRainDroplets.zip
-
-    del PPSSPP.XboxRainDroplets.zip
 
 
     release.bat

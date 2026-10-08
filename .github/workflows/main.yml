@@ -30,6 +30,11 @@ jobs:
         run: |
           msbuild -m build/XboxRainDropletsWrapper.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
           msbuild -m build/XboxRainDropletsWrapper64.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=x64
+      - name: Build console plugins
+        shell: cmd
+        run: |
+          msbuild -m build/console/XboxRainDropletsPS2.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=PS2
+          msbuild -m build/console/XboxRainDropletsPSP.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=PSP
       - name: Build XboxRainDropletsTests
         shell: cmd
         run: msbuild -m build/XboxRainDropletsTests.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
@@ -68,22 +73,12 @@ jobs:
           repository: "ThirteenAG/Ultimate-ASI-Loader"
           tag: "x64-latest"
           fileName: "dinput8-x64.zip"
-      - name: Download XboxRainDroplets Plugins
-        uses: robinraju/release-downloader@v1.13
-        with:
-          repository: "ThirteenAG/WidescreenFixesPack"
-          tag: "xrd"
-          fileName: "*"
       - name: Unpack dependencies
         run: |
           7z x version-Win32.zip -obin/ -y
           7z x dinput8-x64.zip -obin/ -y
-          7z x PCSX2F.XboxRainDroplets.zip -obin/ -y
-          7z x PPSSPP.XboxRainDroplets.zip -obin/ -y
           del version-Win32.zip
           del dinput8-x64.zip
-          del PCSX2F.XboxRainDroplets.zip
-          del PPSSPP.XboxRainDroplets.zip
       - name: Pack binaries
         shell: cmd
         run: release.bat

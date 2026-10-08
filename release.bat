@@ -1,4 +1,5 @@
 copy ".\source\resources\inis\*.ini" ".\bin\" /Y
+copy ".\source\console\PPSSPP.XboxRainDroplets\plugin.ini" ".\bin\memstick\PSP\PLUGINS\PPSSPP.XboxRainDroplets\" /Y
 
 rem Embedding PDBs, the tool embeds the .pdb that sits next to every plugin
 pushd bin
@@ -60,19 +61,19 @@ XboxRainDropletsWrapper64
 for %%x in (
 PPSSPP.XboxRainDroplets
 ) do (
-    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\version.dll" ".\bin\memstick"
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\version.dll" ".\bin\memstick" -xr!*.objects -xr!*.map -xr!*.elf
 )
 
 for %%x in (
 PPSSPP.XboxRainDroplets64
 ) do (
-    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\dinput8.dll" ".\bin\memstick"
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\dinput8.dll" ".\bin\memstick" -xr!*.objects -xr!*.map -xr!*.elf
 )
 
 for %%x in (
 PCSX2F.XboxRainDroplets64
 ) do (
-    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\PLUGINS"
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\PLUGINS" -xr!*.objects -xr!*.map -xr!.gitkeep
 )
 
 EXIT

@@ -1,3 +1,11 @@
+require "vstudio"
+
+-- PS2 and PSP as Visual Studio platforms of their own (as premake-consoles does for
+-- consoles); their projects are Makefile ones, so no MSBuild platform files are needed.
+premake.vstudio.vs2010_architectures.ps2 = "PS2"
+premake.vstudio.vs2010_architectures.psp = "PSP"
+premake.api.addAllowed("system", { "ps2", "psp" })
+
 -- The folder a project is deployed to, and the game it is started from when debugging,
 -- is the path of one machine and does not belong in the repository. It is read from a
 -- `.env` file next to this script, which is not tracked by git and holds one
@@ -341,6 +349,71 @@ project "PPSSPP.XboxRainDroplets"
 project "PCSX2F.XboxRainDroplets"
    location "build/x64"
    setpaths("PCSX2F_DIR", "pcsx2-qtx64.exe", "")
+-- ====================== CONSOLE SOLUTIONS ======================
+-- The plugins that run inside the games themselves, next to the emulator plugins above:
+-- they report where the frame of a game is between its world and its UI and publish the
+-- state of its rain. They are MIPS modules built by the SDK submodules (external/ps2sdk,
+-- external/pspsdk) from source/console/<name>/module.json, into bin/ where the emulator
+-- plugins are packaged with them. Their names are the ones of the emulator plugins, so
+-- their projects get a folder of their own.
+function ConsoleSetup(name, platform)
+   workspace (name)
+      configurations { "Release", "Debug" }
+      platforms { platform }
+      system (platform:lower())
+      bindirs { "$(PATH)" } -- unknown VS platform: keep the system PATH for the build commands
+      location "build/console"
+      kind "Makefile"
+      language "C++"
+      includedirs { "external/injector/include" }
+      files { "source/console/%{prj.name}/*.h", "source/console/%{prj.name}/*.hpp", "source/console/%{prj.name}/*.c",
+              "source/console/%{prj.name}/*.cpp", "source/console/%{prj.name}/module.json", "source/console/%{prj.name}/*.exp",
+              "source/console/%{prj.name}/*.ini", "source/console/shared/**.hpp" }
+      filter "configurations:Debug"
+         defines { "DEBUG" }
+      filter "configurations:Release"
+         defines { "NDEBUG" }
+      filter {}
+end
+
+-- Builds the module with the SDK of `sdk`, into `output` (relative to bin/), and copies it
+-- into the folder of the emulator that `key` names in the .env file.
+function consolepaths(sdk, key, output, exepath)
+   local manifest = '"%{wks.location}/../../source/console/%{prj.name}/module.json"'
+   local command = 'powershell -NoProfile -ExecutionPolicy Bypass -File "%{wks.location}/../../external/' .. sdk .. '/plugins/build-module.ps1" -Project ' .. manifest
+   if sdk == "pspsdk" then
+      command = command .. ' -Configuration "%{cfg.buildcfg}"'
+   end
+   local gamepath = envdir(key)
+   local deploy = {}
+   if gamepath then
+      local target = gamepath .. "\\" .. path.translate(path.getdirectory(output))
+      deploy = { 'if not exist "' .. target .. '" mkdir "' .. target .. '"',
+         'copy /y "$(NMakeOutput)" "' .. target .. '"' }
+      debugdir (gamepath)
+      debugcommand (gamepath .. "\\" .. exepath)
+   end
+   buildcommands { command, 'if errorlevel 1 exit /b %errorlevel%', deploy }
+   rebuildcommands { command .. ' -Clean', 'if errorlevel 1 exit /b %errorlevel%', command,
+      'if errorlevel 1 exit /b %errorlevel%', deploy }
+   cleancommands { command .. ' -Clean' }
+   targetdir ("bin/" .. path.getdirectory(output))
+   targetname (path.getbasename(output))
+   targetextension (path.getextension(output))
+end
+
+ConsoleSetup("XboxRainDropletsPS2", "PS2")
+   includedirs { "external/ps2sdk/ps2sdk/ee" }
+
+project "PCSX2F.XboxRainDroplets"
+   consolepaths("ps2sdk", "PCSX2F_DIR", "PLUGINS/PCSX2F.XboxRainDroplets.elf", "pcsx2-qtx64.exe")
+
+ConsoleSetup("XboxRainDropletsPSP", "PSP")
+   includedirs { "external/pspsdk/usr/local/pspdev/psp/sdk/include" }
+
+project "PPSSPP.XboxRainDroplets"
+   consolepaths("pspsdk", "PPSSPP_DIR", "memstick/PSP/PLUGINS/PPSSPP.XboxRainDroplets/PPSSPP.XboxRainDroplets.prx", "PPSSPPWindows64.exe")
+
 -- Tests: one small application per renderer, each one draws its own scene and
 -- its own UI, the drops go in between so it is visible that they end up behind
 -- what the application draws last.
