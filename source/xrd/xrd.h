@@ -413,8 +413,12 @@ public:
     static inline bool sprayWater = false;
     static inline bool sprayBlood = false;
     static inline bool ms_StaticRain = false;
+    // Which way is forward on the frame: the games hand the matrix of their
+    // camera over, and in some of them forward is in the up vector of it and up
+    // in its at vector. That is known for every game and its plugin says so, see
+    // ReadIniSettings; it is no setting of the ini.
     static inline bool bRadial = false;
-    static inline bool bInvertedRadial = false;
+    static inline bool bForwardIsUp = false;
     // EnableGravity of the ini. The drops on the lens of Forza do not run down it,
     // only the air moves them (see the air over the lens), so nothing reads this
     // any more; it is kept for the games and menus that set it.
@@ -621,16 +625,18 @@ public:
         Fade();
     }
 
-    static inline void ReadIniSettings(bool invertedRadial = false)
+    // forwardIsUp: the game hands forward over in the up vector of its camera,
+    // see bRadial
+    static inline void ReadIniSettings(bool forwardIsUp = false)
     {
-        bInvertedRadial = invertedRadial;
+        bForwardIsUp = forwardIsUp;
+        bRadial = forwardIsUp;
 
         CIniReader iniReader("");
         MinSize = iniReader.ReadInteger("MAIN", "MinSize", 4);
         MaxSize = iniReader.ReadInteger("MAIN", "MaxSize", 19);
         MaxDrops = iniReader.ReadInteger("MAIN", "MaxDrops", 3000);
         MaxDropsMoving = iniReader.ReadInteger("MAIN", "MaxMovingDrops", 6000);
-        bRadial = iniReader.ReadInteger("MAIN", "RadialMovement", 0) != 0;
         bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
         bRefractions = iniReader.ReadInteger("MAIN", "Refractions", 1) != 0;
         fSpeedAdjuster = iniReader.ReadFloat("MAIN", "SpeedAdjuster", 1.0f);
@@ -640,22 +646,16 @@ public:
         bForceRain = iniReader.ReadInteger("MAIN", "ForceRain", 0) != 0;
         fDropBlur = std::clamp(iniReader.ReadFloat("MAIN", "DropBlur", 1.0f), 0.0f, 1.0f);
 
-        if (invertedRadial)
-            bRadial = !bRadial;
-
         static std::once_flag flag;
         std::call_once(flag, [&]()
         {
-            if (invertedRadial)
-                bRadial = !bRadial;
-
             if (std::filesystem::exists(iniReader.GetIniPath()))
             {
                 static filewatch::FileWatch<std::string> watch(iniReader.GetIniPath().string(), [&](const std::string& path, const filewatch::Event change_type)
                 {
                     if (change_type == filewatch::Event::modified)
                     {
-                        ReadIniSettings(bInvertedRadial);
+                        ReadIniSettings(bForwardIsUp);
                         ms_initialised = 0;
                     }
                 });
@@ -727,7 +727,7 @@ public:
 
         // Which way is forward and which way is up on the frame. The games hand
         // the matrix of their camera over, and in some of them the two are the
-        // other way round, which is what RadialMovement in the ini says.
+        // other way round, which their plugins say, see bRadial.
         RwV3d& fwd = bRadial ? up : at;
         RwV3d& upAxis = bRadial ? at : up;
 
@@ -1544,18 +1544,11 @@ public:
         // again right below
         Clear();
 
-        for (int32_t i = 0; i < n; i++)
-        {
-            float x = (float)(rand() % ms_fbWidth);
-            float y = (float)(rand() % ms_fbHeight);
-
-            // the range of the sizes is a modulo as well, and a scale of zero
-            // (a frame smaller than the drops) makes it one
-            const int32_t sizeRange = SC(MaxSize) - SC(MinSize);
-            float time = sizeRange > 0 ? (float)(rand() % sizeRange + SC(MinSize)) : (float)SC(MinSize);
-
-            PlaceNew(x, y, time, 2000.0f, 1);
-        }
+        // A screen full of the drops of the rain, landed the way any of them
+        // lands (see SpawnDrops): of its sizes, for its life, and moved by the air
+        // like the rest, or flakes of snow when it snows.
+        const int shade = bEnableSnow ? SnowShade : 0xFF;
+        SpawnDrops(n, shade, shade, shade);
     }
 
     static inline void Clear()
@@ -1673,6 +1666,9 @@ public:
             return;
 
         bEnableSnow = enabled;
+        // the drops on the lens are of the other kind and of the other atlas:
+        // the lens starts over with the shapes of the new one
+        Clear();
         ReleaseMask();
         ms_initialised = false;
     }
@@ -1835,7 +1831,7 @@ public:
         // ReadIniSettings installs
         if (!ms_iniRead)
         {
-            ReadIniSettings(bInvertedRadial);
+            ReadIniSettings(bForwardIsUp);
             ms_iniRead = true;
         }
 

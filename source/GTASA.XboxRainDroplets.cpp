@@ -94,7 +94,7 @@ static void InitialiseWaterDrops()
 
 void Init()
 {
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadIniSettings(true);
     // the effect moves with the time of the game, which is a value of its own,
     // see timeStepSeconds
     WaterDrops::fTimeStep = &timeStepSeconds;

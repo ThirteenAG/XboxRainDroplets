@@ -219,7 +219,7 @@ void Init()
 {
     CIniReader iniReader("");
     bSpecialZones = iniReader.ReadInteger("MAIN", "SpecialZones", 1) != 0;
-    WaterDrops::ReadIniSettings(true);
+    WaterDrops::ReadIniSettings();
     
     auto pattern = hook::pattern("A1 ? ? ? ? 8B 10 68 ? ? ? ? 50 FF 52 40");
     pDev = *pattern.get_first<LPDIRECT3DDEVICE9*>(1);

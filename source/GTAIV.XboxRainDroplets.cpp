@@ -1,5 +1,6 @@
 // Direct3D 9, the API this game uses
 #define XRD_ENABLE_D3D9
+#include <optional>
 #include "xrd/xrd.h"
 
 namespace rage
@@ -774,8 +775,31 @@ static inline void WaterDrops__InitialiseRender(LPDIRECT3DDEVICE pDevice)
     }
 }
 
+// Whether the snow of Fusion Fix is on (its seasonal snow, where the rain of the
+// weather falls as snow): the drops on the lens are flakes of snow then. Without
+// Fusion Fix, or with an older one that does not say, nothing is known and the
+// ini decides, see WaterDrops::bEnableSnow.
+static std::optional<bool> FusionFixSnow()
+{
+    static auto ff = GetModuleHandleW(L"GTAIV.EFLC.FusionFix.asi");
+    if (!ff)
+        return std::nullopt;
+
+    static auto IsSnowEnabled = (bool(*)())GetProcAddress(ff, "IsSnowEnabled");
+    static auto IsWeatherSnow = (bool(*)())GetProcAddress(ff, "IsWeatherSnow");
+    if (!IsSnowEnabled || !IsWeatherSnow)
+        return std::nullopt;
+
+    return IsSnowEnabled() && IsWeatherSnow();
+}
+
 static inline void WaterDrops__Process(LPDIRECT3DDEVICE pDevice)
 {
+    // rain or snow on the lens, as Fusion Fix has it; SetSnow only does anything
+    // when that changes, and then loads the shapes of the flakes or of the drops
+    if (auto snow = FusionFixSnow())
+        WaterDrops::SetSnow(*snow);
+
     if (!WaterDrops::fTimeStep)
     {
         static std::list<int> m_times;
@@ -817,21 +841,9 @@ void __fastcall sub_B870A0(uint8_t* self, void* edx)
     }
     if (self[12])
     {
-        bool bNeedsToDisableDrops = false;
-        static auto ff = GetModuleHandleW(L"GTAIV.EFLC.FusionFix.asi");
-        if (ff)
-        {
-            static auto IsSnowEnabled = (bool(*)())GetProcAddress(ff, "IsSnowEnabled");
-            static auto IsWeatherSnow = (bool(*)())GetProcAddress(ff, "IsWeatherSnow");
-            if (IsSnowEnabled && IsWeatherSnow)
-            {
-                if (IsSnowEnabled() && IsWeatherSnow())
-                    bNeedsToDisableDrops = true;
-            }
-        }
-
-        if (!bNeedsToDisableDrops)
-            WaterDrops::ms_rainIntensity = *CWeatherRain; //rain_drops
+        // The rain of the weather, which falls as snow when the snow of Fusion
+        // Fix is on: the drops are flakes then, see WaterDrops__Process.
+        WaterDrops::ms_rainIntensity = *CWeatherRain; //rain_drops
         self[12] = 0;
     }
     if (self[28])
@@ -843,7 +855,7 @@ void __fastcall sub_B870A0(uint8_t* self, void* edx)
 
 void Init()
 {
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadIniSettings(true);
 
     RegisterFountains();
 

@@ -830,6 +830,16 @@ namespace
         const int32_t splashStanding = D::ms_numDrops;
         check(splashStanding >= 19, "a splash of a game is as many drops standing as driving");
 
+        // A screen full of drops a game asks for is drops of the rain like any
+        // other: they move and live as long as the rest.
+        calm();
+        D::FillScreen(50);
+        int32_t filledLong = 0;
+        for (const auto& d : D::ms_drops)
+            filledLong += d.active && d.ttl >= D::LifeMinSeconds * 2000.0f ? 1 : 0;
+        check(D::ms_numDrops == 50 && D::ms_numDropsMoving == 50 && filledLong == 50,
+            "a screen full of drops a game asks for moves and lives like the rain");
+
         // A flake of snow sticks where it lands: nothing moves it.
         calm();
         D::bEnableSnow = true;

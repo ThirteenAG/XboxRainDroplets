@@ -43,7 +43,7 @@ void UpdateCameraFromJadeMatrix(const MATH_tdst_Matrix* pMatrix)
 
 void Init()
 {
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadIniSettings(true);
 
     auto pattern = hook::pattern("A1 ? ? ? ? 89 45 ? 8B 0D ? ? ? ? 89 0D ? ? ? ? 68");
     GDI_gpst_CurDD = *pattern.get_first<uintptr_t*>(1);

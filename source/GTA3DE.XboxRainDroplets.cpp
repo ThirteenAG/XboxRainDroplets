@@ -466,7 +466,7 @@ void Init()
         DrawDropletsBeforeUiSubmissionD3D12(pQueue, NumCommandLists, ppCommandLists);
     };
 
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadIniSettings(true);
     static DXGI_FORMAT gFormat = DXGI_FORMAT_R10G10B10A2_UNORM;
     WaterDrops::SetXUVScale(0.125f, 0.875f);
 
