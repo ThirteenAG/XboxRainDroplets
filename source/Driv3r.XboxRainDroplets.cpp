@@ -104,9 +104,12 @@ void Init()
                 auto at = *(RwV3d*)(pCamMatrix + 0x20);
                 auto pos = *(RwV3d*)(pCamMatrix + 0x30);
 
+                // The third row of the camera matrix points back out of the
+                // picture, the way the game of the Parallel Lines plugin has it
+                // too: forward is the other way.
                 WaterDrops::right = { -right.x, -right.z, -right.y };
                 WaterDrops::up = { up.x, up.z, up.y };
-                WaterDrops::at = { at.x, at.z, at.y };
+                WaterDrops::at = { -at.x, -at.z, -at.y };
                 WaterDrops::pos = { pos.x, pos.z, pos.y };
 
                 Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
@@ -137,7 +140,8 @@ void Init()
                     camMatrix.right.y = -WaterDrops::right.y;
                     camMatrix.right.z = -WaterDrops::right.z;
                     camMatrix.up = WaterDrops::up;
-                    camMatrix.at = WaterDrops::at;
+                    // the third row of the game's camera matrix again, see above
+                    camMatrix.at = { -WaterDrops::at.x, -WaterDrops::at.y, -WaterDrops::at.z };
                     camMatrix.pos = WaterDrops::pos;
 
                     // The view matrix of this build of the game never reaches the hook

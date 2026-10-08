@@ -285,7 +285,7 @@ void Init()
     });
 
     huds_renderT = safetyhook::create_inline(0x793BB0_g, huds_hook);
-    WaterDrops::ReadIniSettings(true);
+    WaterDrops::ReadIniSettings();
 
     bBloodPlayer = iniReader.ReadInteger("SR2", "BloodDropsForPlayer", 1) != 0;
     WeatherMultiplier = iniReader.ReadFloat("SR2", "WeatherMultiplier", 4.85f);

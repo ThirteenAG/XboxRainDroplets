@@ -5,7 +5,7 @@
 
 void Init()
 {
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadIniSettings(true);
 
     WaterDrops::ms_StaticRain = true;
     WaterDrops::ms_rainIntensity = 0.0f;
@@ -92,7 +92,10 @@ void Init()
             dst.at = { up.z, up.x, up.y };
             dst.pos = { pos.z, pos.x, pos.y };
 
-            WaterDrops::right = dst.up;
+            // The first row of the frame points to the right of the screen and the
+            // effect takes right as pointing to the left of it, the way RenderWare
+            // has it, or the drops drift the wrong way when the camera turns.
+            WaterDrops::right = { -dst.up.x, -dst.up.y, -dst.up.z };
             WaterDrops::up = dst.right;
             WaterDrops::at = dst.at;
             WaterDrops::pos = dst.pos;

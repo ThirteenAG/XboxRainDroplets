@@ -37,10 +37,11 @@ void Init()
                 else
                     WaterDrops::ms_rainIntensity = 0.0f;
                 auto matrix = (RwMatrix*)((*(uintptr_t*)(*(uintptr_t*)0x79A938 + 4) + 0x10));
+                // The RenderWare frame of the camera: at is where it looks, up is
+                // up and right points to the left of the screen, which is what
+                // the effect takes them as.
                 WaterDrops::right = matrix->right;
-                WaterDrops::up.x = -matrix->up.x;
-                WaterDrops::up.y = -matrix->up.y;
-                WaterDrops::up.z = -matrix->up.z;
+                WaterDrops::up = matrix->up;
                 WaterDrops::at = matrix->at;
                 WaterDrops::pos = matrix->pos;
                 auto pDevice = *(LPDIRECT3DDEVICE8*)pDev;

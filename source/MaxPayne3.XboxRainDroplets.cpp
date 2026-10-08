@@ -43,12 +43,13 @@ namespace
         {"MaxSize", "Maximum drop size", 15, 1, 100, 1, false},
         {"MaxDrops", "Maximum drops", 3000, 100, 16000, 100, false},
         {"MaxMovingDrops", "Maximum moving drops", 6000, 100, 16000, 100, false},
-        {"RadialMovement", "Radial movement", 1, 0, 1, 1, true},
         {"EnableGravity", "Gravity", 1, 0, 1, 1, true},
         {"Refractions", "Refractions", 1, 0, 1, 1, true},
         {"SpeedAdjuster", "Speed multiplier", 1, 0, 10, 0.1f, false},
         {"MoveStep", "Movement step", 1, 0.1f, 10, 0.1f, false},
         {"BloodDrops", "Blood droplets", 1, 0, 1, 1, true},
+        {"EnableSnow", "Snow", 0, 0, 1, 1, true, 0, "BONUS"},
+        {"ForceRain", "Force rain", 0, 0, 1, 1, true},
     };
     void SaveMenuSettings()
     {
@@ -92,14 +93,14 @@ namespace
             WaterDrops::MaxSize = static_cast<int>(menuSettings[2].value);
             WaterDrops::MaxDrops = static_cast<int>(menuSettings[3].value);
             WaterDrops::MaxDropsMoving = static_cast<int>(menuSettings[4].value);
-            WaterDrops::bRadial = menuSettings[5].value != 0;
-            WaterDrops::bGravity = menuSettings[6].value != 0;
-            WaterDrops::bRefractions = menuSettings[7].value != 0;
-            WaterDrops::fSpeedAdjuster = menuSettings[8].value;
-            WaterDrops::fMoveStep = menuSettings[9].value;
-            WaterDrops::bBloodDrops = menuSettings[10].value != 0;
-            WaterDrops::bEnableSnow = menuSettings[11].value != 0;
-            WaterDrops::bForceRain = menuSettings[12].value != 0;
+            WaterDrops::bGravity = menuSettings[5].value != 0;
+            WaterDrops::bRefractions = menuSettings[6].value != 0;
+            WaterDrops::fSpeedAdjuster = menuSettings[7].value;
+            WaterDrops::fMoveStep = menuSettings[8].value;
+            WaterDrops::bBloodDrops = menuSettings[9].value != 0;
+            // through SetSnow, which loads the shapes of the flakes or the drops
+            WaterDrops::SetSnow(menuSettings[10].value != 0);
+            WaterDrops::bForceRain = menuSettings[11].value != 0;
             // Init already loaded the INI. Do not overwrite the CFG on first render.
             WaterDrops::ms_iniRead = true;
             WaterDrops::ResizePools();
@@ -204,18 +205,6 @@ namespace
                 u8"Máximo de gotas em movimento",
                 u8"Maks. liczba ruchomych kropli",
                 u8"움직이는 물방울 최대 수",
-            }},
-            {"XboxRainDroplets.Radial movement", {
-                u8"Radial movement",
-                u8"Mouvement radial",
-                u8"Radiale Bewegung",
-                u8"Movimento radiale",
-                u8"Movimiento radial",
-                u8"放射状の動き",
-                u8"Радиальное движение",
-                u8"Movimento radial",
-                u8"Ruch promieniowy",
-                u8"방사형 이동",
             }},
             {"XboxRainDroplets.Gravity", {
                 u8"Gravity",
@@ -380,7 +369,7 @@ namespace
 
 void Init()
 {
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadIniSettings(true);
     RegisterFusionFixMenu();
 
     WaterDrops::ms_rainIntensity = 0.0f;
@@ -448,7 +437,11 @@ void Init()
             auto at = *(RwV3d*)(regs.esi + 0x40);
             auto pos = *(RwV3d*)(regs.esi + 0x50);
 
-            WaterDrops::right = right;
+            // The first row of the matrix points to the right of the screen and
+            // the effect takes right as pointing to the left of it, the way
+            // RenderWare has it, or the drops drift the wrong way when the
+            // camera turns.
+            WaterDrops::right = { -right.x, -right.y, -right.z };
             WaterDrops::up = up;
             WaterDrops::at = at;
             WaterDrops::pos = pos;
