@@ -98,6 +98,12 @@ namespace Xrd
         // drops are drawn with a shader of model 1, which it builds itself.
         virtual bool GathersLight() const { return false; }
 
+        // Whether the drops are drawn with the shaders of Direct3D 9 and above,
+        // which show a soft, mirrored window of the frame round a drop: the
+        // Direct3D 8 backend does when it hands its drops to the backend of
+        // Direct3D 9 of a wrapper, see WaterDrops::LensShaders.
+        virtual bool DrawsWithD3D9Shaders() const { return false; }
+
         // Sets the transform used by the vertices. Width and height are the
         // target size, they are what the corners of the screen map to.
         virtual void SetProjection(Projection projection, const Matrix* pWorld, float width, float height) = 0;
@@ -404,6 +410,11 @@ namespace Xrd
 
     // Whether the drops are drawn with a shader that gathers the light of the
     // frame around them, see Backend::GathersLight.
+    inline bool DrawsWithD3D9Shaders()
+    {
+        return pBackend && pBackend->DrawsWithD3D9Shaders();
+    }
+
     inline bool GathersLight()
     {
         return pBackend && pBackend->GathersLight();
