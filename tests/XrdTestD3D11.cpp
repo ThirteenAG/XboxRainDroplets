@@ -513,28 +513,53 @@ namespace
         check(still == landed && oneSecond == landed, "every drop lands at rest and lives one second");
         check(minRotation < -2.5f && maxRotation > 2.5f, "and lands turned any way");
 
-        // The rain of the weather lands in the middle of the picture at about a
-        // fifth of the density it lands with further out, the way Forza's does;
-        // a splash of the game lands anywhere.
-        float inMiddle = 0.0f, nearEdge = 0.0f;
-        for (int round = 0; round < 12; round++)
+        // The rain of the weather lands evenly over the picture, the way Forza's
+        // does; what thins the middle is the run of the drops outwards, so a lens
+        // driven at the speed of the capture of Forza (34 units a second) has the
+        // middle (within 0.2 of the half sizes of the picture) at about 0.28 of
+        // the density near the edge (0.8 to 1.0), which is what the capture has.
+        const auto densities = [&](float& middle, float& edge)
         {
-            calm();
-            D::SpawnDrops(2000, 0xFF, 0xFF, 0xFF, true);
+            float inMiddle = 0.0f, nearEdge = 0.0f;
             for (const auto& d : D::ms_drops)
             {
-                if (!d.active) continue;
+                if (!d.active || d.isTrace) continue;
                 const float r = hypotf(d.x / 960.0f - 1.0f, d.y / 540.0f - 1.0f);
                 inMiddle += r < 0.2f ? 1.0f : 0.0f;
                 nearEdge += r >= 0.8f && r < 1.0f ? 1.0f : 0.0f;
             }
+            middle = inMiddle / (0.2f * 0.2f);
+            edge = nearEdge / (1.0f - 0.64f);
+        };
+        float standMiddle = 0.0f, standEdge = 0.0f, driveMiddle = 0.0f, driveEdge = 0.0f;
+        for (int round = 0; round < 6; round++)
+        {
+            calm();
+            D::SpawnDrops(2000, 0xFF, 0xFF, 0xFF, true);
+            float m, e;
+            densities(m, e);
+            standMiddle += m; standEdge += e;
         }
-        // per area of the two rings
-        const float middleDensity = inMiddle / (0.2f * 0.2f);
-        const float edgeDensity = nearEdge / (1.0f - 0.64f);
-        printf("[d3d11] the rain lands in the middle at %.2f of the density near the edge\n", middleDensity / (std::max)(edgeDensity, 1.0f));
-        check(middleDensity > edgeDensity * 0.08f && middleDensity < edgeDensity * 0.35f,
-            "the rain of the weather lands thinly in the middle of the picture, and fully further out");
+        calm();
+        timeStep = 1.0f / 60.0f;
+        for (int i = 0; i < 60 * 8; i++)
+        {
+            air(0.0f, 0.0f, -34.0f);
+            D::FillScreenMovingRate(1.0f, false, true);
+            D::ProcessMoving();
+            D::Fade();
+            if (i >= 60 * 5 && (i % 30) == 0)
+            {
+                float m, e;
+                densities(m, e);
+                driveMiddle += m; driveEdge += e;
+            }
+        }
+        const float standRatio = standMiddle / (std::max)(standEdge, 1.0f);
+        const float driveRatio = driveMiddle / (std::max)(driveEdge, 1.0f);
+        printf("[d3d11] the rain in the middle against near the edge: %.2f as it lands, %.2f at 34 units a second (Forza 0.28)\n", standRatio, driveRatio);
+        check(standRatio > 0.75f && standRatio < 1.3f, "the rain of the weather lands evenly over the picture, the way Forza's does");
+        check(driveRatio > 0.15f && driveRatio < 0.45f, "and a lens driven into it has the middle thinned by the run of the drops, the way Forza's is");
         calm();
         D::SpawnDrops(1500, 0xFF, 0xFF, 0xFF, false);
         int32_t splashMiddle = 0;
@@ -647,8 +672,24 @@ namespace
         printf("[d3d11] a view that turns right by %.3f rad in a frame makes air of %.1f units/s, expected %.1f\n", angle, D::ms_air[0], expected);
         check(D::ms_air[0] > expected * 0.9f && D::ms_air[0] < expected * 1.1f && D::ms_lookAir[0] == D::ms_air[0],
             "a view that turns to the right swings the lens through the air, so the drops go right");
+
+        // A camera that drives round a corner is turned by its car: the drops feel
+        // only the air in its view, the way Forza's do, and no swing of the lens.
         D::right = { -1.0f, 0.0f, 0.0f };
         D::at = { 0.0f, 0.0f, 1.0f };
+        D::pos = { 0.0f, 0.0f, 0.0f };
+        D::ms_haveLastFwd = false;
+        D::CalculateMovement();
+        D::right = { -cosf(angle), 0.0f, sinf(angle) };
+        D::at = { sinf(angle), 0.0f, cosf(angle) };
+        D::pos = { D::at.x * 30.0f * timeStep, 0.0f, D::at.z * 30.0f * timeStep };
+        D::CalculateMovement();
+        check(D::ms_lookAir[0] == 0.0f && fabsf(D::ms_air[0]) < 1.0f,
+            "a camera that drives round a corner does not swing its lens through the air");
+
+        D::right = { -1.0f, 0.0f, 0.0f };
+        D::at = { 0.0f, 0.0f, 1.0f };
+        D::pos = { 0.0f, 0.0f, 0.0f };
         D::ms_haveLastFwd = false;
 
         // A drop the turning camera shoved comes to rest again when the turning

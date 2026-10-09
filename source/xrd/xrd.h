@@ -350,12 +350,12 @@ public:
     static constexpr float LifeMinSeconds = 3.0f;
     static constexpr float LifeMaxSeconds = 3.0f;
     static constexpr float SnowLifeSeconds = 2.5f;
-    // Forza lands RainDropParticlesPerSecond times the intensity of the rain,
-    // whatever the speed of the car. This is how many drops an amount of the
-    // rain of the weather stands for, against a splash of a game, so that the
-    // heaviest rain of a game lands about as many drops on the picture as
-    // Forza's heaviest does.
-    static constexpr float WeatherRain = 0.5f;
+    // Forza lands RainDropParticlesPerSecond (700) times the intensity of the
+    // rain a second, whatever the speed of the car or where its camera looks,
+    // pushed out from the middle of the picture, of which about a third land on
+    // it: this is that third, the drops a second the heaviest rain lands on the
+    // picture. The intensity goes through Forza's curve first, see RainCurve.
+    static constexpr float WeatherDropsPerSecond = 250.0f;
     // Blood is thick: it sticks where it lands, the air and the turning camera
     // do not move it and it leaves no trail. It stays whole for BloodHoldSeconds
     // to that and BloodHoldSpread more, and then fades over BloodFadeSeconds.
@@ -377,6 +377,13 @@ public:
     // time: the arm is that much longer than it was when the drops moved in
     // seconds.)
     static constexpr float LookArm = 108.0f;
+    // The speed along its view, in units of the game a second, from which a
+    // camera that turns swings its lens through the air less, and from which
+    // not at all: a camera that drives is turned by its car, see
+    // CalculateMovement. A camera swung round a player who stands or walks goes
+    // sideways and not along its view, so it keeps all of its swing.
+    static constexpr float LookFadeStart = 3.0f;
+    static constexpr float LookFadeEnd = 10.0f;
     // A drop that the turning camera shoved sideways comes to rest again over
     // this long, in seconds, once the camera stops: the glass holds it.
     static constexpr float LookSettle = 0.12f;
@@ -787,8 +794,15 @@ public:
                 const float yaw = turned.x * screenRight.x + turned.y * screenRight.y + turned.z * screenRight.z;
                 const float pitch = turned.x * upAxis.x + turned.y * upAxis.y + turned.z * upAxis.z;
 
-                lookX = yaw * LookArm / dt;
-                lookY = -pitch * LookArm / dt;
+                // Driving, the camera of a game follows its car round the corners,
+                // and Forza's drops feel nothing of that but the air in the view of
+                // the camera, which is measured above: a turn swings the lens
+                // through the air only for a camera that does not drive, and the
+                // swing fades out as it picks up speed along its view, see
+                // LookFadeStart.
+                const float driving = std::clamp((fabsf(forward) - LookFadeStart) / (LookFadeEnd - LookFadeStart), 0.0f, 1.0f);
+                lookX = yaw * LookArm / dt * (1.0f - driving);
+                lookY = -pitch * LookArm / dt * (1.0f - driving);
 
                 if (fabsf(lookX) > fabsf(airX))
                     airX = lookX;
@@ -846,9 +860,9 @@ public:
         if (!weather)
             return amount * 20.0f;
 
-        // Forza lands its rain at a rate of its own, whatever the speed, see
-        // WeatherRain.
-        return WeatherRain * amount * 20.0f;
+        // the rain of the weather: the amount is the intensity of the rain, see
+        // SprayDrops and WeatherDropsPerSecond
+        return WeatherDropsPerSecond / 60.0f * amount;
     }
 
     // The rain of one frame: the amount is spread over the time the frame took,
@@ -882,6 +896,20 @@ public:
             SpawnDrops((int32_t)whole, bEnableSnow ? SnowShade : 0xFF, bEnableSnow ? SnowShade : 0xFF, bEnableSnow ? SnowShade : 0xFF, weather);
     }
 
+    // The intensity of the rain on Forza's lens out of the intensity of its
+    // weather: nothing below 0.04, then up to a half along a line from there to
+    // (0.5, 0.5), and the intensity itself above that.
+    static inline float RainCurve(float rain)
+    {
+        if (!(rain >= 0.04f))
+            return 0.0f;
+
+        if (rain < 0.5f)
+            return (rain - 0.04f) * 1.0869565f;
+
+        return rain;
+    }
+
     static inline void SprayDrops()
     {
         // A rain intensity that is negative or not a number at all is not rain. The
@@ -889,9 +917,13 @@ public:
         // below turns the intensity into a number of drops.
         if (!NoRain() && (ms_rainIntensity > 0.0f || bForceRain) && ms_enabled)
         {
-            auto tmp = (int32_t)(180.0f - ms_rainStrength);
-            if (tmp < 40) tmp = 40;
-            FillScreenMovingRate((tmp - 40.0f) / 150.0f * (bForceRain ? 1.0f : ms_rainIntensity) * 0.5f, false, true);
+            // Forza's lens takes the rain at its intensity and nothing else: not
+            // where the camera looks, which one game hands over as its view and
+            // the next as its up, see RainCurve
+            const float intensity = RainCurve(bForceRain ? 1.0f : std::clamp(ms_rainIntensity, 0.0f, 1.0f));
+
+            if (intensity > 0.0f)
+                FillScreenMovingRate(intensity, false, true);
         }
         if (sprayWater)
             FillScreenMovingRate(0.5f, false);
@@ -914,30 +946,8 @@ public:
     // A number of drops of the rain, placed at random over the glass. Forza lands
     // its drops anywhere at rest, and of two kinds: seven in eight are small, from
     // the smallest size the ini asks for to about twice that, and the rest are big,
-    // from about two thirds of the largest size to the largest. They all live one
-    // few seconds, see LifeMinSeconds.
-    // Where Forza lets the rain of the weather land: its drops run outwards from
-    // the middle of the picture, and the middle holds about a fifth of the drops
-    // the rest of the glass does (measured on a capture of the game). The share
-    // grows from the middle to the edge of an oval measured from the middle to
-    // the edges of the picture both ways, and the snow keeps more of the middle
-    // free than the rain.
-    static constexpr float RainClearRadius = 0.6f;
-    static constexpr float SnowClearRadius = 0.8f;
-    static constexpr float MiddleShare = 0.12f;
-
-    // whether a drop of the weather may land at a place of the picture, rolled
-    static inline bool LandsAt(float x, float y)
-    {
-        const float nx = x / (ms_fbWidth * 0.5f) - 1.0f;
-        const float ny = y / (ms_fbHeight * 0.5f) - 1.0f;
-        const float r = sqrtf(nx * nx + ny * ny);
-        const float clear = bEnableSnow ? SnowClearRadius : RainClearRadius;
-        const float out = std::clamp(r / clear, 0.0f, 1.0f);
-        const float share = MiddleShare + (1.0f - MiddleShare) * out * out * (3.0f - 2.0f * out);
-        return GetRandomFloat(1.0f) < share;
-    }
-
+    // from about two thirds of the largest size to the largest. They live a few
+    // seconds, see LifeMinSeconds.
     static inline void SpawnDrops(int32_t n, int R, int G, int B, bool weather = false, bool blood = false)
     {
         if (!ms_initialised || ms_fbWidth <= 0 || ms_fbHeight <= 0)
@@ -963,16 +973,13 @@ public:
 
         for (int32_t i = 0; i < n; i++)
         {
-            // The rain of the weather lands round the middle of the picture, see
-            // LandsAt; a splash of the game lands anywhere.
+            // Forza lands its drops evenly over the picture (out of a table of
+            // points spread evenly over it); what keeps the middle of its lens
+            // thinner at speed is the run of the drops outwards, see MoveDrop
+            // and the capture of the game measured in tests/XrdTestD3D11.cpp.
             float x = GetRandomFloat((float)ms_fbWidth);
             float y = GetRandomFloat((float)ms_fbHeight);
-
-            for (int tries = 0; weather && tries < 16 && !LandsAt(x, y); tries++)
-            {
-                x = GetRandomFloat((float)ms_fbWidth);
-                y = GetRandomFloat((float)ms_fbHeight);
-            }
+            (void)weather;
 
             const bool big = GetRandomFloat(1.0f) < BigDropShare;
             float size = big ? bigBottom + GetRandomFloat(biggest - bigBottom) : smallest + GetRandomFloat(smallTop - smallest);
@@ -1016,7 +1023,7 @@ public:
     static inline bool TrailRibbons()
     {
         const auto api = Xrd::GetRenderer();
-        return GatheredLight() && ms_atlasUsed && api != Xrd::RENDERER_D3D8;
+        return GatheredLight() && ms_atlasUsed && (api != Xrd::RENDERER_D3D8 || Xrd::DrawsWithD3D9Shaders());
     }
 
     // The width of the film a drop leaves, as a share of the drop, right where
@@ -1997,6 +2004,12 @@ public:
     static inline bool LensShaders()
     {
         const auto api = Xrd::GetRenderer();
+
+        // a game of Direct3D 8 run through a wrapper of Direct3D 9 has its drops
+        // drawn by the backend of Direct3D 9, see Xrd::DrawsWithD3D9Shaders
+        if (api == Xrd::RENDERER_D3D8)
+            return Xrd::DrawsWithD3D9Shaders();
+
         return api == Xrd::RENDERER_D3D9 || api == Xrd::RENDERER_D3D10 || api == Xrd::RENDERER_D3D10_1 ||
             api == Xrd::RENDERER_D3D11 || api == Xrd::RENDERER_D3D12;
     }

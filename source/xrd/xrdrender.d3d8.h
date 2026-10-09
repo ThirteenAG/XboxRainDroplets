@@ -153,6 +153,11 @@ namespace Xrd
         // EnsureShaders. The effect asks this to know whether a drop of clear water
         // is a lens, see WaterDrops::GatheredLight, and it can change between two
         // frames: the shaders are built the first time the drops are drawn.
+        bool DrawsWithD3D9Shaders() const override
+        {
+            return usingD3D9 && pBackend9 && pBackend9->GathersLight();
+        }
+
         bool GathersLight() const override
         {
             return usingD3D9 ? pBackend9->GathersLight() : bShaderDrops;
