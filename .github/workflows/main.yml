@@ -57,7 +57,7 @@ jobs:
       - name: Upload test pictures
         continue-on-error: true
         if: always()
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: renderer-tests
           path: bin/tests/headless/*.png
