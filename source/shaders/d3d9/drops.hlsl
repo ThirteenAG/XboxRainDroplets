@@ -12,8 +12,7 @@ float4 crop : register(c2);
 float4 atlasTexel : register(c3);
 
 // ---------------------------------------------------------------------------
-// The drop of water on the lens, the way Forza Horizon 4 draws it (taken from a
-// GPU capture of the game: its drop shapes, its lens map and its composite).
+// The drop of water on the lens.
 //
 // The atlas holds the shapes of the drops, and the alpha of a shape is the
 // square root of the height of the dome of water it is. The slope of that dome
@@ -24,16 +23,16 @@ float4 atlasTexel : register(c3);
 // shows covers the frame behind it with the remaining life of the drop as its
 // opacity. Nothing is added: no rim, no highlight, no shading.
 //
-// Forza works its drops out at a quarter of the resolution of the picture, a
-// cell of four pixels of 1080 lines, and stretches them over it. Here the drop
-// is worked out at every pixel, and the same softness comes from three things:
+// The drop is worked out at every pixel, with the softness of a drop worked
+// out at a quarter of the resolution of the picture (a cell of four pixels of
+// 1080 lines) and stretched over it, which comes from three things:
 //
 //   - the dome is blurred over a cell, so the edge of a drop and its normals
-//     are as soft as Forza's,
-//   - a drop of Forza holds all of the picture in a few of its cells, so what
+//     are soft,
+//   - a soft drop holds all of the picture in a few of its cells, so what
 //     it shows is the picture blurred down to those few cells: the frame is
 //     read at the level of its chain that the refraction sweeps over a cell,
-//   - Forza mixes its drops into the frame before the frame is tone mapped, in
+//   - the drops are mixed into the frame before the frame is tone mapped, in
 //     light, so the sky and the lamps a drop shows outweigh the shade it shows:
 //     four reads of the frame are turned back into light and averaged.
 //

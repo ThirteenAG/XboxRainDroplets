@@ -1,0 +1,14 @@
+{
+  "enabled": "Gouttes de pluie",
+  "minsize": "Taille minimale des gouttes",
+  "maxsize": "Taille maximale des gouttes",
+  "maxdrops": "Nombre maximal de gouttes",
+  "maxmovingdrops": "Gouttes mobiles maximales",
+  "gravity": "Gravité",
+  "refractions": "Réfraction",
+  "speed": "Multiplicateur de vitesse",
+  "movestep": "Pas de déplacement",
+  "blooddrops": "Gouttes de sang",
+  "snow": "Neige",
+  "forcerain": "Forcer la pluie"
+}

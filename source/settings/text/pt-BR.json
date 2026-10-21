@@ -1,0 +1,14 @@
+{
+  "enabled": "Gotas de chuva",
+  "minsize": "Tamanho mínimo das gotas",
+  "maxsize": "Tamanho máximo das gotas",
+  "maxdrops": "Quantidade máxima de gotas",
+  "maxmovingdrops": "Máximo de gotas em movimento",
+  "gravity": "Gravidade",
+  "refractions": "Refração",
+  "speed": "Multiplicador de velocidade",
+  "movestep": "Passo de movimento",
+  "blooddrops": "Gotas de sangue",
+  "snow": "Neve",
+  "forcerain": "Forçar chuva"
+}

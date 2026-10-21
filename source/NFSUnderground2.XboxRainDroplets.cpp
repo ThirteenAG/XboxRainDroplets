@@ -217,9 +217,10 @@ void __cdecl PreRVMHook(int unk1)
 
 void Init()
 {
-    CIniReader iniReader("");
-    bSpecialZones = iniReader.ReadInteger("MAIN", "SpecialZones", 1) != 0;
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadSettings();
+    // changes from menus and editors apply at once
+    bSpecialZones = XrdSettings().Bool("MAIN.SpecialZones");
+    XrdSettings().OnChange("MAIN.SpecialZones", [] { bSpecialZones = XrdSettings().Bool("MAIN.SpecialZones"); });
     
     auto pattern = hook::pattern("A1 ? ? ? ? 8B 10 68 ? ? ? ? 50 FF 52 40");
     pDev = *pattern.get_first<LPDIRECT3DDEVICE9*>(1);

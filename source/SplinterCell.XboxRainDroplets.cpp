@@ -111,7 +111,7 @@ void InitEngine()
 
 void InitD3DDrv()
 {
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadSettings();
 
     auto pattern = hook::module_pattern(GetModuleHandle(L"D3DDrv"), "FF 92 ? ? ? ? 50 8B 46 04 6A 38");
     static auto RenderHook = safetyhook::create_mid(pattern.get(0).get<void*>(), [](SafetyHookContext& regs)

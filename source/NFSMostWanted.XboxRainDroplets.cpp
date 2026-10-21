@@ -182,8 +182,7 @@ void __cdecl PreRVMHook(int unk1, int unk2)
 
 void Init()
 {
-    CIniReader iniReader("");
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadSettings();
     
     auto pattern = hook::pattern("A1 ? ? ? ? 8B 10 68 ? ? ? ? 50 FF 52 40");
     pDev = *pattern.get_first<LPDIRECT3DDEVICE9*>(1);

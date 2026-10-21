@@ -104,7 +104,7 @@ int __fastcall APlayerController__Tick(void* PlayerController, int a2, int a3, i
 
 void Init()
 {
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadSettings();
 
     auto pattern = hook::pattern("53 56 57 8B F9 8B 87 DC 39 00 00 33 F6 85 C0 7E ? 8B 5C 24 10");
     ULevel__IsInRainVolume = (decltype(ULevel__IsInRainVolume))pattern.count(2).get(0).get<void>(0);

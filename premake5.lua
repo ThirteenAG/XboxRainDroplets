@@ -79,6 +79,21 @@ function BuildShaders()
    filter {}
 end
 
+-- The settings description of a plugin (ASI Settings, external/FusionFixUtils/asi_settings): the
+-- description every plugin shares and what source/settings/games.json says about the
+-- plugin are merged into build/settings/<project>.json, which source/resources/Settings.rc
+-- embeds together with the text of source/settings/text. The description is checked by
+-- asi-settings-validate when the XboxRainDropletsTools solution was built.
+function BuildSettings()
+   local validator = path.translate(path.join(_SCRIPT_DIR, "build/tools/asi-settings-validate.exe"))
+   prebuildcommands {
+      'powershell -NoProfile -ExecutionPolicy Bypass -File "' .. path.join(_SCRIPT_DIR, 'tools/BuildSettings.ps1') .. '" -Project "%{prj.name}" -Validator "' .. validator .. '"',
+      'if errorlevel 1 exit /b 1',
+   }
+   files { "source/resources/Settings.rc", "source/settings/*.json", "source/settings/text/*.json", "tools/BuildSettings.ps1" }
+   defines { "XRD_SETTINGS_JSON=\"../../build/settings/%{prj.name}.json\"" }
+end
+
 -- The settings every plugin of this repository is built with. Visual Studio 2026 has no
 -- mixed platform solutions, so the plugins of one architecture are one solution: this
 -- is called once for the 32 bit plugins and once for the 64 bit ones, below.
@@ -107,10 +122,13 @@ function PluginsSetup(name, platform, arch)
 
       includedirs { "source" }
       includedirs { "external" }
+      -- Shared headers and ASI Settings: FusionFixUtils, a submodule
+      includedirs { "external/FusionFixUtils/include", "external/FusionFixUtils" }
       files { "source/%{prj.name}.cpp" }
       files { "source/resources/Versioninfo.rc" }
       files { "source/resources/Dropmask.rc" }
       BuildShaders()
+      BuildSettings()
       files { "external/hooking/Hooking.Patterns.h", "external/hooking/Hooking.Patterns.cpp" }
       files { "external/injector/safetyhook/include/**.hpp", "external/injector/safetyhook/src/**.cpp" }
       files { "external/injector/zydis/**.h", "external/injector/zydis/**.c" }
@@ -180,6 +198,8 @@ project "Driv3r.XboxRainDroplets"
    setpaths("DRIV3R_DIR", "driv3r.exe")
 project "DriverParallelLines.XboxRainDroplets"
    setpaths("DRIVER_PARALLEL_LINES_DIR", "DriverParallelLines.exe")
+project "NFSUnderground.XboxRainDroplets"
+   setpaths("NEED_FOR_SPEED_UNDERGROUND_DIR", "speed.exe")
 project "NFSUnderground2.XboxRainDroplets"
    setpaths("NEED_FOR_SPEED_UNDERGROUND_2_DIR", "speed2.exe")
 project "NFSMostWanted.XboxRainDroplets"
@@ -280,6 +300,8 @@ function WrapperSetup(name, platform, arch)
       files { "external/injector/zydis/**.h", "external/injector/zydis/**.c" }
       includedirs { "source" }
       includedirs { "external" }
+      -- Shared headers and ASI Settings: FusionFixUtils, a submodule
+      includedirs { "external/FusionFixUtils/include", "external/FusionFixUtils" }
       includedirs { "external/hooking" }
       includedirs { "external/injector/include" }
       includedirs { "external/injector/safetyhook/include" }
@@ -291,8 +313,10 @@ function WrapperSetup(name, platform, arch)
       -- the declarations of Vulkan ship with the repository
       includedirs { "external/vulkan/include" }
       defines { "VK_USE_PLATFORM_WIN32_KHR" }
-      -- The wrapper shares the same shader assets and build as the plugins.
+      -- The wrapper shares the same shader assets and build as the plugins, and its
+      -- settings are described the same way.
       BuildShaders()
+      BuildSettings()
 
       filter "configurations:Debug"
          defines "DEBUG"
@@ -414,6 +438,34 @@ ConsoleSetup("XboxRainDropletsPSP", "PSP")
 project "PPSSPP.XboxRainDroplets"
    consolepaths("pspsdk", "PPSSPP_DIR", "memstick/PSP/PLUGINS/PPSSPP.XboxRainDroplets/PPSSPP.XboxRainDroplets.prx", "PPSSPPWindows64.exe")
 
+-- asi-settings-validate: checks each plugin's settings description before it builds
+workspace "XboxRainDropletsTools"
+   configurations { "Release", "Debug" }
+   platforms { "Win32" }
+   architecture "x86"
+   location "build"
+   cppdialect "C++latest"
+   kind "ConsoleApp"
+   language "C++"
+   characterset ("Unicode")
+   buildoptions { "/Zc:__cplusplus /utf-8" }
+   staticruntime "On"
+   targetdir "build/tools"
+
+   filter "configurations:Debug"
+      defines { "DEBUG" }
+      symbols "On"
+
+   filter "configurations:Release"
+      defines { "NDEBUG" }
+      optimize "On"
+
+   filter {}
+
+project "AsiSettingsValidator"
+   targetname "asi-settings-validate"
+   files { "external/FusionFixUtils/asi_settings/tools/validator.cpp" }
+
 -- Tests: one small application per renderer, each one draws its own scene and
 -- its own UI, the drops go in between so it is visible that they end up behind
 -- what the application draws last.
@@ -441,6 +493,8 @@ workspace "XboxRainDropletsTests"
    includedirs { "tests" }
    includedirs { "source" }
    includedirs { "external" }
+   -- Shared headers and ASI Settings: FusionFixUtils, a submodule
+   includedirs { "external/FusionFixUtils/include", "external/FusionFixUtils" }
    includedirs { "external/hooking" }
    includedirs { "external/injector/include" }
    includedirs { "external/injector/safetyhook/include" }

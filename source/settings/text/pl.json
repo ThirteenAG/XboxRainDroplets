@@ -1,0 +1,14 @@
+{
+  "enabled": "Krople deszczu",
+  "minsize": "Minimalny rozmiar kropli",
+  "maxsize": "Maksymalny rozmiar kropli",
+  "maxdrops": "Maksymalna liczba kropli",
+  "maxmovingdrops": "Maks. liczba ruchomych kropli",
+  "gravity": "Grawitacja",
+  "refractions": "Załamanie światła",
+  "speed": "Mnożnik prędkości",
+  "movestep": "Krok ruchu",
+  "blooddrops": "Krople krwi",
+  "snow": "Śnieg",
+  "forcerain": "Wymuś deszcz"
+}

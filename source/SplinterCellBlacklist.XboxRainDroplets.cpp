@@ -12,7 +12,7 @@
 
 void Init()
 {
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadSettings();
 
     WaterDrops::ms_rainIntensity = 0.0f;
 

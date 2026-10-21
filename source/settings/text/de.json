@@ -1,0 +1,14 @@
+{
+  "enabled": "Regentropfen",
+  "minsize": "Minimale Tropfengröße",
+  "maxsize": "Maximale Tropfengröße",
+  "maxdrops": "Maximale Tropfenanzahl",
+  "maxmovingdrops": "Max. bewegliche Tropfen",
+  "gravity": "Schwerkraft",
+  "refractions": "Lichtbrechung",
+  "speed": "Geschwindigkeitsfaktor",
+  "movestep": "Bewegungsschritt",
+  "blooddrops": "Bluttropfen",
+  "snow": "Schnee",
+  "forcerain": "Regen erzwingen"
+}

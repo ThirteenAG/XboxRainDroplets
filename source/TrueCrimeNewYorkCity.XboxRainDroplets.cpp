@@ -93,7 +93,7 @@ bool IsCameraInsideActiveRainVolume(float camX, float camY, float camZ)
 
 void Init()
 {
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadSettings();
 
     auto pattern = hook::pattern("88 15 ? ? ? ? 8D 45");
     bPause = *pattern.get_first<bool*>(2);

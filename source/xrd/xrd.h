@@ -13,12 +13,13 @@
 #include <stacktrace>
 #include <functional>
 #include <format>
-#include "inireader/IniReader.h"
+#include <atomic>
+#include <windows.h>
 #include "Hooking.Patterns.h"
-#include "includes/ModuleList.hpp"
-#include "includes/FileWatch.hpp"
-#include "includes/callbacks.h"
-#include "includes/gameref.hpp"
+#include "ModuleList.hpp"
+#include "FileWatch.hpp"
+#include "callbacks.h"
+#include "gameref.hpp"
 /// The games expect the hooking library from this header, the old one pulled it in
 /// as well.
 #include <injector\injector.hpp>
@@ -109,6 +110,27 @@ typedef LPDIRECT3DDEVICE9 LPDIRECT3DDEVICE;
 #include <gdiplus.h>
 #pragma comment(lib, "gdiplus.lib")
 
+// ---------------------------------------------------------------------------
+// The settings of the plugin, with ASI Settings (external/FusionFixUtils/asi_settings):
+// they are described in source/settings, which every plugin embeds (see
+// source/resources/Settings.rc), and stored in the .cfg next to the plugin, which
+// is written in full when it is missing. Menus of other plugins (Max Payne 3's
+// Fusion Fix, NFS Underground's Widescreen Fix) and FusionFixHub show and change
+// them through the AsiSettings_GetApi export. Included after everything that
+// includes windows.h, whose min and max the code here uses.
+// ---------------------------------------------------------------------------
+#include "asi_settings/asi_settings.hpp"
+
+inline asi_settings::Plugin& XrdSettings()
+{
+    static asi_settings::Plugin plugin;
+    static bool loaded = plugin.Load();
+    (void)loaded;
+    return plugin;
+}
+
+ASI_SETTINGS_EXPORT(XrdSettings())
+
 struct RwV3d
 {
     float x;
@@ -172,6 +194,7 @@ struct VertexTex2
 // needs the engine vector and matrix types above and nothing else, so it comes
 // with this header everywhere.
 #include "xrd/xrdsnow.h"
+#include "xrd/xrdlanding.h"
 
 class WaterDrop
 {
@@ -193,7 +216,6 @@ public:
     // the right, y up, z along the view. The air that comes at a lens that is
     // driven forward pushes the drop to negative z, which the dome of the lens
     // turns into a run outwards from the middle of the picture, see MoveDrop.
-    // This is the m_Velocity of the lens rain of Forza Horizon 4.
     float vel[3] = { 0.0f, 0.0f, 0.0f };
     // how the shape of the drop is turned on the glass, in radians
     float rotation = 0.0f;
@@ -214,6 +236,9 @@ public:
     // to side and the width of its trail are made of, see WaterDrops::Meander.
     float meander = 0.0f;
     float meanderSeed = 0.0f;
+    // The water of a trail: how big the drop that left it was then, see
+    // WaterDrops::AddToRenderList.
+    float headSize = 0.0f;
 
     // The water this bead leaves behind it, as drops of the rain of its own: a drop
     // of water running over a pane of glass leaves drops of water where it has been,
@@ -285,9 +310,7 @@ public:
     // -----------------------------------------------------------------------
     // the air over the lens
     //
-    // This is the lens rain of Forza Horizon 4, taken from a GPU capture of the
-    // game: its simulation shader, its constants and the state of its drops over
-    // ten frames. Every drop is a particle on the dome of the lens:
+    // Every drop is a particle on the dome of the lens:
     //
     //   - it lands at rest, anywhere, and lives one second, drawn with the
     //     remaining part of its life as its opacity,
@@ -304,8 +327,8 @@ public:
     // the big ones well ahead of the small ones.
     //
     // The air is what the camera moves through, see CalculateMovement, and a
-    // camera that is turned is swung through the air as well: Forza has no such
-    // camera, and this is where the turns of the mouse come in, see LookArm.
+    // camera that is turned is swung through the air as well: this is
+    // where the turns of the mouse come in, see LookArm.
     // -----------------------------------------------------------------------
     // the air over the lens, in units of the game a second, in the space of the
     // lens (x right, y up, z along the view): what the camera moves through
@@ -320,12 +343,12 @@ public:
     static inline RwV3d ms_lastRight;
     static inline bool ms_haveLastFwd = false;
 
-    // Forza's g_SizeToMaginuteScalar: the push of the air and the friction of
-    // the glass both scale with the size of a drop times this. A flake of snow
-    // is pushed and held a third as hard as a drop of rain of its size.
+    // The push of the air and the friction of the glass both scale with the
+    // size of a drop times this. A flake of snow is pushed and held a third as
+    // hard as a drop of rain of its size.
     static constexpr float SizeToMagnitude = 3.12f;
     static constexpr float SnowSizeToMagnitude = 1.0f;
-    // Forza's flakes of snow are three to five times the size of its drops of
+    // Flakes of snow are three to five times the size of the drops of
     // rain, of every size in between, and there are far fewer of them on the
     // lens: this is the share of the rain of an amount that lands as snow.
     static constexpr float SnowMinScale = 3.6f;
@@ -334,7 +357,7 @@ public:
     // The lens turns the velocity of a drop into its run over the picture, in
     // halves of the picture a second: the velocity along the view outwards from
     // the middle at this share of it, and the velocity across the view sideways
-    // and up or down at the second. Read off the lens textures of Forza.
+    // and up or down at the second.
     static constexpr float LensRadialGain = 0.5f;
     static constexpr float LensLateralGain = 0.9f;
     // How far the dome of the lens is tilted at the edge of the picture: its
@@ -342,20 +365,104 @@ public:
     // squarely the lens faces it, but never drops below MinAlignment of it.
     static constexpr float LensTilt = 0.87f;
     static constexpr float MinAlignment = 0.55f;
-    // How long a drop stays on the glass, in seconds: Forza's RainDropLife of
-    // the chase camera (WaterOnLensExterior in GlobalCarAttributes.xml), and of
-    // its snow. A drop fades from the moment it lands over all of it. Forza
-    // steps its drops in time measured in lives, so the push of the air and the
+    // How long a drop stays on the glass, in seconds, of the rain and of the
+    // snow. A drop fades from the moment it lands over all of it. The drops
+    // are stepped in time measured in lives, so the push of the air and the
     // friction of the glass act over that time as well, see MoveDrop.
     static constexpr float LifeMinSeconds = 3.0f;
     static constexpr float LifeMaxSeconds = 3.0f;
     static constexpr float SnowLifeSeconds = 2.5f;
-    // Forza lands RainDropParticlesPerSecond (700) times the intensity of the
-    // rain a second, whatever the speed of the car or where its camera looks,
-    // pushed out from the middle of the picture, of which about a third land on
-    // it: this is that third, the drops a second the heaviest rain lands on the
-    // picture. The intensity goes through Forza's curve first, see RainCurve.
+    // The rain lands 700 drops times its intensity a second, whatever the
+    // speed of the car or where its camera looks, pushed out from the middle
+    // of the picture, of which about a third land on it: this is that third,
+    // the drops a second the heaviest rain lands on the picture. The intensity goes through a curve first, see RainCurve.
     static constexpr float WeatherDropsPerSecond = 250.0f;
+
+    // FixedPlacement of the settings, on unless it says 0: the drops of the weather
+    // land out of a table of points spread evenly over the lens
+    // (source/xrd/xrdlanding.h), turned by a random angle, scaled up by
+    // LandingScale, kept where they fall on the picture and dealt out shuffled,
+    // and nearly all of them pushed out from the middle by CenterPush
+    // (SnowCenterPush and SnowCenterPushSkip, 0.7 and 0.0015, for the snow). A
+    // drop pushed off the picture is lost, so the rain of a second lands as
+    // many drops on the picture as without, see LandingShareOf. The push grows with the speed of the camera,
+    // see PushStartSpeed. With 0, the drops land at random, evenly.
+    static inline bool bFixedPlacement = true;
+    static constexpr float LandingScale = 1.41421356f;
+    static constexpr float CenterPush = 0.5f;
+    static constexpr float CenterPushSkip = 0.001f;
+    static constexpr float SnowCenterPush = 0.7f;
+    static constexpr float SnowCenterPushSkip = 0.0015f;
+    // The push grows with the speed of the camera: a lens that stands is rained
+    // on all over, and one that is driven into the rain has the middle of it kept
+    // clear, from PushStartSpeed to the whole push at PushFullSpeed, in units of
+    // the game a second. See ms_pushShare.
+    static constexpr float PushStartSpeed = 2.0f;
+    static constexpr float PushFullSpeed = 25.0f;
+    static inline float ms_pushShare = 0.0f;
+
+    // The share of the drops dealt out that land on the picture once pushed, for
+    // a push of 0, 0.1, ... 0.7 (measured on the table): the rest are pushed off
+    // it and lost, so the rain deals out that much more, see DropsOfAmount.
+    static inline float LandingShareOf(float push)
+    {
+        static constexpr float share[] = { 1.0f, 0.836f, 0.684f, 0.546f, 0.424f, 0.319f, 0.227f, 0.153f };
+        const float at = std::clamp(push * 10.0f, 0.0f, 7.0f);
+        const int i = (std::min)((int)at, 6);
+        return share[i] + (share[i + 1] - share[i]) * (at - (float)i);
+    }
+
+    static inline float LandingPush()
+    {
+        return (bEnableSnow ? SnowCenterPush : CenterPush) * ms_pushShare;
+    }
+
+    static inline std::vector<std::pair<float, float>> ms_landing;
+
+    // The next place a drop of the weather lands, -1 to 1 each way over the
+    // picture, see bFixedPlacement; false when it lands off the picture.
+    static inline bool NextLandingPlace(float& nx, float& ny)
+    {
+        if (ms_landing.empty())
+        {
+            static std::mt19937 shuffle(std::random_device{}());
+            const float angle = GetRandomFloat(6.2831853f) - 3.1415927f;
+            const float c = cosf(angle), s = sinf(angle);
+
+            ms_landing.reserve(XrdLandingPointCount);
+
+            for (const auto& p : XrdLandingPoints)
+            {
+                const float x = (c * p[0] - s * p[1]) * LandingScale;
+                const float y = (s * p[0] + c * p[1]) * LandingScale;
+
+                if (x > -1.0f && x < 1.0f && y > -1.0f && y < 1.0f)
+                    ms_landing.emplace_back(x, y);
+            }
+
+            std::shuffle(ms_landing.begin(), ms_landing.end(), shuffle);
+        }
+
+        if (ms_landing.empty())
+            return false;
+
+        nx = ms_landing.back().first;
+        ny = ms_landing.back().second;
+        ms_landing.pop_back();
+
+        const float push = LandingPush();
+        const float skip = bEnableSnow ? SnowCenterPushSkip : CenterPushSkip;
+        const float r = sqrtf(nx * nx + ny * ny);
+
+        // pushed out along its own way from the middle
+        if (r > 0.0f && GetRandomFloat(1.0f) > skip)
+        {
+            nx += nx / r * push;
+            ny += ny / r * push;
+        }
+
+        return nx > -1.0f && nx < 1.0f && ny > -1.0f && ny < 1.0f;
+    }
     // Blood is thick: it sticks where it lands, the air and the turning camera
     // do not move it and it leaves no trail. It stays whole for BloodHoldSeconds
     // to that and BloodHoldSpread more, and then fades over BloodFadeSeconds.
@@ -372,11 +479,22 @@ public:
     // and a turn moves it sideways by the arm times the angle. This is that arm,
     // in units of the game, and it is long, because a drop on a lens has to be
     // shoved hard to move at all: see MoveDrop.
-    // (Forza's drops move in time measured in their lives of three seconds,
+    // (The drops move in time measured in their lives of three seconds,
     // which takes nine times the push to move them as far in a second of real
     // time: the arm is that much longer than it was when the drops moved in
     // seconds.)
     static constexpr float LookArm = 108.0f;
+    // The most air a turn of the camera makes, in units of the game a second: a
+    // quick turn shoves the drops hard enough to drag trails behind them, and no
+    // more.
+    // A game that spins its own camera round the car (a crash, a reverse, the
+    // camera of a pursuit) would otherwise blow every drop off the picture.
+    static constexpr float LookAirMax = 120.0f;
+    // A camera that moves faster than this, or turns further in a frame, was not
+    // moved but cut to somewhere else: a new camera, a replay, a reset. Nothing
+    // of that is air over the lens.
+    static constexpr float CutSpeed = 150.0f;
+    static constexpr float CutTurn = 0.35f;
     // The speed along its view, in units of the game a second, from which a
     // camera that turns swings its lens through the air less, and from which
     // not at all: a camera that drives is turned by its car, see
@@ -387,7 +505,7 @@ public:
     // A drop that the turning camera shoved sideways comes to rest again over
     // this long, in seconds, once the camera stops: the glass holds it.
     static constexpr float LookSettle = 0.12f;
-    // EnableGravity of the ini. Forza's drops never run down the lens; with
+    // EnableGravity of the settings. With gravity off no drop runs down the lens; with
     // gravity on, a share of the drops does, picked at random from all of them,
     // and slowly: they pick up speed over GravityRise seconds to a speed of
     // their own between the two below, in pixels a second at 480 lines.
@@ -423,10 +541,10 @@ public:
     // Which way is forward on the frame: the games hand the matrix of their
     // camera over, and in some of them forward is in the up vector of it and up
     // in its at vector. That is known for every game and its plugin says so, see
-    // ReadIniSettings; it is no setting of the ini.
+    // ReadSettings; it is no setting of the plugin.
     static inline bool bRadial = false;
     static inline bool bForwardIsUp = false;
-    // EnableGravity of the ini. The drops on the lens of Forza do not run down it,
+    // EnableGravity of the settings. The drops on the lens do not run down it,
     // only the air moves them (see the air over the lens), so nothing reads this
     // any more; it is kept for the games and menus that set it.
     static inline bool bGravity = true;
@@ -530,8 +648,8 @@ public:
     }
 
     // A drop of clear water gathers the light of the frame around it: next to
-    // a tail light or a lamp it glows in its colour, the way Forza's drops do at
-    // night. The water a drop leaves is a film and gathers none.
+    // a tail light or a lamp it glows in its colour, at
+    // night as well. The water a drop leaves is a film and gathers none.
     static inline bool IsLens(const WaterDrop* drop)
     {
         return !drop->isTrace && drop->r == drop->g && drop->g == drop->b && GatheredLight();
@@ -539,15 +657,18 @@ public:
 
     // A game that is not raining spawns no drops at all, which is what the effect is for and
     // also what makes it impossible to look at while the weather of a game is being worked on.
-    // The ini can hold the rain on, whatever the game reports, which is what ForceRain is for.
+    // The settings can hold the rain on, whatever the game reports, which is what ForceRain is for.
     static inline bool bForceRain = false;
     static inline float fSpeedAdjuster = 1.0f;
+    // Enabled of the settings: off, the effect clears the lens and draws nothing,
+    // which is the game as it was (the vanilla preset)
+    static inline bool bEnabled = true;
 
     // How blurred a drop is, from none (a drop of clear water, which shows the
     // frame around it in every detail, the way the effect has always drawn it)
     // to one (a drop that is out of focus, a soft disc that shows the light of
     // the whole of its surroundings, which is what the drops on the camera of
-    // a racing game look like). DropBlur in the ini. The renderers that draw
+    // a racing game look like). DropBlur in the settings. The renderers that draw
     // the drops with a shader of Direct3D 9 and above do this, the rest draw
     // the drops clear.
     static inline float fDropBlur = 1.0f;
@@ -601,6 +722,14 @@ public:
 
     static inline void Process()
     {
+        ApplyChangedSettings();
+        if (!bEnabled)
+        {
+            if (ms_numDrops > 0)
+                Clear();
+            return;
+        }
+
         if (!fTimeStep)
         {
             static std::list<int> m_times;
@@ -630,44 +759,158 @@ public:
         SprayDrops();
         ProcessMoving();
         Fade();
+        WriteDebugLog();
     }
+
+    // DebugLog = 1 in the settings: once a second, what the effect is fed by the game
+    // and what the drops do with it, into a file next to the .cfg with the
+    // extension .log. For finding out why the drops of a game do not move the
+    // way they should: the time of a frame, how fast the camera goes along its
+    // view, the air over the lens, the rain, and how fast the drops run.
+    static inline bool bDebugLog = false;
+    static inline std::filesystem::path ms_debugLogPath;
+
+    static inline void WriteDebugLog()
+    {
+        if (!bDebugLog || ms_debugLogPath.empty())
+            return;
+
+        static float elapsed = 0.0f;
+        static int frames = 0;
+        static float dtSum = 0.0f, forwardSum = 0.0f, airSum[3] = {}, lookSum[2] = {};
+        const float dt = FrameSeconds();
+        elapsed += dt;
+        frames++;
+        dtSum += dt;
+        forwardSum += ms_forwardSpeed;
+        for (int i = 0; i < 3; i++) airSum[i] += ms_air[i];
+        lookSum[0] += ms_lookAir[0];
+        lookSum[1] += ms_lookAir[1];
+
+        if (elapsed < 1.0f)
+            return;
+
+        int32_t moving = 0, traces = 0;
+        float speedSum = 0.0f;
+        for (const auto& drop : ms_drops)
+        {
+            if (!drop.active)
+                continue;
+            if (drop.isTrace) { traces++; continue; }
+            moving++;
+            speedSum += sqrtf(drop.shapeX * drop.shapeX + drop.shapeY * drop.shapeY);
+        }
+
+        if (FILE* f = _wfopen(ms_debugLogPath.c_str(), L"a"))
+        {
+            const float n = (float)(std::max)(frames, 1);
+            fprintf(f, "frames %d dt %.4f (raw %.4f) forward %.1f air %.1f %.1f %.1f look %.1f %.1f rain %.2f drops %d traces %d run %.0f px/s screen %dx%d\n",
+                frames, dtSum / n, GetFrameTimeSeconds(), forwardSum / n, airSum[0] / n, airSum[1] / n, airSum[2] / n,
+                lookSum[0] / n, lookSum[1] / n, ms_rainIntensity, moving, traces,
+                moving ? speedSum / moving : 0.0f, ms_fbWidth, ms_fbHeight);
+            fclose(f);
+        }
+
+        elapsed = 0.0f;
+        frames = 0;
+        dtSum = forwardSum = 0.0f;
+        airSum[0] = airSum[1] = airSum[2] = 0.0f;
+        lookSum[0] = lookSum[1] = 0.0f;
+    }
+
+    // The values of the settings, see XrdSettings. A setting the description of
+    // the plugin doesn't have (BloodDrops in a game that has no blood) keeps the
+    // value it has, and so does every setting of an application that embeds no
+    // description at all, the tests.
+    static inline bool HasSetting(std::string_view id)
+    {
+        return XrdSettings().GetDescription().Find(id) != nullptr;
+    }
+    static inline int SettingInt(std::string_view id, int value)
+    {
+        return HasSetting(id) ? XrdSettings().Int(id) : value;
+    }
+    static inline float SettingFloat(std::string_view id, float value)
+    {
+        return HasSetting(id) ? XrdSettings().Float(id) : value;
+    }
+    static inline bool SettingBool(std::string_view id, bool value)
+    {
+        return HasSetting(id) ? XrdSettings().Bool(id) : value;
+    }
+
+    // Every setting but snow, which SetSnow switches
+    static inline void LoadSettings()
+    {
+        bEnabled = SettingBool("MAIN.Enabled", bEnabled);
+        MinSize = SettingInt("MAIN.MinSize", MinSize);
+        MaxSize = SettingInt("MAIN.MaxSize", MaxSize);
+        MaxDrops = SettingInt("MAIN.MaxDrops", MaxDrops);
+        MaxDropsMoving = SettingInt("MAIN.MaxMovingDrops", MaxDropsMoving);
+        bGravity = SettingBool("MAIN.EnableGravity", bGravity);
+        bRefractions = SettingBool("MAIN.Refractions", bRefractions);
+        fSpeedAdjuster = SettingFloat("MAIN.SpeedAdjuster", fSpeedAdjuster);
+        fMoveStep = SettingFloat("MAIN.MoveStep", fMoveStep);
+        bBloodDrops = SettingBool("MAIN.BloodDrops", bBloodDrops);
+        bForceRain = SettingBool("MAIN.ForceRain", bForceRain);
+        fDropBlur = std::clamp(SettingFloat("MAIN.DropBlur", fDropBlur), 0.0f, 1.0f);
+        bDebugLog = SettingBool("MAIN.DebugLog", bDebugLog);
+        bFixedPlacement = SettingBool("MAIN.FixedPlacement", bFixedPlacement);
+    }
+
+    // Set by a change of any setting, from whichever thread made it: a menu, an
+    // editor through Reload, the .cfg written by hand. The changes are applied on
+    // the thread of the game, before its next frame of the drops, see
+    // ApplyChangedSettings: only that thread touches the pools.
+    static inline std::atomic<bool> ms_settingsChanged = false;
 
     // forwardIsUp: the game hands forward over in the up vector of its camera,
     // see bRadial
-    static inline void ReadIniSettings(bool forwardIsUp = false)
+    static inline void ReadSettings(bool forwardIsUp = false)
     {
         bForwardIsUp = forwardIsUp;
         bRadial = forwardIsUp;
 
-        CIniReader iniReader("");
-        MinSize = iniReader.ReadInteger("MAIN", "MinSize", 4);
-        MaxSize = iniReader.ReadInteger("MAIN", "MaxSize", 19);
-        MaxDrops = iniReader.ReadInteger("MAIN", "MaxDrops", 3000);
-        MaxDropsMoving = iniReader.ReadInteger("MAIN", "MaxMovingDrops", 6000);
-        bGravity = iniReader.ReadInteger("MAIN", "EnableGravity", 1) != 0;
-        bRefractions = iniReader.ReadInteger("MAIN", "Refractions", 1) != 0;
-        fSpeedAdjuster = iniReader.ReadFloat("MAIN", "SpeedAdjuster", 1.0f);
-        fMoveStep = iniReader.ReadFloat("MAIN", "MoveStep", 0.1f);
-        bBloodDrops = iniReader.ReadInteger("MAIN", "BloodDrops", 1) != 0;
-        bEnableSnow = iniReader.ReadInteger("BONUS", "EnableSnow", 0) != 0;
-        bForceRain = iniReader.ReadInteger("MAIN", "ForceRain", 0) != 0;
-        fDropBlur = std::clamp(iniReader.ReadFloat("MAIN", "DropBlur", 1.0f), 0.0f, 1.0f);
+        LoadSettings();
+        bEnableSnow = SettingBool("BONUS.EnableSnow", bEnableSnow);
+
+        auto& settings = XrdSettings();
+        if (!settings.Loaded())
+            return;
+        ms_debugLogPath = std::filesystem::path(settings.CfgPath()).replace_extension(L".log");
 
         static std::once_flag flag;
         std::call_once(flag, [&]()
         {
-            if (std::filesystem::exists(iniReader.GetIniPath()))
+            for (auto& setting : settings.GetDescription().settings)
+                settings.OnChange(setting.id, [] { ms_settingsChanged = true; });
+
+            // The .cfg is read again whenever it is written to, so that a value can
+            // be changed by hand in the middle of a game. The plugin's own writes
+            // read back the values it has and change nothing.
+            if (std::filesystem::exists(settings.CfgPath()))
             {
-                static filewatch::FileWatch<std::string> watch(iniReader.GetIniPath().string(), [&](const std::string& path, const filewatch::Event change_type)
+                static filewatch::FileWatch<std::wstring> watch(settings.CfgPath().wstring(), [](const std::wstring& path, const filewatch::Event change_type)
                 {
-                    if (change_type == filewatch::Event::modified)
-                    {
-                        ReadIniSettings(bForwardIsUp);
-                        ms_initialised = 0;
-                    }
+                    if (change_type == filewatch::Event::modified || change_type == filewatch::Event::added || change_type == filewatch::Event::renamed_new)
+                        XrdSettings().Reload();
                 });
             }
         });
+    }
+
+    // The changes of the settings since the last frame, on the thread of the game
+    static inline void ApplyChangedSettings()
+    {
+        if (!ms_settingsChanged.exchange(false))
+            return;
+
+        LoadSettings();
+        // the falling drops and their shapes follow snow, see SetSnow
+        SetSnow(SettingBool("BONUS.EnableSnow", bEnableSnow));
+        // the pools follow MaxDrops and MaxMovingDrops, which clears the lens when
+        // they change, see ResizePools
+        ResizePools();
     }
 
     static inline float GetDistanceBetweenEmitterAndCamera(RwV3d* emitterPos)
@@ -767,16 +1010,27 @@ public:
             const float lift = RwV3dDotProduct(&upAxis, &ms_posDelta) / dt;
             const float forward = RwV3dDotProduct(&fwd, &ms_posDelta) / dt;
 
-            // Forza scales the air by how much the camera faces the way it goes:
+            // The air is scaled by how much the camera faces the way it goes:
             // all of it looking ahead, half looking out to the side and none
             // looking back, so a camera that looks back or backs up has no air
             // come at its lens.
             const float travel = sqrtf(side * side + lift * lift + forward * forward);
+
+            // a cut of the camera is no travel, see CutSpeed
+            const bool cut = !(travel < CutSpeed);
             const float facing = travel > 0.001f ? (forward / travel + 1.0f) * 0.5f : 1.0f;
 
             float airX = -side * facing;
             float airY = -lift * facing;
             float airZ = -forward * facing;
+
+            // how far the push out of the middle is grown, see PushStartSpeed: by
+            // the air the travel of the camera makes, not by its turns
+            {
+                const float travelAir = cut ? 0.0f : sqrtf(airX * airX + airY * airY + airZ * airZ);
+                const float t = std::clamp((travelAir - PushStartSpeed) / (PushFullSpeed - PushStartSpeed), 0.0f, 1.0f);
+                ms_pushShare = std::isfinite(t) ? t * t * (3.0f - 2.0f * t) : 0.0f;
+            }
 
             // A camera that turns is swung through the air, see LookArm, and the
             // drops go the way the view turns, which is what a camera swung round
@@ -795,14 +1049,18 @@ public:
                 const float pitch = turned.x * upAxis.x + turned.y * upAxis.y + turned.z * upAxis.z;
 
                 // Driving, the camera of a game follows its car round the corners,
-                // and Forza's drops feel nothing of that but the air in the view of
+                // and the drops feel nothing of that but the air in the view of
                 // the camera, which is measured above: a turn swings the lens
                 // through the air only for a camera that does not drive, and the
                 // swing fades out as it picks up speed along its view, see
                 // LookFadeStart.
                 const float driving = std::clamp((fabsf(forward) - LookFadeStart) / (LookFadeEnd - LookFadeStart), 0.0f, 1.0f);
-                lookX = yaw * LookArm / dt * (1.0f - driving);
-                lookY = -pitch * LookArm / dt * (1.0f - driving);
+                lookX = std::clamp(yaw * LookArm / dt * (1.0f - driving), -LookAirMax, LookAirMax);
+                lookY = std::clamp(-pitch * LookArm / dt * (1.0f - driving), -LookAirMax, LookAirMax);
+
+                // and a camera that turned that far in one frame was cut
+                if (sqrtf(yaw * yaw + pitch * pitch) > CutTurn)
+                    lookX = lookY = 0.0f;
 
                 if (fabsf(lookX) > fabsf(airX))
                     airX = lookX;
@@ -814,6 +1072,9 @@ public:
                 else
                     lookY = 0.0f;
             }
+
+            if (cut)
+                airX = airY = airZ = lookX = lookY = 0.0f;
 
             // Air that is not a number, out of a camera the game has not set up
             // yet, would be taken into every drop and never leave it again.
@@ -862,7 +1123,8 @@ public:
 
         // the rain of the weather: the amount is the intensity of the rain, see
         // SprayDrops and WeatherDropsPerSecond
-        return WeatherDropsPerSecond / 60.0f * amount;
+        const float landing = bFixedPlacement ? LandingShareOf(LandingPush()) : 1.0f;
+        return WeatherDropsPerSecond / 60.0f * amount / landing;
     }
 
     // The rain of one frame: the amount is spread over the time the frame took,
@@ -896,7 +1158,7 @@ public:
             SpawnDrops((int32_t)whole, bEnableSnow ? SnowShade : 0xFF, bEnableSnow ? SnowShade : 0xFF, bEnableSnow ? SnowShade : 0xFF, weather);
     }
 
-    // The intensity of the rain on Forza's lens out of the intensity of its
+    // The intensity of the rain on the lens out of the intensity of its
     // weather: nothing below 0.04, then up to a half along a line from there to
     // (0.5, 0.5), and the intensity itself above that.
     static inline float RainCurve(float rain)
@@ -917,7 +1179,7 @@ public:
         // below turns the intensity into a number of drops.
         if (!NoRain() && (ms_rainIntensity > 0.0f || bForceRain) && ms_enabled)
         {
-            // Forza's lens takes the rain at its intensity and nothing else: not
+            // The lens takes the rain at its intensity and nothing else: not
             // where the camera looks, which one game hands over as its view and
             // the next as its up, see RainCurve
             const float intensity = RainCurve(bForceRain ? 1.0f : std::clamp(ms_rainIntensity, 0.0f, 1.0f));
@@ -943,9 +1205,9 @@ public:
         }
     }
 
-    // A number of drops of the rain, placed at random over the glass. Forza lands
-    // its drops anywhere at rest, and of two kinds: seven in eight are small, from
-    // the smallest size the ini asks for to about twice that, and the rest are big,
+    // A number of drops of the rain, placed at random over the glass. They land
+    // anywhere at rest, and of two kinds: seven in eight are small, from
+    // the smallest size the settings ask for to about twice that, and the rest are big,
     // from about two thirds of the largest size to the largest. They live a few
     // seconds, see LifeMinSeconds.
     static inline void SpawnDrops(int32_t n, int R, int G, int B, bool weather = false, bool blood = false)
@@ -973,13 +1235,24 @@ public:
 
         for (int32_t i = 0; i < n; i++)
         {
-            // Forza lands its drops evenly over the picture (out of a table of
-            // points spread evenly over it); what keeps the middle of its lens
+            // The drops land evenly over the picture (out of a table of
+            // points spread evenly over it); what keeps the middle of the lens
             // thinner at speed is the run of the drops outwards, see MoveDrop
-            // and the capture of the game measured in tests/XrdTestD3D11.cpp.
+            // and tests/XrdTestD3D11.cpp.
             float x = GetRandomFloat((float)ms_fbWidth);
             float y = GetRandomFloat((float)ms_fbHeight);
-            (void)weather;
+
+            // out of the table of landing places, see bFixedPlacement
+            if (weather && bFixedPlacement)
+            {
+                float nx, ny;
+
+                if (!NextLandingPlace(nx, ny))
+                    continue;
+
+                x = (nx + 1.0f) * 0.5f * (float)ms_fbWidth;
+                y = (1.0f - ny) * 0.5f * (float)ms_fbHeight;
+            }
 
             const bool big = GetRandomFloat(1.0f) < BigDropShare;
             float size = big ? bigBottom + GetRandomFloat(biggest - bigBottom) : smallest + GetRandomFloat(smallTop - smallest);
@@ -1026,20 +1299,23 @@ public:
         return GatheredLight() && ms_atlasUsed && (api != Xrd::RENDERER_D3D8 || Xrd::DrawsWithD3D9Shaders());
     }
 
-    // The width of the film a drop leaves, as a share of the drop, right where
-    // the drop is, and how much one piece of the ribbon overlaps the next, see
-    // MoveDrop. No film is wider than TrailWidest of the largest size of the ini.
-    // Behind the drop the film drains in a moment to TrailThin of that width:
-    // a running drop is a bead with a thin wet line behind it, not a tail as
-    // thick as itself. TrailNarrowing is how long that takes, in seconds.
+    // The width of the wet line a drop leaves behind its teardrop, as a share of
+    // the drop (TrailWidthShare, times TrailThin), and how much one piece of the
+    // ribbon overlaps the next, see MoveDrop. No film is wider than TrailWidest
+    // of the largest size of the settings.
     static constexpr float TrailWidthShare = 0.5f;
     static constexpr float TrailWidest = 0.45f;
     static constexpr float TrailThin = 0.35f;
-    static constexpr float TrailNarrowing = 0.08f;
+    // A running drop and the water right behind it are one teardrop: the film
+    // starts as wide as the drop looks (TeardropHead of its size, its soft edge
+    // left out) and tapers evenly to the thin wet line over TeardropLength of
+    // its size behind it, see AddToRenderList.
+    static constexpr float TeardropHead = 0.75f;
+    static constexpr float TeardropLength = 2.5f;
     static constexpr float TrailOverlap = 3.5f;
     // A drop that leaves water behind it loses that water: it shrinks by this
     // share of the way it runs while it leaves any, and once it is down to
-    // TrailSmallest of the smallest size of the ini it is too small to leave
+    // TrailSmallest of the smallest size of the settings it is too small to leave
     // more and runs on as a small drop, or stops.
     static constexpr float TrailDrain = 0.08f;
     static constexpr float TrailSmallest = 1.5f;
@@ -1097,6 +1373,7 @@ public:
         trace->alpha0 = drop->alpha;
         trace->shapeX = velocityX;
         trace->shapeY = velocityY;
+        trace->headSize = drop->size;
 
         if (ribbon)
         {
@@ -1115,9 +1392,8 @@ public:
 
     // The speed, in pixels a second at 480 lines, at which a drop that the
     // turning camera drags over the glass starts to leave water behind it.
-    // Forza leaves none: its drops only ever run outwards. A drag sideways is
-    // where the water of this effect comes from, and only drops of some size
-    // that are dragged hard leave it.
+    // A drag sideways is where the water of this effect comes from, and only
+    // drops of some size that are dragged hard leave it.
     static constexpr float TrailSpeed = 12.0f;
     // the air across the view under which a drop the turning camera shoved
     // settles again, in units of the game a second, see MoveDrop
@@ -1126,8 +1402,7 @@ public:
     static constexpr float TraceShare = 0.55f;
 
     // How far a drop travels in this frame, and the water it leaves on the way.
-    // This is the simulation shader of the lens rain of Forza Horizon 4, see the
-    // air over the lens above, in the units of this effect.
+    // See the air over the lens above, in the units of this effect.
     static void MoveDrop(WaterDropMoving* moving, float dt, float settle)
     {
         WaterDrop* drop = moving->drop;
@@ -1146,12 +1421,12 @@ public:
         const float px = (drop->x - halfW) / halfW;
         const float py = (halfH - drop->y) / halfH;
 
-        // The size of the drop the way Forza measures it, half its width in
+        // The size of the drop, half its width in
         // halves of the height of the picture, times the scale of the push.
         const float k = drop->size * 0.5f / halfH * (bEnableSnow ? SnowSizeToMagnitude : SizeToMagnitude);
 
-        // Forza steps its drops in time measured in their lives, the frame time
-        // divided by RainDropLife: see LifeMinSeconds. Gravity and the settling
+        // The drops are stepped in time measured in their lives, the frame time
+        // divided by the life: see LifeMinSeconds. Gravity and the settling
         // of a shoved drop, which are the effect's own, stay in seconds.
         const float life = bEnableSnow ? SnowLifeSeconds : LifeMinSeconds;
         const float simDt = dt / life;
@@ -1159,9 +1434,7 @@ public:
         // The dome of the lens turns the velocity into a run over the picture:
         // along the view outwards from the middle, across it sideways and up. The
         // drop runs with the velocity it came into the frame with and the air
-        // changes it for the next, which is the order Forza steps its drops in: a
-        // replay of the drops of a capture of the game through this lands them
-        // where the game had them a few frames later, to a hundredth.
+        // changes it for the next.
         const float r = sqrtf(px * px + py * py);
         const float outX = r > 0.0001f ? px / r : 0.0f;
         const float outY = r > 0.0001f ? py / r : 0.0f;
@@ -1275,8 +1548,7 @@ public:
         drop->x += travelX;
         drop->y += travelY;
 
-        // A drop that left the picture is gone, the way Forza kills a drop whose
-        // middle leaves the lens.
+        // A drop whose middle left the picture is gone.
         if (drop->x < 0.0f || drop->y < 0.0f || drop->x > (float)ms_fbWidth || drop->y > (float)ms_fbHeight)
             Expire(drop);
     }
@@ -1394,7 +1666,7 @@ public:
         drop.size = size;
         // one of the shapes of the atlas, or the whole of the fallback mask
         drop.uv_index = ms_atlasUsed ? GetRandomInt((bEnableSnow ? SnowShapes : AtlasShapes) - 1) : -1;
-        // A size past the range of the ini (a test, a splash of a game) would
+        // A size past the range of the settings (a test, a splash of a game) would
         // otherwise turn the window of the frame the drop shows inside out.
         drop.uvsize = std::clamp((SC(MaxSize) - size + 1.0f) / (SC(MaxSize) - SC(MinSize) + 1.0f), 0.0f, 1.0f);
         drop.fades = fades;
@@ -1430,6 +1702,7 @@ public:
         drop.shapeX = drop.shapeY = 0.0f;
         drop.meander = 0.0f;
         drop.meanderSeed = GetRandomFloat(1.0f);
+        drop.headSize = 0.0f;
         drop.blood = false;
 
         return &drop;
@@ -1489,7 +1762,7 @@ public:
         // plugin fires while a level is still loading, and a device that was just
         // handed over reports no size until its first frame is presented. Nothing
         // can be placed on a screen that is not there yet, and the pools are not
-        // the ones the ini asked for until the first frame either.
+        // the ones the settings asked for until the first frame either.
         if (!ms_initialised || ms_fbWidth <= 0 || ms_fbHeight <= 0)
             return;
 
@@ -1655,7 +1928,7 @@ public:
     static inline ULONGLONG ms_prepareRetry = 0;
     static inline uint32_t ms_generation = 0;
     static inline bool ms_atlasUsed = true;
-    static inline bool ms_iniRead = false;
+    static inline bool ms_settingsRead = false;
 
     // How far the atlas coordinate of a drop that gathers light is moved down,
     // see AddToRenderList and VSMain in source/shaders/d3d10/drops.hlsl. Every
@@ -1810,7 +2083,7 @@ public:
     // That is what it looks like when the heap hands the freed block out again for
     // the moving drops themselves: their entries turn into floats, and the next
     // dereference of an entry crashes. Nothing is worth keeping across a resize
-    // either, the effect is built again from the ini right after this.
+    // either, the effect is built again from the settings right after this.
     static inline void ResizePools()
     {
         // Every drop of the effect, the drops the rain leaves behind it included,
@@ -1834,12 +2107,12 @@ public:
         if (!Xrd::IsActive())
             return;
 
-        // the ini is read once, changes to it are picked up by the watcher that
-        // ReadIniSettings installs
-        if (!ms_iniRead)
+        // the settings are read once, changes to them are applied by
+        // ApplyChangedSettings, see ReadSettings
+        if (!ms_settingsRead)
         {
-            ReadIniSettings(bForwardIsUp);
-            ms_iniRead = true;
+            ReadSettings(bForwardIsUp);
+            ms_settingsRead = true;
         }
 
         ResizePools();
@@ -1863,9 +2136,9 @@ public:
             // fallback shape for good, even after the next one was read fine.
             ms_atlasUsed = false;
 
-            // Forza draws its flakes of snow with shapes of their own, clusters of
-            // small specks of ice (source/resources/lenssnow.png, the ten flakes of
-            // its texture array of them, laid out the way the drops of the rain are).
+            // Flakes of snow are drawn with shapes of their own, clusters of
+            // small specks of ice (source/resources/lenssnow.png, ten flakes laid
+            // out the way the drops of the rain are).
             if (LoadMask(bEnableSnow ? IDR_SNOWDROPMASK : IDR_DROPMASK, pixels, width, height))
             {
                 ms_maskTex = Xrd::CreateTexture(width, height, pixels.data());
@@ -1953,20 +2226,20 @@ public:
     // the frame it shows, and the colour it is drawn in.
     //
     // A drop of rain on a lens is a lens of its own, and what it shows is the
-    // picture turned round both ways and squeezed into it: Forza refracts its
-    // frame through the normal of the drop with an index of 0.8 and a scale of 7,
+    // picture turned round both ways and squeezed into it: the frame is refracted
+    // through the normal of the drop with an index of 0.8 and a scale of 7,
     // which comes to about all of the picture, upside down and mirrored, across
     // a drop. That is RefractionReach, in widths and heights of the picture from
     // the middle of the drop to the edge of its quad; the sampler clamps what
-    // reaches past the frame, the way Forza's does.
+    // reaches past the frame.
     static constexpr float RefractionReach = 1.75f;
-    // The scale Forza bends the frame through a drop with, and through a flake
+    // The scale the frame is bent through a drop with, and through a flake
     // of snow, whose dome is half as steep: see source/shaders/d3d10/drops.hlsl.
     // The renderers without that shader show the window of RefractionReach.
     static constexpr float Refraction = 7.0f;
-    // Forza's RefractionScalar of the snow (its composite in the capture).
+    // the refraction scale of the snow
     static constexpr float SnowRefraction = 3.0f;
-    // the atlas of the shapes of Forza's drops, source/resources/lensdrops.png:
+    // the atlas of the shapes of the drops, source/resources/lensdrops.png:
     // fourteen shapes, four along each side
     static constexpr int AtlasTiles = 4;
     static constexpr int AtlasShapes = 14;
@@ -1976,15 +2249,15 @@ public:
     static constexpr float ShapeShare = 0.6f;
     // A flake of snow refracts with a scale of 3 instead of 7, through a shape
     // that is half as steep: what it shows is the picture around it, turned
-    // round and a little squeezed, see the lens map of Forza's snow.
+    // round and a little squeezed.
     // On the renderers without the shaders of Direct3D 9 and above a flake shows
     // the frame from this close round it, mirrored: each speck of it shows the
     // frame a little displaced, the way a bead of water bends it, and the shade
-    // of the atlas darkens its rim (see source/resources/lenssnow.png). Forza's
+    // of the atlas darkens its rim (see source/resources/lenssnow.png). The
     // flakes are clear water with a touch of frost, see SnowMilk.
     static constexpr float SnowRefractionReach = 0.07f;
     // How milky a flake is on those renderers, see Xrd::SetSceneFrost: the frost
-    // of Forza's flakes is a few hundredths of their thickness.
+    // of a flake is a few hundredths of their thickness.
     static constexpr float SnowMilk = 0.05f;
     // How much a flake of snow is frosted: what it shows is blurred by this
     // much more than a drop of rain (two levels of the chain for every one),
@@ -1995,9 +2268,9 @@ public:
     // What a soft drop of rain shows on the renderers whose shaders draw it, see
     // source/shaders/d3d10/drops.hlsl: the picture round it, upside down and
     // mirrored the way a drop of water turns it, from LensWindow of the width
-    // and the height of the picture on either side of it, blurred. Forza bends
-    // its frame through the slope of every drop and blurs the result at a
-    // quarter of the resolution; the mirrored window is what that comes to, a
+    // and the height of the picture on either side of it, blurred. Bending
+    // the frame through the slope of every drop and blurring the result at a
+    // quarter of the resolution comes to the mirrored window, a
     // picture that goes over the drop smoothly from one side to the other.
     static constexpr float LensWindow = 0.4f;
 
@@ -2151,14 +2424,20 @@ public:
     {
         if (drop->isTrace && drop->uv_index == AtlasShapes && TrailRibbons())
         {
-            // Right behind its drop the film is as wide as the drop left it, and
-            // under the drop, which is drawn over it, so the two run into each
-            // other as one body of water; a moment later it has drained into a
-            // thin wet line, see TrailThin. A piece is never shorter than it is
-            // wide, so its round ends are never cut off by its quad.
+            // The water right behind a running drop is as wide as the drop looks
+            // and narrows evenly to a thin wet line over a few of its sizes behind
+            // it, see TeardropLength, so the drop and its water are one teardrop
+            // and not a bead with a thread behind it. How far behind the drop a
+            // piece is, is how long ago it was left times how fast the drop ran
+            // then. It is under the drop, which is drawn over it. A piece is
+            // never shorter than it is wide, so its round ends are never cut off
+            // by its quad.
             const float age = drop->time / 2000.0f;
-            const float thinning = TrailThin + (1.0f - TrailThin) * expf(-age / TrailNarrowing);
-            const float width = (std::max)(1.2f * Scale(), drop->size * thinning);
+            const float behind = age * sqrtf(drop->shapeX * drop->shapeX + drop->shapeY * drop->shapeY);
+            const float head = (std::max)(drop->headSize, drop->size);
+            const float line = (std::max)(1.2f * Scale(), drop->size * TrailThin);
+            const float taper = std::clamp(1.0f - behind / (TeardropLength * head), 0.0f, 1.0f);
+            const float width = line + (std::max)(head * TeardropHead - line, 0.0f) * taper;
             AddStripQuad(drop->x, drop->y, (std::max)(drop->trailLength, width), width, drop->rotation,
                 Xrd::ColorARGB(drop->alpha, drop->r, drop->g, drop->b));
             ms_numBatchedDrops++;
@@ -2174,7 +2453,8 @@ public:
 
     static inline void Render()
     {
-        if (!ms_enabled || ms_numDrops <= 0)
+        ApplyChangedSettings();
+        if (!bEnabled || !ms_enabled || ms_numDrops <= 0)
             return;
 
         EnsureDevice();
@@ -2214,12 +2494,12 @@ public:
         Xrd::SetProjection(Xrd::PROJECTION_SCREEN);
         Xrd::SetSceneUVScale(ms_UVXOffset, ms_UVXScale, ms_UVYOffset, ms_UVYScale);
         Xrd::SetSceneSampling(true);
-        // A flake of snow is frosted water: Forza blurs what it shows a level of
+        // A flake of snow is frosted water: what it shows is blurred a level of
         // the chain further than a drop of rain and softens its edge, whatever
         // DropBlur asks for the rain, see SnowFrost.
         Xrd::SetSceneComplement(false);
         Xrd::SetSceneFrost(bEnableSnow ? SnowMilk : 0.0f);
-        // A flake of snow is drawn crisp: Forza blurs what a speck shows by its
+        // A flake of snow is drawn crisp: what a speck shows is blurred by its
         // frost, which is a few hundredths of it, so a speck refracts the frame
         // sharply, see SnowRefraction.
         Xrd::SetSceneBlur(bEnableSnow ? 0.0f : fDropBlur, ms_atlasUsed ? (float)AtlasTiles : 1.0f,
@@ -2230,8 +2510,8 @@ public:
 
 // How a drop ages. Its time is counted in the units the effect has always
 // counted it in, two thousand to the second, and the life it was given is in
-// them as well. What is left of its life is how visible it is, the way Forza
-// draws its drops: a drop fades from the moment it lands until it is gone.
+// them as well. What is left of its life is how visible it is: a drop fades
+// from the moment it lands until it is gone.
 void WaterDrop::Fade()
 {
     auto delta = WaterDrops::GetTimeStepInMilliseconds() * 100.0f;

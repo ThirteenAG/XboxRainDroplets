@@ -13,7 +13,7 @@ void RegisterFountains()
 
 void Init()
 {
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadSettings();
 
     RegisterFountains();
 

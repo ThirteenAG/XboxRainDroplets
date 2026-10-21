@@ -142,6 +142,10 @@ Every game has a release of its own, and its notes hold the installation steps o
 </thead>
 <tbody>
 <tr>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/nfsu">Need for Speed: Underground</a></td>
+<td align="center" valign="middle">The game has no rain: a race has rain by chance</td>
+</tr>
+<tr>
 <td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/nfsu2">Need for Speed: Underground 2</a></td>
 <td align="center" valign="middle"><img src="https://user-images.githubusercontent.com/4904157/198046562-62075652-b28c-4557-bf4f-fae1001d0254.png" width="320" alt="Need for Speed: Underground 2"></td>
 </tr>
@@ -247,14 +251,16 @@ Every game has its own release, and its notes hold the folder the plugin goes to
 
 1. Download the release of your game from the [Releases](https://github.com/ThirteenAG/XboxRainDroplets/releases) page and unpack it.
 2. Install the [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader), or the fix the release asks for, which includes it.
-3. Put the `.asi` and `.ini` files into the `scripts` folder of the game (`plugins` for GTA IV and Max Payne 3, the root folder of the emulator for PPSSPP and PCSX2F).
+3. Put the `.asi` file into the `scripts` folder of the game (`plugins` for GTA IV and Max Payne 3, the root folder of the emulator for PPSSPP and PCSX2F).
 4. Launch the game and wait for it to rain.
 
-Direct3D 8 games automatically use the Direct3D 9 droplet renderer when a wrapper such as d3d8to9 exposes its underlying device and resources. Otherwise they keep the native Direct3D 8 renderer. No INI setting is needed.
+Direct3D 8 games automatically use the Direct3D 9 droplet renderer when a wrapper such as d3d8to9 exposes its underlying device and resources. Otherwise they keep the native Direct3D 8 renderer. No setting is needed.
 
 ## Configuration
 
-The ini of a plugin is read at startup and again whenever the file is written to, so a value can be changed in the middle of a game.
+Every plugin describes its settings with [ASI Settings](https://github.com/ThirteenAG/Ultimate-ASI-Loader/tree/master/settings) and keeps them in a `.cfg` next to itself, which it writes on its first start (the old `.ini` files are no longer read). Change them on [fusionfix.io](https://fusionfix.io), in FusionFixHub, or in the game with a fix that shows other plugins' settings: Fusion Fix in GTA IV and Max Payne 3 (its menu and the Ctrl+F10 overlay) and the Widescreen Fix of NFS Underground. Changes apply while the game runs, the file is read again whenever it is written to. The `Rain droplets` setting turns the effect off, which is also what the Vanilla preset does.
+
+The description every plugin shares is `source/settings/XboxRainDroplets.json`; `source/settings/games.json` adds each plugin's games, the settings only some games have and its own defaults, and `tools/BuildSettings.ps1` merges them into `build/settings/<plugin>.json` before the plugin is built. The texts are in `source/settings/text`, one file per language. The `XboxRainDropletsTools` solution builds `asi-settings-validate`, which the build then runs on every description.
 
 ## Building
 

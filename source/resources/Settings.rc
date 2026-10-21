@@ -1,0 +1,15 @@
+// The settings description of the plugin (ASI Settings, see external/FusionFixUtils/asi_settings), which
+// tools/BuildSettings.ps1 makes for every project from source/settings, and the text of its settings
+// in every language, one resource named by its language tag each
+
+SETTINGS ASISETTINGS XRD_SETTINGS_JSON
+en ASISETTINGS_TEXT "../settings/text/en.json"
+fr ASISETTINGS_TEXT "../settings/text/fr.json"
+de ASISETTINGS_TEXT "../settings/text/de.json"
+it ASISETTINGS_TEXT "../settings/text/it.json"
+es ASISETTINGS_TEXT "../settings/text/es.json"
+ja ASISETTINGS_TEXT "../settings/text/ja.json"
+ru ASISETTINGS_TEXT "../settings/text/ru.json"
+pt-BR ASISETTINGS_TEXT "../settings/text/pt-BR.json"
+pl ASISETTINGS_TEXT "../settings/text/pl.json"
+ko ASISETTINGS_TEXT "../settings/text/ko.json"

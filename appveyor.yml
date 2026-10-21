@@ -11,6 +11,8 @@ install:
     premake5.bat
 before_build:
 - ps: >-
+    msbuild -m build/XboxRainDropletsTools.slnx /property:Configuration=Release /property:Platform=Win32
+
     msbuild -m build/XboxRainDropletsWrapper.slnx /property:Configuration=Release /property:Platform=Win32
 
     msbuild -m build/XboxRainDropletsWrapper64.slnx /property:Configuration=Release /property:Platform=x64
