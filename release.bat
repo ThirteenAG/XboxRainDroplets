@@ -1,4 +1,3 @@
-copy ".\source\resources\inis\*.ini" ".\bin\" /Y
 copy ".\source\console\PPSSPP.XboxRainDroplets\plugin.ini" ".\bin\memstick\PSP\PLUGINS\PPSSPP.XboxRainDroplets\" /Y
 
 rem Embedding PDBs, the tool embeds the .pdb that sits next to every plugin
@@ -22,6 +21,7 @@ GTASA.XboxRainDroplets
 Mafia.XboxRainDroplets
 NFSCarbon.XboxRainDroplets
 NFSMostWanted.XboxRainDroplets
+NFSUnderground.XboxRainDroplets
 NFSUnderground2.XboxRainDroplets
 Scarface.XboxRainDroplets
 UltimateSpiderMan.XboxRainDroplets
@@ -43,37 +43,37 @@ TrueCrimeNewYorkCity.XboxRainDroplets
 KingKongGamersEdition.XboxRainDroplets
 SR2.XboxRainDroplets
 ) do (
-    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini"
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi"
 )
 
 for %%x in (
 XboxRainDropletsWrapper
 ) do (
-    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\version.dll"
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\version.dll"
 )
 
 for %%x in (
 XboxRainDropletsWrapper64
 ) do (
-    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\dinput8.dll"
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\dinput8.dll"
 )
 
 for %%x in (
 PPSSPP.XboxRainDroplets
 ) do (
-    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\version.dll" ".\bin\memstick" -xr!*.objects -xr!*.map -xr!*.elf
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\version.dll" ".\bin\memstick" -xr!*.objects -xr!*.map -xr!*.elf
 )
 
 for %%x in (
 PPSSPP.XboxRainDroplets64
 ) do (
-    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\dinput8.dll" ".\bin\memstick" -xr!*.objects -xr!*.map -xr!*.elf
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\dinput8.dll" ".\bin\memstick" -xr!*.objects -xr!*.map -xr!*.elf
 )
 
 for %%x in (
 PCSX2F.XboxRainDroplets64
 ) do (
-    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\%%x.ini" ".\bin\PLUGINS" -xr!*.objects -xr!*.map -xr!.gitkeep
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\PLUGINS" -xr!*.objects -xr!*.map -xr!.gitkeep
 )
 
 EXIT

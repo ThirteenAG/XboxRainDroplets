@@ -387,7 +387,7 @@ void __cdecl ParticleEffectRenderable_Play(void* waterEffectRenderable, Matrix* 
 
 void Init()
 {
-    WaterDrops::ReadIniSettings(true);
+    WaterDrops::ReadSettings(true);
 
     RegisterFountains();
 

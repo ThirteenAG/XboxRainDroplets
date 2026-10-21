@@ -64,7 +64,7 @@ void __cdecl RenderDrops(void*)
 
 void Init()
 {
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadSettings();
     WaterDrops::ms_rainIntensity = 0.0f;
 
     auto pattern = hook::pattern("8B 0D ? ? ? ? 8A 81 ? ? ? ? 84 C0 74 ? E8 ? ? ? ? 84 C0 75 ? 6A"); //0x406516 + 2

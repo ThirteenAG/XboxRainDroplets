@@ -777,8 +777,8 @@ static inline void WaterDrops__InitialiseRender(LPDIRECT3DDEVICE pDevice)
 
 // Whether the snow of Fusion Fix is on (its seasonal snow, where the rain of the
 // weather falls as snow): the drops on the lens are flakes of snow then. Without
-// Fusion Fix, or with an older one that does not say, nothing is known and the
-// ini decides, see WaterDrops::bEnableSnow.
+// Fusion Fix, or with an older one that does not say, the drops stay rain: the
+// plugin has no snow setting of its own in this game.
 static std::optional<bool> FusionFixSnow()
 {
     static auto ff = GetModuleHandleW(L"GTAIV.EFLC.FusionFix.asi");
@@ -800,29 +800,10 @@ static inline void WaterDrops__Process(LPDIRECT3DDEVICE pDevice)
     if (auto snow = FusionFixSnow())
         WaterDrops::SetSnow(*snow);
 
-    if (!WaterDrops::fTimeStep)
-    {
-        static std::list<int> m_times;
-        LARGE_INTEGER frequency;
-        LARGE_INTEGER time;
-        QueryPerformanceFrequency(&frequency);
-        QueryPerformanceCounter(&time);
-
-        if (m_times.size() == 50)
-            m_times.pop_front();
-        m_times.push_back(static_cast<int>(time.QuadPart));
-
-        if (m_times.size() >= 2)
-            WaterDrops::fps = static_cast<uint32_t>(0.5f + (static_cast<float>(m_times.size() - 1) *
-                                                    static_cast<float>(frequency.QuadPart)) / static_cast<float>(m_times.back() - m_times.front()));
-    }
     if (!WaterDrops::ms_initialised)
         WaterDrops__InitialiseRender(pDevice);
-    WaterDrops::ProcessGlobalEmitters();
-    WaterDrops::CalculateMovement();
-    WaterDrops::SprayDrops();
-    WaterDrops::ProcessMoving();
-    WaterDrops::Fade();
+    // the changed settings, Enabled, the pause and the debug log, as in every game
+    WaterDrops::Process();
 }
 
 void RegisterFountains()
@@ -855,7 +836,7 @@ void __fastcall sub_B870A0(uint8_t* self, void* edx)
 
 void Init()
 {
-    WaterDrops::ReadIniSettings(true);
+    WaterDrops::ReadSettings(true);
 
     RegisterFountains();
 
@@ -933,6 +914,9 @@ void Init()
             Xrd::SetTargetState(Xrd::TARGET_STATE_RENDER_TARGET);
 
             WaterDrops::Render();
+            // the target lives on this frame only: the renderer must not be
+            // left pointing at it when it is prepared again after a reset
+            Xrd::SetTarget(nullptr);
             WaterDrops::ms_rainIntensity = 0.0f;
         }
     }; injector::MakeInline<CPostFXHook>(pattern.get_first(19));

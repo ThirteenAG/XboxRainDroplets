@@ -239,7 +239,7 @@ constexpr auto RenderModePattern = "6A FF 68 ? ? ? ? 64 A1 00 00 00 00 50 64 89 
 
 void Init()
 {
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadSettings();
     WaterDrops::fTimeStep = &MP_GameMode::fTimeStep;
 
     auto pattern = hook::pattern(RenderModePattern);

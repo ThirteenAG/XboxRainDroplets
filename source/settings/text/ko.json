@@ -1,0 +1,14 @@
+{
+  "enabled": "빗방울",
+  "minsize": "최소 물방울 크기",
+  "maxsize": "최대 물방울 크기",
+  "maxdrops": "최대 물방울 수",
+  "maxmovingdrops": "움직이는 물방울 최대 수",
+  "gravity": "중력",
+  "refractions": "굴절",
+  "speed": "속도 배율",
+  "movestep": "이동 간격",
+  "blooddrops": "핏방울",
+  "snow": "눈",
+  "forcerain": "비 강제 적용"
+}

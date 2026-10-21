@@ -148,6 +148,8 @@ namespace Xrd
         void Reset() override
         {
             ReleaseSceneTexture();
+            // a target handed over before the reset may be gone with it
+            pTargetOverride = nullptr;
         }
 
         bool IsActive() const override
@@ -239,7 +241,19 @@ namespace Xrd
 
         void SetTarget(RenderTarget* pTarget) override
         {
-            pTargetOverride = pTarget;
+            // The target is kept by value: a caller hands over one that lives on
+            // its stack, and the pointer would be left to the next frame, where
+            // the renderer is prepared again after a reset of the device and reads
+            // whatever is there by then.
+            if (pTarget)
+            {
+                targetOverride = *pTarget;
+                pTargetOverride = &targetOverride;
+            }
+            else
+            {
+                pTargetOverride = nullptr;
+            }
         }
 
         void SetTargetState(TargetState targetState) override
@@ -1050,6 +1064,7 @@ namespace Xrd
 
         Texture* pMaskTexture = nullptr;
         RenderTarget* pTargetOverride = nullptr;
+        RenderTarget targetOverride{};
 
         Projection projection = PROJECTION_SCREEN;
         Matrix worldMatrix = Matrix::Identity();

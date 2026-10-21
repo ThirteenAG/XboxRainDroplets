@@ -87,8 +87,8 @@ VSOutput VSMain(VSInput input)
     }
 
     // A drop of clear water gathers the lights around it: a drop next to a tail
-    // light or a street lamp glows in its colour, the way the drops on the lens
-    // of Forza do at night. The drop is marked in the u of its atlas coordinate.
+    // light or a street lamp glows in its colour, the way drops on a lens
+    // do at night. The drop is marked in the u of its atlas coordinate.
     if (input.atlas.x < -0.5f)
     {
         // the atlas coordinate the drop really has, the marker is only a flag
@@ -191,8 +191,7 @@ VSOutput VSMain(VSInput input)
 }
 
 // ---------------------------------------------------------------------------
-// The drop of water on the lens, the way Forza Horizon 4 draws it (taken from a
-// GPU capture of the game: its drop shapes, its lens map and its composite).
+// The drop of water on the lens.
 //
 // The atlas holds the shapes of the drops, and the alpha of a shape is the
 // square root of the height of the dome of water it is. The slope of that dome
@@ -203,16 +202,16 @@ VSOutput VSMain(VSInput input)
 // shows covers the frame behind it with the remaining life of the drop as its
 // opacity. Nothing is added: no rim, no highlight, no shading.
 //
-// Forza works its drops out at a quarter of the resolution of the picture, a
-// cell of four pixels of 1080 lines, and stretches them over it. Here the drop
-// is worked out at every pixel, and the same softness comes from three things:
+// The drop is worked out at every pixel, with the softness of a drop worked
+// out at a quarter of the resolution of the picture (a cell of four pixels of
+// 1080 lines) and stretched over it, which comes from three things:
 //
 //   - the dome is blurred over a cell, so the edge of a drop and its normals
-//     are as soft as Forza's,
-//   - a drop of Forza holds all of the picture in a few of its cells, so what
+//     are soft,
+//   - a soft drop holds all of the picture in a few of its cells, so what
 //     it shows is the picture blurred down to those few cells: the frame is
 //     read at the level of its chain that the refraction sweeps over a cell,
-//   - Forza mixes its drops into the frame before the frame is tone mapped, in
+//   - the drops are mixed into the frame before the frame is tone mapped, in
 //     light, so the sky and the lamps a drop shows outweigh the shade it shows:
 //     four reads of the frame are turned back into light and averaged.
 //
@@ -294,15 +293,15 @@ float4 PSMain(VSOutput input) : SV_TARGET
             HeightAt(input.atlas + dy, lo, hi) - HeightAt(input.atlas - dy, lo, hi)) / (2.0f * perPixel);
     }
 
-    // the edge of the drop fades over the outer part of its dome, where Forza's
+    // the edge of the drop fades over the outer part of its dome, where a
     // drop of a few cells is averaged into the frame around it
-    // A soft drop fades from its middle to nothing at its edge, the way Forza's
+    // A soft drop fades from its middle to nothing at its edge, the way a
     // drop of a few cells does once it is stretched over the picture; the
     // crisp drop has an edge.
     float cover = cell > 1.01f ? smoothstep(0.0f, 0.45f, h) : smoothstep(0.01f, 0.2f, h);
 
-    // outwards, on the screen, the way Forza's normals are
-    // no steeper than Forza's map of normals ever is, so the rim of a drop does
+    // outwards, on the screen, the way the normals of a lens are
+    // no steeper than a map of normals of a lens ever is, so the rim of a drop does
     // not shoot its refraction off the picture
     float2 normal = -0.168f * slope;
     normal *= min(1.0f, 0.5f / max(length(normal), 1e-6f));
@@ -358,7 +357,7 @@ float4 PSMain(VSOutput input) : SV_TARGET
     if (cover <= 0.0f)
         discard;
 
-    // What the drop shows, in light. Forza's drop is a few cells of its quarter
+    // What the drop shows, in light. A soft drop is a few cells of a quarter
     // resolution layer and shows about all of the picture, so a cell of it
     // holds the light of a wide patch of the frame, mixed before the frame is
     // tone mapped: the sky and the lamps in that patch outweigh the shade, and
@@ -390,7 +389,7 @@ float4 PSMain(VSOutput input) : SV_TARGET
         else
             scene = sceneTexture.SampleLevel(linearClamp, uv, max(level, 0.0f)).rgb;
 
-        // A flake of snow (refracted by Forza's 3 of the snow and not by the 7
+        // A flake of snow (refracted by the 3 of the snow and not by the 7
         // of the rain, see WaterDrops::SnowRefraction) has a touch of frost.
         if (sceneComplement.w < 4.0f)
             scene += SnowMilk * (1.0f - scene);

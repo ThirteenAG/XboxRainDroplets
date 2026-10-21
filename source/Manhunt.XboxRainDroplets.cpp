@@ -20,7 +20,7 @@ void* __fastcall CreateFxSystem(void* _this, void* edx, char* name, RwMatrix* po
 
 void Init()
 {
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadSettings();
     
     static auto bCameraCovered = (bool*)0x7B3275;
     static auto fPlayerInsideNess = (float*)0x7B3278;

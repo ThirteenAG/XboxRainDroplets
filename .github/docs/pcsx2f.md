@@ -24,7 +24,7 @@
 
 - All rendering backends are compatible (Direct3D 11, Direct3D 12, OpenGL, Vulkan).
 - The drops are drawn in the middle of the frame the emulator builds, so the HUD of the game stays on top of them.
-- The ini is watched while the game runs, so its settings can be changed and tested without restarting.
+- Change the settings on [fusionfix.io](https://fusionfix.io) or in FusionFixHub; changes apply while the game runs. They are stored in the `.cfg` next to the plugin.
 
 ---
 

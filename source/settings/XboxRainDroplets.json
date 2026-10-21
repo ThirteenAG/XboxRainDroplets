@@ -1,0 +1,125 @@
+{
+  "format": "asi-settings",
+  "version": "1.0",
+  "plugin": {
+    "name": "@plugin.name",
+    "priority": 50
+  },
+  "pages": [
+    { "id": "droplets", "title": "@page.droplets", "section": "graphics" }
+  ],
+  "settings": [
+    {
+      "id": "MAIN.Enabled", "type": "bool", "default": 1, "order": 10,
+      "label": "@enabled", "description": "@enabled.description",
+      "control": [ "switch", "cycler" ],
+      "presets": { "vanilla": 0, "recommended": 1, "enhanced": 1 }
+    },
+    {
+      "id": "MAIN.MinSize", "type": "int", "default": 4, "min": 1, "max": 100, "step": 1, "unit": "px", "order": 50,
+      "label": "@minsize", "description": "@minsize.description",
+      "control": [ "slider" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+    },
+    {
+      "id": "MAIN.MaxSize", "type": "int", "default": 19, "min": 1, "max": 100, "step": 1, "unit": "px", "order": 51,
+      "label": "@maxsize", "description": "@maxsize.description",
+      "control": [ "slider" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+    },
+    {
+      "id": "MAIN.MaxDrops", "type": "int", "default": 3000, "min": 100, "max": 16000, "step": 100, "order": 52,
+      "label": "@maxdrops", "description": "@maxdrops.description",
+      "control": [ "slider" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+    },
+    {
+      "id": "MAIN.MaxMovingDrops", "type": "int", "default": 6000, "min": 100, "max": 16000, "step": 100, "order": 53,
+      "label": "@maxmovingdrops", "description": "@maxmovingdrops.description",
+      "control": [ "slider" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+    },
+    {
+      "id": "MAIN.EnableGravity", "type": "bool", "default": 1, "order": 43,
+      "label": "@gravity", "description": "@gravity.description",
+      "control": [ "switch", "cycler" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+    },
+    {
+      "id": "MAIN.Refractions", "type": "bool", "default": 1, "order": 41,
+      "label": "@refractions", "description": "@refractions.description",
+      "control": [ "switch", "cycler" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+    },
+    {
+      "id": "MAIN.SpeedAdjuster", "type": "float", "default": 1.0, "min": 0, "max": 5, "step": 0.05, "decimals": 2, "order": 54,
+      "label": "@speed", "description": "@speed.description",
+      "control": [ "slider" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+    },
+    {
+      "id": "MAIN.MoveStep", "type": "float", "default": 0.1, "min": 0, "max": 5, "step": 0.05, "decimals": 2, "unit": "px", "order": 55,
+      "label": "@movestep", "description": "@movestep.description",
+      "control": [ "slider" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+    },
+    {
+      "id": "MAIN.DropBlur", "type": "float", "default": 1.0, "min": 0, "max": 1, "step": 0.05, "decimals": 2, "order": 40,
+      "label": "@dropblur", "description": "@dropblur.description",
+      "control": [ "slider" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+    },
+    {
+      "id": "MAIN.FixedPlacement", "type": "bool", "default": 1, "order": 42,
+      "label": "@fixedplacement", "description": "@fixedplacement.description",
+      "control": [ "switch", "cycler" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+    },
+    {
+      "id": "MAIN.ForceRain", "type": "bool", "default": 0, "order": 31, "visibility": "file",
+      "label": "@forcerain", "description": "@forcerain.description"
+    },
+    {
+      "id": "MAIN.DebugLog", "type": "bool", "default": 0, "order": 90, "visibility": "file",
+      "label": "@debuglog", "description": "@debuglog.description"
+    },
+    {
+      "id": "BONUS.EnableSnow", "type": "bool", "default": 0, "order": 30,
+      "label": "@snow", "description": "@snow.description",
+      "control": [ "switch", "cycler" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+    }
+  ],
+  "extensions": {
+    "xrd": {
+      "comment": "Settings only some games have; tools/BuildSettings.ps1 adds the ones source/settings/games.json names for a plugin",
+      "optional": [
+        {
+          "id": "MAIN.BloodDrops", "type": "bool", "default": 1, "order": 20,
+          "label": "@blooddrops", "description": "@blooddrops.description",
+          "control": [ "switch", "cycler" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+        },
+        {
+          "id": "MAIN.RainAppearancePerDay", "type": "int", "default": 2, "min": 0, "max": 24, "step": 1, "order": 21, "apply": "restart",
+          "label": "@rainperday", "description": "@rainperday.description",
+          "control": [ "slider" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+        },
+        {
+          "id": "MAIN.RainChance", "type": "int", "default": 30, "min": 0, "max": 100, "step": 5, "unit": "%", "order": 21, "apply": "nextLevel",
+          "label": "@rainchance", "description": "@rainchance.description",
+          "control": [ "slider" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 },
+          "presets": { "vanilla": 0, "recommended": 30, "enhanced": 50 }
+        },
+        {
+          "id": "MAIN.SpecialZones", "type": "bool", "default": 1, "order": 21,
+          "label": "@specialzones", "description": "@specialzones.description",
+          "control": [ "switch", "cycler" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+        },
+        {
+          "id": "SR2.BloodDropsForPlayer", "type": "bool", "default": 1, "order": 21,
+          "label": "@sr2.playerblood", "description": "@sr2.playerblood.description",
+          "control": [ "switch", "cycler" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+        },
+        {
+          "id": "SR2.WaterGuns", "type": "bool", "default": 1, "order": 22,
+          "label": "@sr2.waterguns", "description": "@sr2.waterguns.description",
+          "control": [ "switch", "cycler" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+        },
+        {
+          "id": "SR2.WeatherMultiplier", "type": "float", "default": 4.85, "min": 0, "max": 10, "step": 0.05, "decimals": 2, "order": 23,
+          "label": "@sr2.weather", "description": "@sr2.weather.description",
+          "control": [ "slider" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }
+        }
+      ]
+    }
+  }
+}

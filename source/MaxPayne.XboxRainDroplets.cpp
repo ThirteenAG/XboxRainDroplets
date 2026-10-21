@@ -211,7 +211,7 @@ namespace MaxPayne_GameMode
             fTimeStep = *(float*)(_this + RELATIVE_TIME);
             WaterDrops::isPaused = *(_this + PAUSED) != 0;
 
-            // flakes of snow instead of drops of rain, the ini read can reset this
+            // flakes of snow instead of drops of rain: the game has no rain
             WaterDrops::SetSnow(true);
 
             Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
@@ -235,7 +235,7 @@ constexpr auto RenderModePattern = "6A FF 68 ? ? ? ? 64 A1 00 00 00 00 50 64 89 
 
 void Init()
 {
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadSettings();
     WaterDrops::fTimeStep = &MaxPayne_GameMode::fTimeStep;
 
     auto pattern = hook::pattern(RenderModePattern);

@@ -185,9 +185,9 @@ void __fastcall CGameMusicManager__SetVolume(int* _this, void* edx, int a2)
 
 void Init()
 {
-    WaterDrops::ReadIniSettings();
-    CIniReader iniReader("");
-    uint32_t RainAppearancePerDay = iniReader.ReadInteger("MAIN", "RainAppearancePerDay", 2);
+    WaterDrops::ReadSettings();
+    // the hours of the day it rains, picked again every day; read once, see its "apply" in the settings
+    uint32_t RainAppearancePerDay = (uint32_t)(std::max)(0, XrdSettings().Int("MAIN.RainAppearancePerDay"));
     static std::vector<uint32_t> chanceofRain(24);
     for (auto i = 0; i < min(RainAppearancePerDay, chanceofRain.size()); i++)
         chanceofRain[i] = 1;

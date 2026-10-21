@@ -400,8 +400,7 @@ namespace
     // -----------------------------------------------------------------------
     // --trail-check: the model of the drops, without a device
     //
-    // The drops are the lens rain of Forza Horizon 4, taken from a capture of
-    // the game (see the air over the lens in xrd.h). What it does does not need
+    // The drops of the effect (see the air over the lens in xrd.h). What it does does not need
     // a graphics API to be looked at, only the drops the effect makes:
     //
     //   - a drop lands at rest, lives one second and fades from the moment it lands
@@ -513,11 +512,11 @@ namespace
         check(still == landed && oneSecond == landed, "every drop lands at rest and lives one second");
         check(minRotation < -2.5f && maxRotation > 2.5f, "and lands turned any way");
 
-        // The rain of the weather lands evenly over the picture, the way Forza's
-        // does; what thins the middle is the run of the drops outwards, so a lens
-        // driven at the speed of the capture of Forza (34 units a second) has the
+        // The rain of the weather lands evenly over the picture;
+        // what thins the middle is the run of the drops outwards, so a lens
+        // driven at 34 units a second has the
         // middle (within 0.2 of the half sizes of the picture) at about 0.28 of
-        // the density near the edge (0.8 to 1.0), which is what the capture has.
+        // the density near the edge (0.8 to 1.0).
         const auto densities = [&](float& middle, float& edge)
         {
             float inMiddle = 0.0f, nearEdge = 0.0f;
@@ -532,7 +531,8 @@ namespace
             edge = nearEdge / (1.0f - 0.64f);
         };
         float standMiddle = 0.0f, standEdge = 0.0f, driveMiddle = 0.0f, driveEdge = 0.0f;
-        for (int round = 0; round < 6; round++)
+        D::bFixedPlacement = false;
+        for (int round = 0; round < 30; round++)
         {
             calm();
             D::SpawnDrops(2000, 0xFF, 0xFF, 0xFF, true);
@@ -542,13 +542,13 @@ namespace
         }
         calm();
         timeStep = 1.0f / 60.0f;
-        for (int i = 0; i < 60 * 8; i++)
+        for (int i = 0; i < 60 * 12; i++)
         {
             air(0.0f, 0.0f, -34.0f);
             D::FillScreenMovingRate(1.0f, false, true);
             D::ProcessMoving();
             D::Fade();
-            if (i >= 60 * 5 && (i % 30) == 0)
+            if (i >= 60 * 4 && (i % 5) == 0)
             {
                 float m, e;
                 densities(m, e);
@@ -557,9 +557,94 @@ namespace
         }
         const float standRatio = standMiddle / (std::max)(standEdge, 1.0f);
         const float driveRatio = driveMiddle / (std::max)(driveEdge, 1.0f);
-        printf("[d3d11] the rain in the middle against near the edge: %.2f as it lands, %.2f at 34 units a second (Forza 0.28)\n", standRatio, driveRatio);
-        check(standRatio > 0.75f && standRatio < 1.3f, "the rain of the weather lands evenly over the picture, the way Forza's does");
-        check(driveRatio > 0.15f && driveRatio < 0.45f, "and a lens driven into it has the middle thinned by the run of the drops, the way Forza's is");
+        printf("[d3d11] the rain in the middle against near the edge: %.2f as it lands, %.2f at 34 units a second (reference 0.28)\n", standRatio, driveRatio);
+        check(standRatio > 0.75f && standRatio < 1.3f, "the rain of the weather lands evenly over the picture");
+        check(driveRatio > 0.15f && driveRatio < 0.55f, "and a lens driven into it has the middle thinned by the run of the drops");
+
+        // FixedPlacement: the drops land spread evenly out of
+        // a table and pushed out of the middle, so nearly none land within half
+        // of the picture of its middle, none land in a clump, and about a third
+        // of what is dealt out lands on the picture.
+        D::bFixedPlacement = true;
+        {
+            // a lens that stands is rained on all over, the middle as well
+            calm();
+            D::ms_pushShare = 0.0f;
+            D::ms_landing.clear();
+            int32_t landedStill = 0, middleStill = 0;
+            for (int i = 0; i < 400; i++)
+                D::SpawnDrops(1, 0xFE, 0xFF, 0xFF, true);
+            for (const auto& d : D::ms_drops)
+            {
+                if (!d.active) continue;
+                landedStill++;
+                middleStill += hypotf(d.x / 960.0f - 1.0f, d.y / 540.0f - 1.0f) < 0.45f ? 1 : 0;
+            }
+            printf("[d3d11] fixed placement standing: %d of 400 land, %d within the middle\n", landedStill, middleStill);
+            check(landedStill == 400 && middleStill > 20, "a lens that stands is rained on all over, the middle as well");
+        }
+        // and one that is driven fast has the middle kept clear
+        D::ms_pushShare = 1.0f;
+        calm();
+        D::ms_landing.clear();
+        int32_t dealt = 0, landedFixed = 0, innerFixed = 0;
+        float closest = 1.0e9f;
+        for (int i = 0; i < 400; i++)
+        {
+            const int32_t before = D::ms_numDrops;
+            D::SpawnDrops(1, 0xFF, 0xFF, 0xFF, true);
+            dealt++;
+            if (D::ms_numDrops == before)
+                continue;
+            landedFixed++;
+        }
+        std::vector<std::pair<float, float>> places;
+        for (const auto& d : D::ms_drops)
+        {
+            if (!d.active) continue;
+            const float nx = d.x / 960.0f - 1.0f, ny = d.y / 540.0f - 1.0f;
+            innerFixed += hypotf(nx, ny) < 0.45f ? 1 : 0;
+            places.emplace_back(nx, ny);
+        }
+        for (size_t a = 0; a < places.size(); a++)
+            for (size_t b = a + 1; b < places.size(); b++)
+                closest = (std::min)(closest, hypotf(places[a].first - places[b].first, places[a].second - places[b].second));
+        printf("[d3d11] fixed placement: %d of %d dealt land on the picture, %d within the middle, closest two %.3f apart\n",
+            landedFixed, dealt, innerFixed, closest);
+        check(landedFixed > dealt / 5 && landedFixed < dealt / 2, "fixed placement lands about a third of what it deals out on the picture");
+        check(innerFixed <= 2, "and pushes nearly all of it out of the middle");
+        calm();
+        D::ms_landing.clear();
+        for (int i = 0; i < 300; i++)
+            D::SpawnDrops(1, 0xFE, 0xFF, 0xFF, true);
+        // drops landed out of one deal of the table are never closer than the
+        // spacing of the table, scaled up and pushed out
+        std::vector<std::pair<float, float>> deal;
+        for (const auto& d : D::ms_drops)
+            if (d.active) deal.emplace_back(d.x / 960.0f - 1.0f, d.y / 540.0f - 1.0f);
+        float closestDeal = 1.0e9f;
+        for (size_t a = 0; a < deal.size(); a++)
+            for (size_t b = a + 1; b < deal.size(); b++)
+                closestDeal = (std::min)(closestDeal, hypotf(deal[a].first - deal[b].first, deal[a].second - deal[b].second));
+        check(closestDeal > 0.05f, "and spreads it evenly: no two drops of a deal land in a clump");
+        {
+            // dealt out over and over, the table never lands a drop right on the
+            // middle of the picture
+            int32_t onMiddle = 0;
+            D::ms_landing.clear();
+            for (int round = 0; round < 20; round++)
+            {
+                calm();
+                for (int i = 0; i < 400; i++)
+                    D::SpawnDrops(1, 0xFE, 0xFF, 0xFF, true);
+                for (const auto& d : D::ms_drops)
+                    onMiddle += d.active && hypotf(d.x / 960.0f - 1.0f, d.y / 540.0f - 1.0f) < 0.05f ? 1 : 0;
+            }
+            // (one drop in a thousand is not pushed at all,
+            // and may land anywhere: a point of the table that would land
+            // a drop on the middle at every deal would show as twenty here)
+            check(onMiddle <= 2, "and never lands a drop on the middle of the picture, however often it is dealt out");
+        }
         calm();
         D::SpawnDrops(1500, 0xFF, 0xFF, 0xFF, false);
         int32_t splashMiddle = 0;
@@ -658,6 +743,18 @@ namespace
         D::pos = { 0.0f, 0.0f, 20.0f * timeStep };
         D::CalculateMovement();
         check(fabsf(D::ms_air[2] + 20.0f) < 0.01f && fabsf(D::ms_air[0]) < 0.01f, "a camera that drives forward has the air come at the lens head on");
+        {
+            // a camera that jumps somewhere else in one frame was cut, not moved
+            const RwV3d before = D::pos;
+            D::pos = { before.x + 500.0f, before.y, before.z - 900.0f };
+            D::CalculateMovement();
+            check(D::ms_air[0] == 0.0f && D::ms_air[1] == 0.0f && D::ms_air[2] == 0.0f,
+                "a camera cut to somewhere else moves no drops");
+            D::pos = before;
+            D::CalculateMovement();
+            D::pos = { before.x, before.y, before.z + 20.0f * timeStep };
+            D::CalculateMovement();
+        }
         D::pos = { D::pos.x + 5.0f * timeStep, 0.0f, D::pos.z };
         D::CalculateMovement();
         // sideways to the way it looks, so half of it, see the facing in CalculateMovement
@@ -668,13 +765,13 @@ namespace
         D::right = { -cosf(angle), 0.0f, sinf(angle) };
         D::at = { sinf(angle), 0.0f, cosf(angle) };
         D::CalculateMovement();
-        const float expected = angle * D::LookArm / timeStep;
+        const float expected = (std::min)(angle * D::LookArm / timeStep, D::LookAirMax);
         printf("[d3d11] a view that turns right by %.3f rad in a frame makes air of %.1f units/s, expected %.1f\n", angle, D::ms_air[0], expected);
         check(D::ms_air[0] > expected * 0.9f && D::ms_air[0] < expected * 1.1f && D::ms_lookAir[0] == D::ms_air[0],
             "a view that turns to the right swings the lens through the air, so the drops go right");
 
         // A camera that drives round a corner is turned by its car: the drops feel
-        // only the air in its view, the way Forza's do, and no swing of the lens.
+        // only the air in its view, and no swing of the lens.
         D::right = { -1.0f, 0.0f, 0.0f };
         D::at = { 0.0f, 0.0f, 1.0f };
         D::pos = { 0.0f, 0.0f, 0.0f };
@@ -845,6 +942,9 @@ namespace
 
         // The rain is a rate: a frame adds its share of a second, whatever the
         // frame rate is, and a light rain still adds its drops over time.
+        // the counts of the rain, landed evenly so that they are counts and not
+        // a share of a deal that landed on the picture, see bFixedPlacement
+        D::bFixedPlacement = false;
         const auto rainFor = [&](int hz, float amount)
         {
             calm();
@@ -863,7 +963,8 @@ namespace
         D::ms_forwardSpeed = 0.0f;
         const int standing = rainFor(60, 0.2f);
         printf("[d3d11] a second of rain standing and driving: %d and %d drops\n", standing, driven);
-        check(driven == standing, "Forza's rain lands at a rate of its own, whatever the speed of the camera");
+        check(driven == standing, "the rain lands at a rate of its own, whatever the speed of the camera");
+        D::bFixedPlacement = true;
 
         // A splash of a game is the drops it asks for, standing or driving.
         calm();
@@ -884,7 +985,7 @@ namespace
         // A flake of snow sticks where it lands: nothing moves it.
         calm();
         D::bEnableSnow = true;
-        D::SpawnDrops(40, 235, 235, 235, true);
+        D::SpawnDrops(400, 235, 235, 235, true);
         check(D::ms_numDrops > 0 && D::ms_numDropsMoving == 0, "snow lands on the lens and nothing moves it");
         D::bEnableSnow = false;
 

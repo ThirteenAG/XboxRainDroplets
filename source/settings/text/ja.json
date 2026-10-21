@@ -1,0 +1,14 @@
+{
+  "enabled": "雨滴",
+  "minsize": "雨滴の最小サイズ",
+  "maxsize": "雨滴の最大サイズ",
+  "maxdrops": "雨滴の最大数",
+  "maxmovingdrops": "動く雨滴の最大数",
+  "gravity": "重力",
+  "refractions": "屈折",
+  "speed": "速度倍率",
+  "movestep": "移動ステップ",
+  "blooddrops": "血の滴",
+  "snow": "雪",
+  "forcerain": "雨滴を常に表示"
+}

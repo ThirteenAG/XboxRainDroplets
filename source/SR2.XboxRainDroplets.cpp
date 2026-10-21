@@ -269,7 +269,6 @@ int __cdecl effects_play_hook(effect_start_data* effect)
 
 void Init()
 {
-    CIniReader iniReader;
     static auto graphics_rest = safetyhook::create_mid(0xD1FEE3_g, [](SafetyHookContext& ctx)
     {
         WaterDrops::Reset();
@@ -285,11 +284,18 @@ void Init()
     });
 
     huds_renderT = safetyhook::create_inline(0x793BB0_g, huds_hook);
-    WaterDrops::ReadIniSettings();
+    WaterDrops::ReadSettings();
 
-    bBloodPlayer = iniReader.ReadInteger("SR2", "BloodDropsForPlayer", 1) != 0;
-    WeatherMultiplier = iniReader.ReadFloat("SR2", "WeatherMultiplier", 4.85f);
-    bWaterGuns = iniReader.ReadInteger("SR2", "WaterGuns", 1) != 0;
+    // the game's own settings of the plugin, which follow changes from menus and editors at once
+    static auto readSR2 = []
+    {
+        bBloodPlayer = XrdSettings().Bool("SR2.BloodDropsForPlayer");
+        WeatherMultiplier = XrdSettings().Float("SR2.WeatherMultiplier");
+        bWaterGuns = XrdSettings().Bool("SR2.WaterGuns");
+    };
+    readSR2();
+    for (auto id : { "SR2.BloodDropsForPlayer", "SR2.WeatherMultiplier", "SR2.WaterGuns" })
+        XrdSettings().OnChange(id, readSR2);
 
     WaterDrops::ms_rainIntensity = 0.0f;
     ppDevice = *hook::get_pattern<IDirect3DDevice9**>("A1 ? ? ? ? 8B 08 8B 91 ? ? ? ? 83 EC", 1);

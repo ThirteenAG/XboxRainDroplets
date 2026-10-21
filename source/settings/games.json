@@ -1,0 +1,114 @@
+{
+  "comment": "What each plugin's description has beyond XboxRainDroplets.json: its games, the optional settings it reads, the shared ones it leaves out and its own defaults. tools/BuildSettings.ps1 merges them into build/settings/<project>.json, which the plugin embeds.",
+  "Driv3r.XboxRainDroplets": {
+    "games": [ { "name": "Driv3r", "exe": [ "driv3r.exe" ] } ]
+  },
+  "DriverParallelLines.XboxRainDroplets": {
+    "games": [ { "name": "Driver: Parallel Lines", "exe": [ "DriverParallelLines.exe" ] } ],
+    "settings": [ "MAIN.BloodDrops", "MAIN.RainAppearancePerDay" ]
+  },
+  "NFSUnderground.XboxRainDroplets": {
+    "games": [ { "name": "Need for Speed Underground", "exe": [ "speed.exe" ] } ],
+    "settings": [ "MAIN.RainChance" ]
+  },
+  "NFSUnderground2.XboxRainDroplets": {
+    "games": [ { "name": "Need for Speed Underground 2", "exe": [ "speed2.exe" ] } ],
+    "settings": [ "MAIN.SpecialZones" ]
+  },
+  "NFSMostWanted.XboxRainDroplets": {
+    "games": [ { "name": "Need for Speed Most Wanted", "exe": [ "speed.exe" ] } ]
+  },
+  "NFSCarbon.XboxRainDroplets": {
+    "games": [ { "name": "Need for Speed Carbon", "exe": [ "NFSC.exe" ] } ]
+  },
+  "GTAIV.XboxRainDroplets": {
+    "games": [ { "name": "Grand Theft Auto IV", "exe": [ "GTAIV.exe", "GTAIV/GTAIV.exe", "EFLC.exe" ] } ],
+    "settings": [ "MAIN.BloodDrops" ],
+    "exclude": [ "BONUS.EnableSnow" ]
+  },
+  "Mafia.XboxRainDroplets": {
+    "games": [ { "name": "Mafia", "exe": [ "GameV12.exe" ] } ]
+  },
+  "Scarface.XboxRainDroplets": {
+    "games": [ { "name": "Scarface: The World Is Yours", "exe": [ "Scarface.exe" ] } ],
+    "settings": [ "MAIN.BloodDrops" ]
+  },
+  "UltimateSpiderMan.XboxRainDroplets": {
+    "games": [ { "name": "Ultimate Spider-Man", "exe": [ "USM.exe" ] } ]
+  },
+  "Manhunt.XboxRainDroplets": {
+    "games": [ { "name": "Manhunt", "exe": [ "manhunt.exe" ] } ],
+    "settings": [ "MAIN.BloodDrops" ]
+  },
+  "MaxPayne.XboxRainDroplets": {
+    "games": [ { "name": "Max Payne", "exe": [ "MaxPayne.exe" ] } ],
+    "exclude": [ "BONUS.EnableSnow" ]
+  },
+  "MaxPayne2.XboxRainDroplets": {
+    "games": [ { "name": "Max Payne 2: The Fall of Max Payne", "exe": [ "MaxPayne2.exe" ] } ]
+  },
+  "MaxPayne3.XboxRainDroplets": {
+    "games": [ { "name": "Max Payne 3", "exe": [ "MaxPayne3.exe" ], "launcher": [ "PlayMaxPayne3.exe" ] } ],
+    "defaults": { "MAIN.MoveStep": 1.0 }
+  },
+  "SplinterCell.XboxRainDroplets": {
+    "games": [ { "name": "Splinter Cell", "exe": [ "System/SplinterCell.exe" ] } ],
+    "defaults": { "MAIN.SpeedAdjuster": 0.05 }
+  },
+  "SplinterCellPandoraTomorrow.XboxRainDroplets": {
+    "games": [ { "name": "Splinter Cell: Pandora Tomorrow", "exe": [ "System/SplinterCell2.exe" ] } ],
+    "defaults": { "MAIN.SpeedAdjuster": 0.05 }
+  },
+  "SplinterCellChaosTheory.XboxRainDroplets": {
+    "games": [ { "name": "Splinter Cell: Chaos Theory", "exe": [ "System/splintercell3.exe" ] } ],
+    "defaults": { "MAIN.SpeedAdjuster": 0.05 }
+  },
+  "SplinterCellDoubleAgent.XboxRainDroplets": {
+    "games": [ { "name": "Splinter Cell: Double Agent", "exe": [ "SCDA-Offline/System/SplinterCell4.exe" ] } ],
+    "defaults": { "MAIN.SpeedAdjuster": 0.05 }
+  },
+  "SplinterCellBlacklist.XboxRainDroplets": {
+    "games": [ { "name": "Splinter Cell: Blacklist", "exe": [ "src/SYSTEM/Blacklist_DX11_game.exe", "src/SYSTEM/Blacklist_game.exe" ] } ],
+    "defaults": { "MAIN.SpeedAdjuster": 0.05 }
+  },
+  "TrueCrimeNewYorkCity.XboxRainDroplets": {
+    "games": [ { "name": "True Crime: New York City", "exe": [ "True Crime New York City.exe", "True Crime® New York City.exe" ] } ],
+    "defaults": { "MAIN.SpeedAdjuster": 1.2, "MAIN.MoveStep": 0.03 }
+  },
+  "KingKongGamersEdition.XboxRainDroplets": {
+    "games": [ { "name": "Peter Jackson's King Kong Gamer's Edition", "exe": [ "KingKong8.exe" ], "launcher": [ "CheckApplication.exe" ] } ]
+  },
+  "SR2.XboxRainDroplets": {
+    "games": [ { "name": "Saints Row 2", "exe": [ "SR2_pc.exe" ] } ],
+    "settings": [ "MAIN.BloodDrops", "SR2.BloodDropsForPlayer", "SR2.WaterGuns", "SR2.WeatherMultiplier" ]
+  },
+  "GTA3.XboxRainDroplets": {
+    "games": [ { "name": "Grand Theft Auto III", "exe": [ "gta3.exe" ] } ],
+    "settings": [ "MAIN.BloodDrops" ]
+  },
+  "GTAVC.XboxRainDroplets": {
+    "games": [ { "name": "Grand Theft Auto: Vice City", "exe": [ "gta-vc.exe" ] } ],
+    "settings": [ "MAIN.BloodDrops" ]
+  },
+  "GTASA.XboxRainDroplets": {
+    "games": [ { "name": "Grand Theft Auto: San Andreas", "exe": [ "gta_sa.exe" ] } ]
+  },
+  "GTASADE.XboxRainDroplets": {
+    "games": [ { "name": "Grand Theft Auto: San Andreas - The Definitive Edition", "exe": [ "Gameface/Binaries/Win64/SanAndreas.exe" ] } ]
+  },
+  "GTAVCDE.XboxRainDroplets": {
+    "games": [ { "name": "Grand Theft Auto: Vice City - The Definitive Edition", "exe": [ "Gameface/Binaries/Win64/ViceCity.exe" ] } ]
+  },
+  "GTA3DE.XboxRainDroplets": {
+    "games": [ { "name": "Grand Theft Auto III - The Definitive Edition", "exe": [ "Gameface/Binaries/Win64/LibertyCity.exe" ] } ]
+  },
+  "XboxRainDropletsWrapper": {
+    "comment": "Any Direct3D, OpenGL or Vulkan game: no game of its own"
+  },
+  "PPSSPP.XboxRainDroplets": {
+    "games": [ { "name": "PPSSPP", "exe": [ "PPSSPPWindows.exe", "PPSSPPWindows64.exe" ] } ]
+  },
+  "PCSX2F.XboxRainDroplets": {
+    "games": [ { "name": "PCSX2 (fork with plugins)", "exe": [ "pcsx2-qtx64.exe" ] } ]
+  }
+}
