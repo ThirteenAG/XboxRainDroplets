@@ -42,14 +42,15 @@
   },
   "MaxPayne.XboxRainDroplets": {
     "games": [ { "name": "Max Payne", "exe": [ "MaxPayne.exe" ] } ],
-    "exclude": [ "BONUS.EnableSnow" ]
+    "exclude": [ "BONUS.EnableSnow", "SNOW.Size", "SNOW.Amount" ]
   },
   "MaxPayne2.XboxRainDroplets": {
     "games": [ { "name": "Max Payne 2: The Fall of Max Payne", "exe": [ "MaxPayne2.exe" ] } ]
   },
   "MaxPayne3.XboxRainDroplets": {
     "games": [ { "name": "Max Payne 3", "exe": [ "MaxPayne3.exe" ], "launcher": [ "PlayMaxPayne3.exe" ] } ],
-    "defaults": { "MAIN.MoveStep": 1.0 }
+    "exclude": [ "BONUS.EnableSnow" ],
+    "defaults": { "MAIN.MoveStep": 1.0, "MAIN.MinSize": 9, "SNOW.Size": 0.3 }
   },
   "SplinterCell.XboxRainDroplets": {
     "games": [ { "name": "Splinter Cell", "exe": [ "System/SplinterCell.exe" ] } ],

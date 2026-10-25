@@ -17,7 +17,6 @@
 #include <windows.h>
 #include "Hooking.Patterns.h"
 #include "ModuleList.hpp"
-#include "FileWatch.hpp"
 #include "callbacks.h"
 #include "gameref.hpp"
 /// The games expect the hooking library from this header, the old one pulled it in
@@ -354,6 +353,10 @@ public:
     static constexpr float SnowMinScale = 3.6f;
     static constexpr float SnowMaxScale = 2.7f;
     static constexpr float SnowShare = 0.15f;
+    // How big the flakes are drawn and how many land, times the above:
+    // SNOW.Size and SNOW.Amount, settings for the editors (see LoadSettings).
+    static inline float fSnowSize = 1.0f;
+    static inline float fSnowAmount = 1.0f;
     // The lens turns the velocity of a drop into its run over the picture, in
     // halves of the picture a second: the velocity along the view outwards from
     // the middle at this share of it, and the velocity across the view sideways
@@ -856,6 +859,8 @@ public:
         fDropBlur = std::clamp(SettingFloat("MAIN.DropBlur", fDropBlur), 0.0f, 1.0f);
         bDebugLog = SettingBool("MAIN.DebugLog", bDebugLog);
         bFixedPlacement = SettingBool("MAIN.FixedPlacement", bFixedPlacement);
+        fSnowSize = std::clamp(SettingFloat("SNOW.Size", fSnowSize), 0.1f, 2.0f);
+        fSnowAmount = std::clamp(SettingFloat("SNOW.Amount", fSnowAmount), 0.0f, 4.0f);
     }
 
     // Set by a change of any setting, from whichever thread made it: a menu, an
@@ -885,17 +890,10 @@ public:
             for (auto& setting : settings.GetDescription().settings)
                 settings.OnChange(setting.id, [] { ms_settingsChanged = true; });
 
-            // The .cfg is read again whenever it is written to, so that a value can
-            // be changed by hand in the middle of a game. The plugin's own writes
-            // read back the values it has and change nothing.
-            if (std::filesystem::exists(settings.CfgPath()))
-            {
-                static filewatch::FileWatch<std::wstring> watch(settings.CfgPath().wstring(), [](const std::wstring& path, const filewatch::Event change_type)
-                {
-                    if (change_type == filewatch::Event::modified || change_type == filewatch::Event::added || change_type == filewatch::Event::renamed_new)
-                        XrdSettings().Reload();
-                });
-            }
+            // The .cfg is read again whenever another program writes to it, so that a
+            // value can be changed by hand in the middle of a game (on a thread of
+            // asi_settings' own, never waited for while the plugin starts)
+            settings.WatchFile();
         });
     }
 
@@ -906,8 +904,10 @@ public:
             return;
 
         LoadSettings();
-        // the falling drops and their shapes follow snow, see SetSnow
-        SetSnow(SettingBool("BONUS.EnableSnow", bEnableSnow));
+        // the falling drops and their shapes follow snow, see SetSnow; a game that
+        // decides snow itself has no such setting and keeps its lens as it is
+        if (HasSetting("BONUS.EnableSnow"))
+            SetSnow(XrdSettings().Bool("BONUS.EnableSnow"));
         // the pools follow MaxDrops and MaxMovingDrops, which clears the lens when
         // they change, see ResizePools
         ResizePools();
@@ -1228,7 +1228,7 @@ public:
         // fewer flakes of snow than drops of rain, see SnowShare
         if (bEnableSnow)
         {
-            ms_snowRemainder += n * SnowShare;
+            ms_snowRemainder += n * SnowShare * fSnowAmount;
             n = (int32_t)ms_snowRemainder;
             ms_snowRemainder -= (float)n;
         }
@@ -1258,7 +1258,7 @@ public:
             float size = big ? bigBottom + GetRandomFloat(biggest - bigBottom) : smallest + GetRandomFloat(smallTop - smallest);
 
             if (bEnableSnow)
-                size = smallest * SnowMinScale + GetRandomFloat((std::max)(0.0f, biggest * SnowMaxScale - smallest * SnowMinScale));
+                size = (smallest * SnowMinScale + GetRandomFloat((std::max)(0.0f, biggest * SnowMaxScale - smallest * SnowMinScale))) * fSnowSize;
 
             const float life = bEnableSnow ? SnowLifeSeconds
                 : LifeMinSeconds + (LifeMaxSeconds > LifeMinSeconds ? GetRandomFloat(LifeMaxSeconds - LifeMinSeconds) : 0.0f);
