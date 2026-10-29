@@ -820,7 +820,91 @@ namespace
         for (auto& d : D::ms_drops)
             if (d.active && d.isTrace && fabsf(d.y - 300.0f) < 5.0f)
                 cleanWater++;
-        check(cleanWater == 0, "and one that leaves none leaves none");
+        check(cleanWater > 2, "and every drop a turn of the camera tears off the glass leaves water, not only those that do in the air");
+
+        // while the air of the travel of the camera leaves the drops that do
+        // not leave water dry
+        {
+            calm();
+            auto* dry = drop(960.0f, 300.0f, (float)biggest, false);
+            air(-60.0f, 0.0f, 0.0f);
+            run(30);
+            int32_t dryWater = 0;
+            for (auto& d : D::ms_drops)
+                dryWater += d.active && d.isTrace ? 1 : 0;
+            check(dry->x < 950.0f && dryWater == 0, "and a drop the air of the travel moves sideways leaves water only if it is one that does");
+        }
+
+        // The glass holds the drops: a quick turn of the camera tears every drop
+        // off, the small ones slower, and they go each their own way and speed,
+        // not as one sheet; a slow pan moves only the big ones.
+        {
+            calm();
+            std::vector<WaterDrop*> bigDrops, smallDrops;
+            for (int i = 0; i < 40; i++)
+            {
+                bigDrops.push_back(drop(300.0f + (float)(i % 10) * 130.0f, 300.0f + (float)(i / 10) * 120.0f, (float)biggest, false));
+                smallDrops.push_back(drop(300.0f + (float)(i % 10) * 130.0f, 360.0f + (float)(i / 10) * 120.0f, (float)smallest, false));
+            }
+            std::vector<float> bigFrom, smallFrom;
+            for (auto* d : bigDrops) bigFrom.push_back(d->x);
+            for (auto* d : smallDrops) smallFrom.push_back(d->x);
+            for (int i = 0; i < 20; i++)
+            {
+                air(D::LookAirMax, 0.0f, 0.0f);
+                D::ms_lookAir[0] = D::LookAirMax;
+                D::ProcessMoving();
+            }
+            air(0.0f, 0.0f, 0.0f);
+            float bigLeast = 1e9f, bigMost = 0.0f, smallMost = 0.0f;
+            int32_t bigMoved = 0, smallMoved = 0;
+            for (size_t i = 0; i < bigDrops.size(); i++)
+            {
+                const float went = fabsf(bigDrops[i]->x - bigFrom[i]);
+                bigLeast = (std::min)(bigLeast, went);
+                bigMost = (std::max)(bigMost, went);
+                bigMoved += went > 2.0f ? 1 : 0;
+            }
+            for (size_t i = 0; i < smallDrops.size(); i++)
+            {
+                smallMost = (std::max)(smallMost, fabsf(smallDrops[i]->x - smallFrom[i]));
+                smallMoved += fabsf(smallDrops[i]->x - smallFrom[i]) > 0.5f ? 1 : 0;
+            }
+            printf("[d3d11] a quick turn moved %d of 40 big drops %.1f to %.1f px, and %d of 40 small ones, at most %.2f px\n",
+                bigMoved, bigLeast, bigMost, smallMoved, smallMost);
+            float bigSum = 0.0f, smallSum = 0.0f;
+            for (size_t i = 0; i < bigDrops.size(); i++)
+                bigSum += fabsf(bigDrops[i]->x - bigFrom[i]);
+            for (size_t i = 0; i < smallDrops.size(); i++)
+                smallSum += fabsf(smallDrops[i]->x - smallFrom[i]);
+            check(bigMoved == 40 && smallMoved > 30 && smallSum < bigSum, "a quick turn tears every drop off the glass, the small ones slower");
+
+            calm();
+            std::vector<WaterDrop*> slowBig, slowSmall;
+            for (int i = 0; i < 20; i++)
+            {
+                slowBig.push_back(drop(300.0f + (float)(i % 10) * 130.0f, 300.0f + (float)(i / 10) * 200.0f, (float)biggest, false));
+                slowSmall.push_back(drop(300.0f + (float)(i % 10) * 130.0f, 400.0f + (float)(i / 10) * 200.0f, (float)smallest, false));
+            }
+            std::vector<float> slowBigFrom, slowSmallFrom;
+            for (auto* d : slowBig) slowBigFrom.push_back(d->x);
+            for (auto* d : slowSmall) slowSmallFrom.push_back(d->x);
+            for (int i = 0; i < 20; i++)
+            {
+                air(25.0f, 0.0f, 0.0f);
+                D::ms_lookAir[0] = 25.0f;
+                D::ProcessMoving();
+            }
+            air(0.0f, 0.0f, 0.0f);
+            int32_t slowBigMoved = 0, slowSmallMoved = 0;
+            for (size_t i = 0; i < slowBig.size(); i++)
+                slowBigMoved += fabsf(slowBig[i]->x - slowBigFrom[i]) > 0.5f ? 1 : 0;
+            for (size_t i = 0; i < slowSmall.size(); i++)
+                slowSmallMoved += fabsf(slowSmall[i]->x - slowSmallFrom[i]) > 0.5f ? 1 : 0;
+            printf("[d3d11] a slow pan moved %d of 20 big drops and %d of 20 small ones\n", slowBigMoved, slowSmallMoved);
+            check(slowBigMoved > 15 && slowSmallMoved == 0, "and a slow pan moves the big drops and leaves the small ones");
+            check(bigMost > bigLeast * 1.5f, "and the big drops go each at a speed of their own, not as one sheet");
+        }
 
         // a drop that runs outwards in the stream leaves no water
         calm();
