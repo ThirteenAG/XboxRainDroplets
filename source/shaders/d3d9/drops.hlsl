@@ -93,8 +93,8 @@ float4 PSMain(float4 color : COLOR0, float2 atlas : TEXCOORD0, float2 scene : TE
     float2 normal = -0.168 * slope;
     normal *= min(1, 0.5 / max(length(normal), 1e-6));
 
-    // the water a drop leaves is a film along its path, see the shader of
-    // Direct3D 10
+    // the water a drop leaves is a band along its path, the water of the drop
+    // drawn out and shaded as the drops are, see the shader of Direct3D 10
     float2 strip = (atlas - base) / tile;
     float stripLength = 1 / max(length(float2(ddx(strip.x), ddy(strip.x))), 1e-5);
     float stripWidth = 1 / max(length(float2(ddx(strip.y), ddy(strip.y))), 1e-5);
@@ -105,8 +105,8 @@ float4 PSMain(float4 color : COLOR0, float2 atlas : TEXCOORD0, float2 scene : TE
     float2 acrossScreen = float2(ddx(strip.y), ddy(strip.y));
     acrossScreen /= max(length(acrossScreen), 1e-6);
     float2 stripNormal = acrossScreen * (strip.y * 2 - 1);
-    normal = trace ? stripNormal : normal;
-    cover = trace ? smoothstep(0, cell > 1.01 ? 0.6 : 0.25, ridge) * 0.9 : cover;
+    normal = trace ? stripNormal * 0.5 : normal;
+    cover = trace ? (cell > 1.01 ? smoothstep(0, 0.45, ridge) : smoothstep(0.01, 0.2, ridge)) : cover;
 
     float nz = sqrt(saturate(1 - dot(normal, normal)));
     float k = 1 - 0.64 * (1 - nz * nz);
@@ -128,10 +128,7 @@ float4 PSMain(float4 color : COLOR0, float2 atlas : TEXCOORD0, float2 scene : TE
     float3 backdrop = 1;
     if (frame.z > 0.5)
     {
-        // the film of a trail, see the shader of Direct3D 10
-        if (trace)
-            backdrop = tex2Dlod(sceneSampler, float4((pixel + 0.5) * frame.xy * crop.xy + crop.zw + stripNormal * 0.012 * crop.xy, 0, 0)).rgb * 0.96 + 0.025;
-        else if (cell > 1.01)
+        if (cell > 1.01)
         {
             // the picture round the drop, mirrored, see the shader of Direct3D 10
             float2 at = scene;

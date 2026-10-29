@@ -306,17 +306,13 @@ float4 PSMain(VSOutput input) : SV_TARGET
     float2 normal = -0.168f * slope;
     normal *= min(1.0f, 0.5f / max(length(normal), 1e-6f));
 
-    // The water a drop leaves is a film along its path, drawn as a strip: along
-    // the strip is the u of its tile, across it the v. It is a low ridge, its
-    // ends taper so the pieces of a trail run into each other as one line, and
-    // its sides lean over, which is what bends the picture along the edges of a
-    // trail of water on a pane of glass.
-    // Water on glass has no corners and no points: a piece of the film is a
-    // capsule, a band as wide as the strip with round ends. It is clear water:
-    // it shows the frame right behind it, bent a little across the trail where
-    // its sides lean over, the way a run of water on a pane of glass is only
-    // seen by its edges. The pieces overlap and all show the same, so a trail is
-    // one channel of water with no seams.
+    // The water a drop leaves is a band along its path, drawn as strips: along
+    // a strip is the u of its tile, across it the v. It is the water of the drop
+    // drawn out, a ridge across with no ends along (a strip whose u is the same
+    // all along it, see WaterDrops::AddRibbonQuad), or round ends where it is a
+    // capsule. Its height is that of a dome across it, and it is shaded as the
+    // drops are: its edge as soft as theirs, the picture it shows bent by its
+    // sides, and what it shows the picture round it the way a drop shows it.
     float2 strip = (input.atlas - base) / tile;
     float stripLength = 1.0f / max(length(float2(ddx(strip.x), ddy(strip.x))), 1e-5f);
     float stripWidth = 1.0f / max(length(float2(ddx(strip.y), ddy(strip.y))), 1e-5f);
@@ -329,8 +325,8 @@ float4 PSMain(VSOutput input) : SV_TARGET
     float2 stripNormal = acrossScreen * (strip.y * 2.0f - 1.0f);
 
     bool film = input.film > 0.5f;
-    normal = film ? stripNormal : normal;
-    cover = film ? smoothstep(0.0f, cell > 1.01f ? 0.6f : 0.25f, ridge) * 0.9f : cover;
+    normal = film ? stripNormal * 0.5f : normal;
+    cover = film ? (cell > 1.01f ? smoothstep(0.0f, 0.45f, ridge) : smoothstep(0.01f, 0.2f, ridge)) : cover;
 
     float nz = sqrt(saturate(1.0f - dot(normal, normal)));
     float k = 1.0f - 0.64f * (1.0f - nz * nz);
@@ -368,10 +364,7 @@ float4 PSMain(VSOutput input) : SV_TARGET
     float3 scene = 1.0f;
     if (sceneComplement.y > 0.5f)
     {
-        // the film of a trail, see above: a faint sheen on what is behind it
-        if (film)
-            scene = sceneTexture.SampleLevel(linearClamp, input.own + stripNormal * 0.012f * uvScale.xy, 0.0f).rgb * 0.96f + 0.025f;
-        else if (cell > 1.01f)
+        if (cell > 1.01f)
         {
             // The picture round the drop, upside down and mirrored, see
             // WaterDrops::LensWindow, and blurred over a small patch.
