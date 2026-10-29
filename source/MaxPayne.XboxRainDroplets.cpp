@@ -251,14 +251,57 @@ void Init()
     X_ParticleSystemImplementation::shFreeParticleSystem = safetyhook::create_inline(pattern.get_first(), X_ParticleSystemImplementation::freeParticleSystem); //0x673B80
 }
 
+namespace P_D3D
+{
+    constexpr ptrdiff_t DEVICE = 0xD0; // IDirect3DDevice8*
+
+    // Everything the effect holds on the device, the Direct3D 9 device under a d3d8to9 wrapper among it, is
+    // given back before the game releases the device: a device kept alive by it can't be replaced by a new
+    // fullscreen one.
+    void ReleaseDevice()
+    {
+        WaterDrops::Reset();
+        Xrd::Shutdown();
+        pDevice = nullptr;
+    }
+
+    // DRV_freeMode releases the device for video mode changes and quitting. This is its mov eax, [esi+DEVICE]
+    // after deleteBuffers; the export may be an incremental link thunk jumping to it.
+    uint8_t* FindFreeModeRelease(HMODULE hModule)
+    {
+        if (!hModule)
+            return nullptr;
+
+        auto pBase = (uint8_t*)hModule;
+        auto pHeaders = (IMAGE_NT_HEADERS*)(pBase + ((IMAGE_DOS_HEADER*)pBase)->e_lfanew);
+        auto InModule = [&](uint8_t* p) { return p >= pBase && p < pBase + pHeaders->OptionalHeader.SizeOfImage - 16; };
+
+        auto p = (uint8_t*)GetProcAddress(hModule, "?DRV_freeMode@P_D3D@@UAEXXZ");
+        for (int i = 0; p && InModule(p) && *p == 0xE9 && i < 4; i++)
+        {
+            auto pTarget = p + 5 + *(int32_t*)(p + 1);
+            if (!InModule(pTarget))
+                break; // a hook of another plugin, the function is here
+            p = pTarget;
+        }
+
+        // push esi; mov esi, ecx; call deleteBuffers; mov eax, [esi+DEVICE]; test eax, eax
+        const uint8_t release[] = { 0x8B, 0x86, uint8_t(DEVICE), uint8_t(DEVICE >> 8), 0x00, 0x00, 0x85, 0xC0 };
+        if (!p || !InModule(p) || memcmp(p + 8, release, sizeof(release)) != 0)
+            return nullptr;
+        return p + 8;
+    }
+}
+
 safetyhook::MidHook GetDeviceHook = {};
 safetyhook::MidHook ResetHook = {};
+safetyhook::MidHook FreeModeHook = {};
 void InitE2_D3D8_DRIVER_MFC()
 {
     auto pattern = hook::module_pattern(GetModuleHandle(L"e2_d3d8_driver_mfc"), "8B 86 ? ? ? ? 85 C0 74 0F 8B 50 38 8B 48 34");
     GetDeviceHook = safetyhook::create_mid(pattern.get_first(6), [](SafetyHookContext& regs)
     {
-        pDevice = (IDirect3DDevice8*)(*(uint32_t*)(regs.esi + 0x0D0));
+        pDevice = *(IDirect3DDevice8**)(regs.esi + P_D3D::DEVICE);
     });
 
     pattern = hook::module_pattern(GetModuleHandle(L"e2_d3d8_driver_mfc"), "8B 86 ? ? ? ? 8B 10 8D 8E ? ? ? ? 51 50 FF 52 38");
@@ -266,6 +309,16 @@ void InitE2_D3D8_DRIVER_MFC()
     {
         WaterDrops::Reset();
     });
+
+    if (auto pRelease = P_D3D::FindFreeModeRelease(GetModuleHandle(L"e2_d3d8_driver_mfc")))
+    {
+        FreeModeHook = safetyhook::create_mid(pRelease, [](SafetyHookContext& regs)
+        {
+            P_D3D::ReleaseDevice();
+        });
+    }
+    else
+        OutputDebugStringA("XboxRainDroplets: P_D3D::DRV_freeMode not found, the effect isn't released with the device.\n");
 }
 
 void InitE2MFC()
@@ -285,7 +338,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
         CallbackHandler::RegisterCallbackAtGetSystemTimeAsFileTime(Init, hook::pattern(RenderModePattern));
         CallbackHandler::RegisterCallback(L"E2MFC.dll", InitE2MFC);
         CallbackHandler::RegisterCallback(L"E2_D3D8_DRIVER_MFC.dll", InitE2_D3D8_DRIVER_MFC);
-        CallbackHandler::RegisterModuleUnloadCallback(L"E2_D3D8_DRIVER_MFC.dll", []() { GetDeviceHook.reset(); ResetHook.reset(); });
+        CallbackHandler::RegisterModuleUnloadCallback(L"E2_D3D8_DRIVER_MFC.dll", []() { P_D3D::ReleaseDevice(); GetDeviceHook.reset(); ResetHook.reset(); FreeModeHook.reset(); });
     });
 }
 
