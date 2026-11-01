@@ -110,6 +110,12 @@
           "presets": { "vanilla": 0, "recommended": 30, "enhanced": 50 }
         },
         {
+          "id": "MAIN.LevelRainChance", "type": "int", "default": 30, "min": 0, "max": 100, "step": 5, "unit": "%", "order": 21, "apply": "nextLevel",
+          "label": "@levelrainchance", "description": "@levelrainchance.description",
+          "control": [ "slider" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 },
+          "presets": { "vanilla": 0, "recommended": 30, "enhanced": 50 }
+        },
+        {
           "id": "MAIN.SpecialZones", "type": "bool", "default": 1, "order": 21,
           "label": "@specialzones", "description": "@specialzones.description",
           "control": [ "switch", "cycler" ], "enabledIf": { "setting": "MAIN.Enabled", "equals": 1 }

@@ -106,6 +106,10 @@
   "XboxRainDropletsWrapper": {
     "comment": "Any Direct3D, OpenGL or Vulkan game: no game of its own"
   },
+  "FarCry.XboxRainDroplets": {
+    "games": [ { "name": "Far Cry", "exe": [ "Bin32/FarCry.exe", "Bin64/FarCry.exe" ] } ],
+    "settings": [ "MAIN.LevelRainChance" ]
+  },
   "PPSSPP.XboxRainDroplets": {
     "games": [ { "name": "PPSSPP", "exe": [ "PPSSPPWindows.exe", "PPSSPPWindows64.exe" ] } ]
   },

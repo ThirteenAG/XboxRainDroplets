@@ -201,6 +201,14 @@ jobs:
           tag: gtasade
           bodyFile: .github/docs/gtasade.md
           artifacts: bin/GTASADE.XboxRainDroplets.zip
+      - name: FarCry.XboxRainDroplets
+        uses: ./.github/workflows/release_tag
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: farcry
+          bodyFile: .github/docs/farcry.md
+          artifacts: bin/FarCry.XboxRainDroplets.zip, bin/FarCry.XboxRainDroplets64.zip
       - name: PPSSPP.XboxRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)

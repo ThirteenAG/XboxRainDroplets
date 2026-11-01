@@ -39,6 +39,8 @@
   "rainperday.description": "How many hours of the in-game day it rains. 24: rain all the time.",
   "rainchance": "Rain chance",
   "rainchance.description": "How likely it is to rain in a race, decided when the race starts.",
+  "levelrainchance": "Rain chance in levels",
+  "levelrainchance.description": "How likely it is that showers come and go in a level, decided when the level or a save loads. The game's own rain falls with them.",
   "specialzones": "Splash zones",
   "specialzones.description": "Water splashes onto the screen in a few places of the city.",
   "sr2.playerblood": "Player's blood",
