@@ -264,33 +264,6 @@ namespace P_D3D
         Xrd::Shutdown();
         pDevice = nullptr;
     }
-
-    // DRV_freeMode releases the device for video mode changes and quitting. This is its mov eax, [esi+DEVICE]
-    // after deleteBuffers; the export may be an incremental link thunk jumping to it.
-    uint8_t* FindFreeModeRelease(HMODULE hModule)
-    {
-        if (!hModule)
-            return nullptr;
-
-        auto pBase = (uint8_t*)hModule;
-        auto pHeaders = (IMAGE_NT_HEADERS*)(pBase + ((IMAGE_DOS_HEADER*)pBase)->e_lfanew);
-        auto InModule = [&](uint8_t* p) { return p >= pBase && p < pBase + pHeaders->OptionalHeader.SizeOfImage - 16; };
-
-        auto p = (uint8_t*)GetProcAddress(hModule, "?DRV_freeMode@P_D3D@@UAEXXZ");
-        for (int i = 0; p && InModule(p) && *p == 0xE9 && i < 4; i++)
-        {
-            auto pTarget = p + 5 + *(int32_t*)(p + 1);
-            if (!InModule(pTarget))
-                break; // a hook of another plugin, the function is here
-            p = pTarget;
-        }
-
-        // push esi; mov esi, ecx; call deleteBuffers; mov eax, [esi+DEVICE]; test eax, eax
-        const uint8_t release[] = { 0x8B, 0x86, uint8_t(DEVICE), uint8_t(DEVICE >> 8), 0x00, 0x00, 0x85, 0xC0 };
-        if (!p || !InModule(p) || memcmp(p + 8, release, sizeof(release)) != 0)
-            return nullptr;
-        return p + 8;
-    }
 }
 
 safetyhook::MidHook GetDeviceHook = {};
@@ -310,15 +283,12 @@ void InitE2_D3D8_DRIVER_MFC()
         WaterDrops::Reset();
     });
 
-    if (auto pRelease = P_D3D::FindFreeModeRelease(GetModuleHandle(L"e2_d3d8_driver_mfc")))
+    // DRV_freeMode releases the device for video mode changes and quitting: its mov eax, [esi+DEVICE] after deleteBuffers
+    pattern = hook::module_pattern(GetModuleHandle(L"e2_d3d8_driver_mfc"), "8B 86 ? ? ? ? 85 C0 74 2A 8B 08 50 FF 51 08");
+    FreeModeHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
     {
-        FreeModeHook = safetyhook::create_mid(pRelease, [](SafetyHookContext& regs)
-        {
-            P_D3D::ReleaseDevice();
-        });
-    }
-    else
-        OutputDebugStringA("XboxRainDroplets: P_D3D::DRV_freeMode not found, the effect isn't released with the device.\n");
+        P_D3D::ReleaseDevice();
+    });
 }
 
 void InitE2MFC()
