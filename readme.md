@@ -220,6 +220,10 @@ Every game has a release of its own, and its notes hold the installation steps o
 <td align="center" valign="middle"><img src="https://github.com/user-attachments/assets/f7363c93-d8bb-4271-9ebc-a08528084baf" width="320" alt="King Kong - Gamers Edition"></td>
 </tr>
 <tr>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/farcry">Far Cry</a></td>
+<td align="center" valign="middle"></td>
+</tr>
+<tr>
 <td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/sr2">Saints Row 2</a></td>
 <td align="center" valign="middle"><img width="320" alt="Saints Row 2" src="https://github.com/user-attachments/assets/8e5a9e6c-a553-44ed-a1be-73a8f141d75f" />
 </td>

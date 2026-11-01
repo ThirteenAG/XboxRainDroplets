@@ -254,6 +254,8 @@ project "GTAVC.XboxRainDroplets"
    setpaths("GRAND_THEFT_AUTO_VICE_CITY_DIR", "gta-vc.exe")
 project "GTASA.XboxRainDroplets"
    setpaths("GTA_SAN_ANDREAS_DIR", "gta_sa.exe")
+project "FarCry.XboxRainDroplets"
+   setpaths("FAR_CRY_DIR", "Bin32/FarCry.exe", "Bin32/")
 PluginsSetup("XboxRainDroplets64", "x64", "x64")
 
 project "GTASADE.XboxRainDroplets"
@@ -265,6 +267,13 @@ project "GTAVCDE.XboxRainDroplets"
 project "GTA3DE.XboxRainDroplets"
    add_kananlib()
    setpaths("GTA_III_DEFINITIVE_EDITION_DIR", "Gameface/Binaries/Win64/LibertyCity.exe", "Gameface/Binaries/Win64/scripts/")
+-- Far Cry is built for both architectures from the same source: the 64 bit project
+-- gets a folder of its own, so that the project files of the two do not overwrite each
+-- other, and a plugin whose name ends in 64, see WrapperSetup.
+project "FarCry.XboxRainDroplets"
+   location "build/x64"
+   targetname "%{prj.name}64"
+   setpaths("FAR_CRY_DIR", "Bin64/FarCry.exe", "Bin64/")
 
 -- The settings the wrapper and the emulator plugins are built with, see the note above
 -- PluginsSetup: one solution per architecture there as well.

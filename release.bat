@@ -59,6 +59,13 @@ XboxRainDropletsWrapper64
 )
 
 for %%x in (
+FarCry.XboxRainDroplets
+FarCry.XboxRainDroplets64
+) do (
+    7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi"
+)
+
+for %%x in (
 PPSSPP.XboxRainDroplets
 ) do (
     7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\version.dll" ".\bin\memstick" -xr!*.objects -xr!*.map -xr!*.elf
