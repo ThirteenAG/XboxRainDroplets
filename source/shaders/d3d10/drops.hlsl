@@ -253,6 +253,102 @@ static const float SnowMilk = 0.05f;
 float3 ToLight(float3 c) { c = min(c, 0.96f); return c / (1.0f - c); }
 float3 ToValue(float3 l) { return l / (1.0f + l); }
 
+// ---------------------------------------------------------------------------
+// A flake of snow on the lens, the way Forza Horizon 4 draws one.
+//
+// The atlas of the snow holds the flakes of the game: clusters of little specks
+// of ice, each a map of normals (rg), the frost of its ice (b) and the mask of
+// its specks (a), see source/resources/lenssnowmap.png. The game draws them into
+// a map of the lens, refracts a copy of the frame of 480 x 270 through that map
+// and blurs the result before it lays it over the frame:
+//
+//   - a speck refracts with an index of 0.8 and a scale of 3, through its normal
+//     flattened by its frost,
+//   - what it shows is the copy of the frame of 480 x 270 read at the level of
+//     seven times its frost in the chain of that copy, and darkened by its frost
+//     to a tenth at most,
+//   - every speck is opaque and the flake has its remaining life as its opacity,
+//   - the layer of all that is blurred with a Gaussian of 1.1 of its texels.
+//
+// The layer is worked out here at the 5 x 5 texels of a layer of 270 lines on
+// the target round the pixel, the same texels for the pixels next to it, and
+// they are weighed by how far they are from the pixel: a Gaussian of 1.17 of
+// them, which is the blur of the game (1.1 of them) and the layer stretched
+// over the target bilinearly after it.
+// ---------------------------------------------------------------------------
+
+// the height of the layer the game refracts and blurs in, and its blur in its
+// texels
+static const float FlakeLines = 270.0f;
+static const float FlakeBlur = 1.17f;
+
+// What a point of a flake shows, premultiplied by whether a speck is there.
+// axisX and axisY are the axes of the screen in the atlas, which turn the normal
+// of the speck the way the flake is turned.
+float4 FlakeAt(float2 at, float2 lo, float2 hi, float2 axisX, float2 axisY, float2 uv, float level)
+{
+    if (any(at < lo) || any(at > hi))
+        return 0.0f;
+
+    float4 ice = maskTexture.SampleLevel(linearClamp, at, 0);
+    if (ice.a <= 0.025f)
+        return 0.0f;
+
+    float2 n = ice.rg * 2.0f - 1.0f;
+    n = float2(dot(n, axisX), dot(n, axisY)) * (1.0f - ice.b);
+    // the z of the normal the way the game has it, with a plus where a minus
+    // would be
+    float3 normal = normalize(float3(n, sqrt(1.0f - n.x * n.x + n.y * n.y)));
+    float2 bend = refract(float3(0.0f, 0.0f, -1.0f), normal, 0.8f).xy * sceneComplement.w;
+
+    float3 shown = sceneTexture.SampleLevel(linearClamp, uv + bend * uvScale.xy, level + ice.b * 7.0f).rgb;
+    return float4(shown * lerp(1.0f, 0.1f, ice.b), 1.0f);
+}
+
+// a flake of snow, see above: its colour, and its opacity times its life
+// dx and dy are a pixel of the target in the atlas, ownX and ownY in the copy of
+// the frame
+float4 Flake(VSOutput input, float2 lo, float2 hi, float2 dx, float2 dy, float2 ownX, float2 ownY)
+{
+    float2 axisX = dx / max(length(dx), 1e-8f);
+    float2 axisY = dy / max(length(dy), 1e-8f);
+
+    // a texel of the layer of the game, in pixels of the target, and the pixel
+    // in those texels
+    float lines = 2.0f / abs(projection[1][1]);
+    float cell = lines / FlakeLines;
+    float2 at = input.position.xy / cell;
+    float2 first = floor(at) + 0.5f - 2.0f;
+
+    // the level of the chain of the frame that is a copy of 270 lines
+    float sceneWidth, sceneHeight, sceneLevels;
+    sceneTexture.GetDimensions(0, sceneWidth, sceneHeight, sceneLevels);
+    float level = log2(max(sceneHeight / FlakeLines, 1.0f));
+
+    float4 sum = 0.0f;
+    float weights = 0.0f;
+    [loop] for (int y = 0; y < 5; ++y)
+    {
+        [loop] for (int x = 0; x < 5; ++x)
+        {
+            // the texel, from the pixel, in pixels of the target
+            float2 texel = first + float2(x, y) - at;
+            float w = exp(-0.5f * dot(texel, texel) / (FlakeBlur * FlakeBlur));
+            texel *= cell;
+            sum += w * FlakeAt(input.atlas + dx * texel.x + dy * texel.y, lo, hi, axisX, axisY,
+                input.own + ownX * texel.x + ownY * texel.y, level);
+            weights += w;
+        }
+    }
+    sum /= weights;
+
+    float alpha = sum.a * input.color.a;
+    if (alpha < 1.0f / 255.0f)
+        discard;
+
+    return float4(sum.rgb / sum.a, alpha);
+}
+
 float4 PSMain(VSOutput input) : SV_TARGET
 {
     float2 tile = 1.0f / max(uvScale.z, 1.0f);
@@ -269,6 +365,14 @@ float4 PSMain(VSOutput input) : SV_TARGET
     float2 dx = ddx(input.atlas);
     float2 dy = ddy(input.atlas);
     float2 perPixel = float2(length(dx), length(dy)) / (tile * 0.6f);
+    float2 ownX = ddx(input.own);
+    float2 ownY = ddy(input.own);
+
+    // a flake of snow, which refracts by the 3 of the snow and not by the 7 of
+    // the rain, see WaterDrops::SnowRefraction: the same for every pixel, a
+    // flake leaves no water behind it
+    if (sceneComplement.w < 4.0f && sceneComplement.y > 0.5f)
+        return Flake(input, lo, hi, dx, dy, ownX, ownY);
 
     // the size of the screen, out of the projection of the drops, and the cell
     float2 invScreen = float2(abs(projection[0][0]), abs(projection[1][1])) * 0.5f;

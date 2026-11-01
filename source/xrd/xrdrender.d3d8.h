@@ -433,13 +433,17 @@ namespace Xrd
                 // the world are drawn the way they always were.
                 const bool bRefract = bShaderDrops && projection == PROJECTION_SCREEN && sceneSampling &&
                     !sceneComplement;
+                // A flake of snow, which refracts by the 3 of the snow and not by
+                // the 7 of the rain, is drawn the way Forza Horizon 4 draws one,
+                // see flakePS8.hlsl: it takes no light of the frame around it.
+                const bool bFlake = bRefract && pFlakeShader && sceneRefraction < 4.0f;
 
                 // The light of the frame is found before a single drop is drawn, into
                 // a field of its own, and every pass of that is a pass of its own:
                 // the passes bind textures of their own and change the target and
                 // the viewport, so the states of the drops are set after them, which
                 // is what ApplyState below is.
-                if (bRefract)
+                if (bRefract && !bFlake)
                 {
                     RenderLightField(desc, pDepthTexture);
                     pDevice->SetRenderTarget(pTarget, nullptr);
@@ -447,7 +451,7 @@ namespace Xrd
 
                 ApplyState(desc);
 
-                if (bRefract)
+                if (bRefract && !bFlake)
                 {
                     // the field the light was gathered into, on the third stage
                     pDevice->SetTexture(2, pLightField);
@@ -526,6 +530,14 @@ namespace Xrd
                             pDst[i].v2 = targetSize.height > 0
                                 ? pVertices[i].y * 0.125f / (float)fieldHeight + HalfTexelY() : 0.0f;
 
+                            // a flake shows the frame where each of its pixels is
+                            if (bFlake && targetSize.width > 0 && targetSize.height > 0)
+                            {
+                                pDst[i].lens = 0;
+                                pDst[i].u1 = pVertices[i].x / (float)targetSize.width * uvScaleX + uvOffsetX;
+                                pDst[i].v1 = pVertices[i].y / (float)targetSize.height * uvScaleY + uvOffsetY;
+                            }
+
 
                         }
 
@@ -536,8 +548,10 @@ namespace Xrd
                         // takes: one it takes, and the part over one is added by
                         // the shader, see dropPS8.hlsl and LightStrength
                         const float strength[4] = { LightStrength - 1.0f, 1.0f, 1.0f, 1.0f };
-                        pDevice->SetPixelShaderConstant(0, strength, 1);
-                        pDevice->SetPixelShader(pDropShader);
+                        // the bend of a normal of a flake, see flakePS8.hlsl
+                        const float bend[4] = { -FlakeBend * uvScaleX, -FlakeBend * uvScaleY, 0.0f, 0.0f };
+                        pDevice->SetPixelShaderConstant(0, bFlake ? bend : strength, 1);
+                        pDevice->SetPixelShader(bFlake ? pFlakeShader : pDropShader);
                     }
                     else if (projection == PROJECTION_SCREEN)
                     {
@@ -715,6 +729,7 @@ namespace Xrd
             if (pBlurShader) { pDevice->DeletePixelShader(pBlurShader); pBlurShader = 0; }
             if (pLightShader) { pDevice->DeletePixelShader(pLightShader); pLightShader = 0; }
             if (pFadeShader) { pDevice->DeletePixelShader(pFadeShader); pFadeShader = 0; }
+            if (pFlakeShader) { pDevice->DeletePixelShader(pFlakeShader); pFlakeShader = 0; }
             pLightField = nullptr;
 
             shaderAttempted = false;
@@ -1000,6 +1015,8 @@ namespace Xrd
             // and not part of the light, and a game that hands out no depth of its own
             // to read does without it, so it is not part of bShaderDrops.
             pFadeShader = CreateShader(bPs14 ? IDR_FADE8PS14 : IDR_FADE8PS11);
+            // the flakes of snow, see flakePS8.hlsl
+            pFlakeShader = CreateShader(bPs14 ? IDR_FLAKE8PS14 : IDR_FLAKE8PS11);
 
             bShaderDrops = pDropShader != 0 && pBlurShader != 0 && pLightShader != 0;
         }
@@ -1607,6 +1624,11 @@ namespace Xrd
         // What of the light is close enough to the camera to fall on a drop of the
         // rain on the glass in front of it, see fadePS8.hlsl and FadePass.
         DWORD pFadeShader = 0;
+        // A flake of snow, see flakePS8.hlsl, and how far the frame it shows is
+        // bent by a normal of one: the index of 0.8 and the scale of 3 of the
+        // flakes of Forza Horizon 4 come to about that much of the picture.
+        DWORD pFlakeShader = 0;
+        static constexpr float FlakeBend = 0.65f;
         bool shaderAttempted = false;
         bool bShaderDrops = false;
 

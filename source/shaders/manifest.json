@@ -30,6 +30,32 @@
     {
       "kind": "fxc",
       "sources": [
+        "d3d8/flakePS8.hlsl"
+      ],
+      "output": "d3d8/flakePS8_14.cso",
+      "profile": "ps_1_4",
+      "entry": "main",
+      "flags": [
+        "/LD"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
+        "d3d8/flakePS8.hlsl"
+      ],
+      "output": "d3d8/flakePS8_11.cso",
+      "profile": "ps_1_1",
+      "entry": "main",
+      "flags": [
+        "/LD",
+        "/D",
+        "XRD_REFRACT=0"
+      ]
+    },
+    {
+      "kind": "fxc",
+      "sources": [
         "d3d8/dropPS8.hlsl"
       ],
       "output": "d3d8/dropPS8_14.cso",

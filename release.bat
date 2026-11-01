@@ -42,6 +42,8 @@ GTA3DE.XboxRainDroplets
 TrueCrimeNewYorkCity.XboxRainDroplets
 KingKongGamersEdition.XboxRainDroplets
 SR2.XboxRainDroplets
+MafiaDE.XboxRainDroplets
+Mafia2DE.XboxRainDroplets
 ) do (
     7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi"
 )

@@ -30,6 +30,7 @@
 // the atlas of drop shapes
 #define IDR_DROPMASK 100
 #define IDR_SNOWDROPMASK 101
+#define IDR_SNOWLENSMAP 102
 // the menu blur of Scarface, built from source/shaders/d3d9
 #define IDR_BLURPS 103
 #define IDR_BLURVS 104
@@ -46,6 +47,8 @@
 #define IDR_LIGHT8PS11 115
 #define IDR_FADE8PS14 116
 #define IDR_FADE8PS11 117
+#define IDR_FLAKE8PS14 118
+#define IDR_FLAKE8PS11 119
 #define IDR_DROP9PS 120
 #define IDR_LIGHT9PS 121
 #define IDR_DROP10VS 122

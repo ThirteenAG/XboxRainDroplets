@@ -62,6 +62,88 @@ float3 SoftHeight(float2 at, float2 rx, float2 ry, float r, float2 lo, float2 hi
 float3 ToLight(float3 c) { c = min(c, 0.96); return c / (1 - c); }
 float3 ToValue(float3 l) { return l / (1 + l); }
 
+// ---------------------------------------------------------------------------
+// A flake of snow on the lens, the way Forza Horizon 4 draws one.
+//
+// The atlas of the snow holds the flakes of the game: clusters of little specks
+// of ice, each a map of normals (rg), the frost of its ice (b) and the mask of
+// its specks (a), see source/resources/lenssnowmap.png. The game draws them into
+// a map of the lens, refracts a copy of the frame of 480 x 270 through that map
+// and blurs the result before it lays it over the frame:
+//
+//   - a speck refracts with an index of 0.8 and a scale of 3, through its normal
+//     flattened by its frost,
+//   - what it shows is the copy of the frame of 480 x 270 read at the level of
+//     seven times its frost in the chain of that copy, and darkened by its frost
+//     to a tenth at most,
+//   - every speck is opaque and the flake has its remaining life as its opacity,
+//   - the layer of all that is blurred with a Gaussian of 1.1 of its texels.
+//
+// The layer is worked out here at the 5 x 5 texels of a layer of 270 lines on
+// the target round the pixel, the same texels for the pixels next to it, and
+// they are weighed by how far they are from the pixel: a Gaussian of 1.17 of
+// them, which is the blur of the game (1.1 of them) and the layer stretched
+// over the target bilinearly after it.
+// ---------------------------------------------------------------------------
+
+// the blur of the game and the stretch of its layer, in its texels
+static const float FlakeBlur = 1.17;
+
+// what a point of a flake shows, see the shader of Direct3D 10
+float4 FlakeAt(float2 at, float2 lo, float2 hi, float2 axisX, float2 axisY, float2 uv, float level)
+{
+    float4 ice = tex2Dlod(maskSampler, float4(clamp(at, lo, hi), 0, 0));
+    float speck = all(at >= lo) && all(at <= hi) && ice.a > 0.025 ? 1 : 0;
+
+    float2 n = ice.rg * 2 - 1;
+    n = float2(dot(n, axisX), dot(n, axisY)) * (1 - ice.b);
+    float3 normal = normalize(float3(n, sqrt(1 - n.x * n.x + n.y * n.y)));
+    float2 bend = refract(float3(0, 0, -1), normal, 0.8).xy * drop.w;
+
+    float3 shown = tex2Dlod(sceneSampler, float4(uv + bend * crop.xy, 0, level + ice.b * 7)).rgb;
+    return float4(shown * lerp(1, 0.1, ice.b), 1) * speck;
+}
+
+// a flake of snow, see the shader of Direct3D 10
+float4 Flake(float4 color, float2 atlas, float2 pixel, float2 lo, float2 hi)
+{
+    float2 dx = ddx(atlas);
+    float2 dy = ddy(atlas);
+    float2 axisX = dx / max(length(dx), 1e-8);
+    float2 axisY = dy / max(length(dy), 1e-8);
+
+    // a texel of the layer of the game of 270 lines, in pixels of the target,
+    // and the level of the chain of the frame that is a copy of that size
+    float lines = 1 / frame.y;
+    float cell = lines / 270;
+    float level = log2(max(cell, 1));
+    float2 at = (pixel + 0.5) / cell;
+    float2 first = floor(at) + 0.5 - 2;
+    float2 uv = (pixel + 0.5) * frame.xy * crop.xy + crop.zw;
+
+    // the texels of the layer of the game round the pixel, see the shader of
+    // Direct3D 10
+    float4 sum = 0;
+    float weights = 0;
+    [loop] for (int y = 0; y < 5; ++y)
+    {
+        [loop] for (int x = 0; x < 5; ++x)
+        {
+            float2 texel = first + float2(x, y) - at;
+            float w = exp(-0.5 * dot(texel, texel) / (FlakeBlur * FlakeBlur));
+            texel *= cell;
+            sum += w * FlakeAt(atlas + dx * texel.x + dy * texel.y, lo, hi, axisX, axisY,
+                uv + texel * frame.xy * crop.xy, level);
+            weights += w;
+        }
+    }
+    sum /= weights;
+
+    float alpha = sum.a * color.a;
+    clip(alpha - 1.0 / 255);
+    return float4(sum.rgb / max(sum.a, 1e-4), alpha);
+}
+
 float4 PSMain(float4 color : COLOR0, float2 atlas : TEXCOORD0, float2 scene : TEXCOORD1,
     float2 pixel : VPOS) : COLOR0
 {
@@ -76,6 +158,11 @@ float4 PSMain(float4 color : COLOR0, float2 atlas : TEXCOORD0, float2 scene : TE
     float2 base = floor(atlas / tile) * tile;
     float2 lo = base + atlasTexel.xy;
     float2 hi = base + tile - atlasTexel.xy;
+
+    // a flake of snow, which refracts by the 3 of the snow and not by the 7 of
+    // the rain, see the shader of Direct3D 10
+    if (drop.w < 4 && frame.z > 0.5)
+        return Flake(color, atlas, pixel, lo, hi);
 
     float2 dx = ddx(atlas);
     float2 dy = ddy(atlas);
