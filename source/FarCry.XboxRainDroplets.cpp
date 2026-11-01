@@ -222,7 +222,9 @@ namespace Water
 // With LevelRainChance of the settings, a level that loads may rain: showers come
 // and go while it is played, each of a strength of its own, and they are the rain
 // of the game itself, e_rain_amount, which the engine draws the rain of the world
-// with, indoors and under the water included, and the drops follow, see DrawDrops.
+// with, and the drops follow, see DrawDrops.
+// The engine draws its rain under the water too, so while the camera is under it
+// the engine is given none, see SetRainAmount.
 // A level with a storm of its own is left with it. Whether a level rains is
 // decided when the engine loads it, see C3DEngine::LoadLevel, so a save loaded in
 // it or a menu opened in it keeps its weather.
@@ -317,6 +319,51 @@ namespace Weather
         return current;
     }
 
+    // Whether the camera is under the water, and the rain the game asked for while
+    // it is: the engine is given none until the camera comes up again, and then the
+    // rain that was asked for last.
+    inline bool submerged = false;
+    inline float asked = 0.0f;
+
+#ifdef _WIN64
+    SafetyHookInline shSetRainAmount = {};
+    void SetRainAmount(void* engine, float amount)
+    {
+        asked = amount;
+        shSetRainAmount.unsafe_call(engine, submerged ? 0.0f : amount);
+    }
+
+    inline void SetEngineRain(void* engine, float amount)
+    {
+        shSetRainAmount.unsafe_call(engine, amount);
+    }
+#else
+    SafetyHookInline shSetRainAmount = {};
+    void __fastcall SetRainAmount(void* engine, void* edx, float amount)
+    {
+        asked = amount;
+        shSetRainAmount.unsafe_thiscall(engine, submerged ? 0.0f : amount);
+    }
+
+    inline void SetEngineRain(void* engine, float amount)
+    {
+        shSetRainAmount.unsafe_thiscall(engine, amount);
+    }
+#endif
+
+    // The camera went under the water or came up out of it: rain is the rain of
+    // the game right then.
+    inline void Submerge(void* engine, bool underwater, float rain)
+    {
+        if (underwater == submerged || !shSetRainAmount)
+            return;
+
+        submerged = underwater;
+        if (submerged)
+            asked = rain;
+        SetEngineRain(engine, submerged ? 0.0f : asked);
+    }
+
 #ifdef _WIN64
     SafetyHookInline shLoadLevel = {};
     bool LoadLevel(void* engine, const char* folder, const char* mission, bool editor)
@@ -337,6 +384,8 @@ namespace Weather
     {
         if (!shLoadLevel)
             shLoadLevel = safetyhook::create_inline((*reinterpret_cast<void***>(engine))[Cry::EngineLoadLevel], LoadLevel);
+        if (!shSetRainAmount)
+            shSetRainAmount = safetyhook::create_inline((*reinterpret_cast<void***>(engine))[Cry::EngineSetRainAmount], SetRainAmount);
     }
 }
 
@@ -415,11 +464,15 @@ void DrawDrops()
     if (!rainAmount)
         rainAmount = Cry::Virtual<Cry::ConsoleGetCVar, void*, const char*, bool>(console, "e_rain_amount", true);
 
-    const float gameRain = rainAmount ? Cry::Virtual<Cry::CVarGetFVal, float>(rainAmount) : 0.0f;
+    // under the water the engine has no rain, and the rain is the one the game
+    // asked for
+    const float gameRain = Weather::submerged ? Weather::asked
+        : rainAmount ? Cry::Virtual<Cry::CVarGetFVal, float>(rainAmount) : 0.0f;
     const float rain = Weather::Update(engine, gameRain, timeStep);
     const bool outdoors = Cry::Virtual<Cry::EngineGetVisAreaFromPos, void*, const Cry::Vec3*>(engine, &at) == nullptr;
     const float waterLevel = Cry::Virtual<Cry::EngineGetWaterLevel, float, const Cry::Vec3*, Cry::Vec3*>(engine, &at, nullptr);
     const bool underwater = at.z < waterLevel - UnderwaterDepth;
+    Weather::Submerge(engine, underwater, rain);
 
     // A lens that goes under the water is washed clean, and one that comes up out
     // of it after a while is covered with the water it brings up: a camera of a

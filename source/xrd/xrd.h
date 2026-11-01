@@ -1849,7 +1849,7 @@ public:
         drop.y = y;
         drop.size = size;
         // one of the shapes of the atlas, or the whole of the fallback mask
-        drop.uv_index = ms_atlasUsed ? GetRandomInt((bEnableSnow ? SnowShapes : AtlasShapes) - 1) : -1;
+        drop.uv_index = ms_atlasUsed ? GetRandomInt((bEnableSnow ? (ms_snowMap ? SnowMapShapes : SnowShapes) : AtlasShapes) - 1) : -1;
         // A size past the range of the settings (a test, a splash of a game) would
         // otherwise turn the window of the frame the drop shows inside out.
         drop.uvsize = std::clamp((SC(MaxSize) - size + 1.0f) / (SC(MaxSize) - SC(MinSize) + 1.0f), 0.0f, 1.0f);
@@ -1875,6 +1875,10 @@ public:
         if (!isTrace && !bEnableSnow && GetRandomFloat(1.0f) < GravityShare)
             drop.fallTop = (GravitySlowest + GetRandomFloat(GravityFastest - GravitySlowest)) * Scale();
         drop.rotation = GetRandomFloat(6.2831853f) - 3.1415927f;
+        // the shader of Direct3D 8 can not turn the normals of a flake of snow
+        // with it, so a flake lands the way it is in the atlas there
+        if (bEnableSnow && ms_snowMap && Xrd::GetRenderer() == Xrd::RENDERER_D3D8 && !Xrd::DrawsWithD3D9Shaders())
+            drop.rotation = 0.0f;
         const float wet = (drop.size - (float)SC(MinSize)) / (float)(std::max)(1, SC(MaxSize) - SC(MinSize));
         drop.trail = !isTrace && !bEnableSnow && GetRandomFloat(1.0f) < 0.35f + 0.45f * std::clamp(wet, 0.0f, 1.0f);
 
@@ -2329,13 +2333,21 @@ public:
 
             // Flakes of snow are drawn with shapes of their own, clusters of
             // small specks of ice (source/resources/lenssnow.png, ten flakes laid
-            // out the way the drops of the rain are).
-            if (LoadMask(bEnableSnow ? IDR_SNOWDROPMASK : IDR_DROPMASK, pixels, width, height))
+            // out the way the drops of the rain are). The renderers whose shaders
+            // draw a flake the way Forza Horizon 4 does take the flakes of that
+            // game instead, see FlakeShaders.
+            ms_snowMap = bEnableSnow && FlakeShaders();
+            if (LoadMask(bEnableSnow ? (ms_snowMap ? IDR_SNOWLENSMAP : IDR_SNOWDROPMASK) : IDR_DROPMASK, pixels, width, height))
             {
+                if (ms_snowMap && Xrd::GetRenderer() == Xrd::RENDERER_D3D8 && !Xrd::DrawsWithD3D9Shaders())
+                    SoftenFlakes(pixels, width, height);
                 ms_maskTex = Xrd::CreateTexture(width, height, pixels.data());
                 ms_maskSize = width;
                 ms_atlasUsed = ms_maskTex != nullptr;
             }
+
+            if (!ms_atlasUsed)
+                ms_snowMap = false;
 
             if (!ms_maskTex)
             {
@@ -2436,6 +2448,14 @@ public:
     static constexpr int AtlasShapes = 14;
     // the shapes of the flakes of snow in their own atlas, see Init
     static constexpr int SnowShapes = 10;
+    // The flakes of Forza Horizon 4, source/resources/lenssnowmap.png: the ten
+    // of the game, each taking half of its tile and the rest room for the blur
+    // of the shader, and the last of them three times more, which is what the
+    // game picks (its fourteen shapes of the rain out of ten flakes). The
+    // renderers whose shaders draw them are FlakeShaders.
+    static constexpr int SnowMapShapes = 14;
+    static constexpr float SnowMapShare = 0.5f;
+    static inline bool ms_snowMap = false;
     // how much of its tile a shape takes, see tools of the atlas and the shaders
     static constexpr float ShapeShare = 0.6f;
     // A flake of snow refracts with a scale of 3 instead of 7, through a shape
@@ -2476,6 +2496,60 @@ public:
 
         return api == Xrd::RENDERER_D3D9 || api == Xrd::RENDERER_D3D10 || api == Xrd::RENDERER_D3D10_1 ||
             api == Xrd::RENDERER_D3D11 || api == Xrd::RENDERER_D3D12;
+    }
+
+    // The shader of Direct3D 8 cannot blur a flake the way Forza Horizon 4 does
+    // (see source/shaders/d3d10/drops.hlsl), so the outline of its specks is
+    // blurred once instead: the mask of the atlas is made the cover of the specks,
+    // whole where the game draws one, and blurred by the blur of the game over a
+    // flake of the size the most of them have, about 1.9 of the texels of a
+    // flake, see SnowMapShare and source/shaders/d3d8/flakePS8.hlsl.
+    static inline void SoftenFlakes(std::vector<uint8_t>& pixels, int32_t width, int32_t height)
+    {
+        constexpr float Sigma = 1.9f;
+        constexpr int Reach = 6;
+        float weights[Reach * 2 + 1];
+        float sum = 0.0f;
+        for (int i = -Reach; i <= Reach; i++)
+            sum += weights[i + Reach] = expf(-0.5f * (float)(i * i) / (Sigma * Sigma));
+        for (float& w : weights)
+            w /= sum;
+
+        // a speck is where the mask is over 0.025
+        std::vector<float> cover((size_t)width * height);
+        for (size_t i = 0; i < cover.size(); i++)
+            cover[i] = pixels[i * 4 + 3] > 6 ? 255.0f : 0.0f;
+
+        std::vector<float> blurred(cover.size());
+        for (int pass = 0; pass < 2; pass++)
+        {
+            for (int32_t y = 0; y < height; y++)
+            {
+                for (int32_t x = 0; x < width; x++)
+                {
+                    float value = 0.0f;
+                    for (int i = -Reach; i <= Reach; i++)
+                    {
+                        const int32_t sx = pass == 0 ? std::clamp(x + i, 0, width - 1) : x;
+                        const int32_t sy = pass == 1 ? std::clamp(y + i, 0, height - 1) : y;
+                        value += weights[i + Reach] * cover[(size_t)sy * width + sx];
+                    }
+                    blurred[(size_t)y * width + x] = value;
+                }
+            }
+            cover.swap(blurred);
+        }
+
+        for (size_t i = 0; i < cover.size(); i++)
+            pixels[i * 4 + 3] = (uint8_t)std::clamp(cover[i] + 0.5f, 0.0f, 255.0f);
+    }
+
+    // The renderers whose shaders draw a flake of snow the way Forza Horizon 4
+    // does, out of its own flakes, see source/shaders/d3d10/drops.hlsl and
+    // source/shaders/d3d8/flakePS8.hlsl.
+    static inline bool FlakeShaders()
+    {
+        return LensShaders() || Xrd::GetRenderer() == Xrd::RENDERER_D3D8;
     }
 
     // A drop that travels over the glass is drawn out along its way: one that
@@ -2534,7 +2608,7 @@ public:
         // screen whichever way the shape of the drop is turned.
         // the shape takes ShapeShare of its tile of the atlas, the rest is room
         // for the blur of a soft drop, so the quad is that much larger
-        const float scale = size * 0.5f / (uv_index >= 0 ? ShapeShare : 1.0f);
+        const float scale = size * 0.5f / (uv_index >= 0 ? (ms_snowMap ? SnowMapShare : ShapeShare) : 1.0f);
         const float c = cosf(rotation);
         const float sn = sinf(rotation);
 

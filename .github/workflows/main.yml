@@ -201,6 +201,22 @@ jobs:
           tag: gtasade
           bodyFile: .github/docs/gtasade.md
           artifacts: bin/GTASADE.XboxRainDroplets.zip
+      - name: MafiaDE.XboxRainDroplets
+        uses: ./.github/workflows/release_tag
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: mafiade
+          bodyFile: .github/docs/mafiade.md
+          artifacts: bin/MafiaDE.XboxRainDroplets.zip
+      - name: Mafia2DE.XboxRainDroplets
+        uses: ./.github/workflows/release_tag
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: mafia2de
+          bodyFile: .github/docs/mafia2de.md
+          artifacts: bin/Mafia2DE.XboxRainDroplets.zip
       - name: FarCry.XboxRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)

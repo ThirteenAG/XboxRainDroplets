@@ -318,6 +318,11 @@ int main()
             // of the scene
             XrdTest::Headless::PrepareDrops(frameIndex, window.width, window.height);
 
+            // --snow: the ini is read on the first frame, so the snow is asked
+            // for again until it holds
+            if (XrdTest::Headless::State().snow && !WaterDrops::bEnableSnow)
+                WaterDrops::SetSnow(true);
+
             WaterDrops::Process();
             WaterDrops::Render();
 

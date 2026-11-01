@@ -220,6 +220,14 @@ Every game has a release of its own, and its notes hold the installation steps o
 <td align="center" valign="middle"><img src="https://github.com/user-attachments/assets/f7363c93-d8bb-4271-9ebc-a08528084baf" width="320" alt="King Kong - Gamers Edition"></td>
 </tr>
 <tr>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/mafiade">Mafia: Definitive Edition</a></td>
+<td align="center" valign="middle"></td>
+</tr>
+<tr>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/mafia2de">Mafia II: Definitive Edition</a></td>
+<td align="center" valign="middle"></td>
+</tr>
+<tr>
 <td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/farcry">Far Cry</a></td>
 <td align="center" valign="middle"></td>
 </tr>
