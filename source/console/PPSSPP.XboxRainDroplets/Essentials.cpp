@@ -1,9 +1,12 @@
 #include "Game.hpp"
-namespace rain {
-namespace {
+namespace rain
+{
+namespace
+{
 uintptr_t libguPacket;
-uint32_t DisplayList() {
-    auto* packet=libguPacket ? *reinterpret_cast<const uint32_t**>(libguPacket) : nullptr;
+uint32_t DisplayList()
+{
+    auto* packet = libguPacket ? *reinterpret_cast<const uint32_t**>(libguPacket) : nullptr;
     return packet ? packet[2] : 0;
 }
 struct FVector
@@ -62,7 +65,8 @@ void _0fRAPlayerControllerETickf6KELevelTickWrapper(void* PlayerController, int 
     static uint32_t traceTick = 0;
     const struct FVector* pCamPos = (const struct FVector*)((uintptr_t)PlayerController + 0x1B0);
     Packet* data = &Data();
-    if (!IsGameMemory((uint32_t)(uintptr_t)PlayerController, 0x1B0 + 32)) {
+    if (!IsGameMemory((uint32_t)(uintptr_t)PlayerController, 0x1B0 + 32))
+    {
         gCurrentPlayerController = nullptr;
         data->enabled = 0;
         data->rain = 0.0f;
@@ -144,7 +148,7 @@ void _0FIDrawRainP6LUStaticMeshP6PFLevelSceneNodeP6QFRenderInterfaceWrapper(void
         matrix.at.y *= fSpeedAdjuster;
         matrix.at.z *= fSpeedAdjuster;
 
-        console::droplets::Camera(*data,matrix);
+        console::droplets::Camera(*data, matrix);
         gFramesWithoutRain = 0;
     }
     gCurrentPlayerController = 0;
@@ -156,33 +160,45 @@ void _0fIUGUIPageEDrawP6HUCanvasWrapper(void* a1, int* a2)
     data->enabled = 0;
 }
 
-
-std::array<SafetyMipsMid,4> hooks;
+std::array<SafetyMipsMid, 4> hooks;
 }
-bool Essentials() {
-    uintptr_t tick=pattern.get(0,"F0 00 86 8C 88 00 C7 8C 00 41 07 00",-4);
-    uintptr_t draw=pattern.get(0,"B8 00 B4 AF ? ? ? ? ? ? ? ? AC 00 B1 AF C4 00 B7 AF",-4);
-    uintptr_t menu=pattern.get(0,"C0 00 86 8C 38 00 B1 AF 25 88 80 00 08 00 C4 30 28 00 B4 E7",-4);
-    uintptr_t phase=pattern.get(0,"5C 00 B2 AF 25 90 A0 00 18 00 A0 AF",-4);
-    p_FastTrace=pattern.get(0,"30 00 A0 AF 00 60 80 44 34 00 A0 AF 40 00 AC E7 44 00 AC E7 48 00 AC E7 25 40 C0 00",-4);
-    uintptr_t gu=pattern.get(0,"1C 00 B3 AF 20 00 43 34 ? ? ? ? 20 00 BF AF",-12);
-    if (!tick || !draw || !menu || !phase || !p_FastTrace || !gu) return false;
-    libguPacket=GetAbsoluteAddress(gu,0,0x14)+0x48;
-    if (!console::portable::Begin()) return false;
-    hooks[0]=safetymips::create_mid(tick,[](SafetyMipsContext& regs) {
-        _0fRAPlayerControllerETickf6KELevelTickWrapper(reinterpret_cast<void*>(uintptr_t(regs.a0)),int(regs.a1),float(regs.f12));
-    });
+bool Essentials()
+{
+    uintptr_t tick = pattern.get(0, "F0 00 86 8C 88 00 C7 8C 00 41 07 00", -4);
+    uintptr_t draw = pattern.get(0, "B8 00 B4 AF ? ? ? ? ? ? ? ? AC 00 B1 AF C4 00 B7 AF", -4);
+    uintptr_t menu = pattern.get(0, "C0 00 86 8C 38 00 B1 AF 25 88 80 00 08 00 C4 30 28 00 B4 E7", -4);
+    uintptr_t phase = pattern.get(0, "5C 00 B2 AF 25 90 A0 00 18 00 A0 AF", -4);
+    p_FastTrace = pattern.get(0, "30 00 A0 AF 00 60 80 44 34 00 A0 AF 40 00 AC E7 44 00 AC E7 48 00 AC E7 25 40 C0 00", -4);
+    uintptr_t gu = pattern.get(0, "1C 00 B3 AF 20 00 43 34 ? ? ? ? 20 00 BF AF", -12);
+    if (!tick || !draw || !menu || !phase || !p_FastTrace || !gu)
+        return false;
+    libguPacket = GetAbsoluteAddress(gu, 0, 0x14) + 0x48;
+    if (!console::portable::Begin())
+        return false;
+    hooks[0] = safetymips::create_mid(tick, [](SafetyMipsContext& regs)
+        {
+            _0fRAPlayerControllerETickf6KELevelTickWrapper(reinterpret_cast<void*>(uintptr_t(regs.a0)), int(regs.a1), float(regs.f12));
+        });
     // The tick callback calls AActor::FastTrace (game code) and keeps the full
     // VFPU save. The others use no VFPU; skipping its save also avoids restoring
     // prefix registers before returning to the game.
-    safetymips::Options scalar; scalar.preserve=PSP_HOOK_SAVE_FPU;
-    hooks[1]=safetymips::create_mid(draw,[](SafetyMipsContext& regs) {
-        _0FIDrawRainP6LUStaticMeshP6PFLevelSceneNodeP6QFRenderInterfaceWrapper(reinterpret_cast<void*>(uintptr_t(regs.a0)),int(regs.a1),int(regs.a2));
-    },scalar);
-    hooks[2]=safetymips::create_mid(menu,[](SafetyMipsContext& regs) {
-        _0fIUGUIPageEDrawP6HUCanvasWrapper(reinterpret_cast<void*>(uintptr_t(regs.a0)),reinterpret_cast<int*>(uintptr_t(regs.a1)));
-    },scalar);
-    hooks[3]=safetymips::create_mid(phase,[](SafetyMipsContext&) { Report(DisplayList()); },scalar);
-    return console::portable::Finish()==0;
+    safetymips::Options scalar;
+    scalar.preserve = PSP_HOOK_SAVE_FPU;
+    hooks[1] = safetymips::create_mid(draw, [](SafetyMipsContext& regs)
+        {
+            _0FIDrawRainP6LUStaticMeshP6PFLevelSceneNodeP6QFRenderInterfaceWrapper(reinterpret_cast<void*>(uintptr_t(regs.a0)), int(regs.a1), int(regs.a2));
+        },
+        scalar);
+    hooks[2] = safetymips::create_mid(menu, [](SafetyMipsContext& regs)
+        {
+            _0fIUGUIPageEDrawP6HUCanvasWrapper(reinterpret_cast<void*>(uintptr_t(regs.a0)), reinterpret_cast<int*>(uintptr_t(regs.a1)));
+        },
+        scalar);
+    hooks[3] = safetymips::create_mid(phase, [](SafetyMipsContext&)
+        {
+            Report(DisplayList());
+        },
+        scalar);
+    return console::portable::Finish() == 0;
 }
 }
