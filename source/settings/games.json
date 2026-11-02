@@ -110,6 +110,10 @@
     "games": [ { "name": "Mafia: Definitive Edition", "exe": [ "mafiadefinitiveedition.exe" ] } ],
     "exclude": [ "BONUS.EnableSnow", "SNOW.Size", "SNOW.Amount" ]
   },
+  "Mafia3DE.XboxRainDroplets": {
+    "games": [ { "name": "Mafia III: Definitive Edition", "exe": [ "mafia3definitiveedition.exe" ] } ],
+    "exclude": [ "BONUS.EnableSnow", "SNOW.Size", "SNOW.Amount" ]
+  },
   "Mafia2DE.XboxRainDroplets": {
     "games": [ { "name": "Mafia II: Definitive Edition", "exe": [ "pc/Mafia II Definitive Edition.exe" ] } ],
     "exclude": [ "BONUS.EnableSnow" ]
