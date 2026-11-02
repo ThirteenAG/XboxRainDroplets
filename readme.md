@@ -228,6 +228,10 @@ Every game has a release of its own, and its notes hold the installation steps o
 <td align="center" valign="middle"></td>
 </tr>
 <tr>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/mafia3de">Mafia III: Definitive Edition</a></td>
+<td align="center" valign="middle"></td>
+</tr>
+<tr>
 <td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/farcry">Far Cry</a></td>
 <td align="center" valign="middle"></td>
 </tr>

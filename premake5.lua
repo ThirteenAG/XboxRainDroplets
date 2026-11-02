@@ -271,6 +271,8 @@ project "MafiaDE.XboxRainDroplets"
    setpaths("MAFIA_DEFINITIVE_EDITION_DIR", "mafiadefinitiveedition.exe", "scripts/")
 project "Mafia2DE.XboxRainDroplets"
    setpaths("MAFIA_II_DEFINITIVE_EDITION_DIR", "pc/Mafia II Definitive Edition.exe", "pc/scripts/")
+project "Mafia3DE.XboxRainDroplets"
+   setpaths("MAFIA_III_DEFINITIVE_EDITION_DIR", "mafia3definitiveedition.exe", "scripts/")
 -- Far Cry is built for both architectures from the same source: the 64 bit project
 -- gets a folder of its own, so that the project files of the two do not overwrite each
 -- other, and a plugin whose name ends in 64, see WrapperSetup.
