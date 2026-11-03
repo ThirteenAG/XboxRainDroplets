@@ -576,12 +576,10 @@ void InitCrySystem()
 // C3DEngine::Draw, where its scene is rendered, whichever way it was (all of the
 // ways end in the same place, before the frame is captured to a file): the drops
 // go on the world there, before what is drawn over the world of the game after it.
-// The Far Cry Widescreen Fix draws there as well (its anti-aliasing, its gamma
-// and the borders of the cutscenes), from a hook of its own on the very same
-// place, which it finds by the code that is there. The place is found here by the
-// code before it, which neither hook changes, so the two find it in any order;
-// the fix loads first, and a hook made over its hook runs before it, so the drops
-// are drawn before its anti-aliasing, its gamma and its borders as well.
+// The Far Cry Fusion Fix draws there as well (its anti-aliasing, its gamma and
+// the borders of the cutscenes), from a hook of its own on the very same place.
+// Both find the place by the code before it, which neither hook changes, so the
+// two find it in any order.
 void Init3DEngine()
 {
     static std::once_flag flag;

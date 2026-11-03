@@ -76,6 +76,9 @@
     "games": [ { "name": "True Crime: New York City", "exe": [ "True Crime New York City.exe", "True Crime® New York City.exe" ] } ],
     "defaults": { "MAIN.SpeedAdjuster": 1.2, "MAIN.MoveStep": 0.03 }
   },
+  "TrueCrimeStreetsofLA.XboxRainDroplets": {
+    "games": [ { "name": "True Crime: Streets of LA", "exe": [ "TrueCrime.exe", "TrueCrime_.exe", "TrueCrimeMB.exe" ] } ]
+  },
   "KingKongGamersEdition.XboxRainDroplets": {
     "games": [ { "name": "Peter Jackson's King Kong Gamer's Edition", "exe": [ "KingKong8.exe" ], "launcher": [ "CheckApplication.exe" ] } ]
   },

@@ -757,8 +757,9 @@ namespace
         }
         D::pos = { D::pos.x + 5.0f * timeStep, 0.0f, D::pos.z };
         D::CalculateMovement();
-        // sideways to the way it looks, so half of it, see the facing in CalculateMovement
-        check(fabsf(D::ms_air[0] + 2.5f) < 0.01f && fabsf(D::ms_air[2]) < 0.01f, "and one that goes to the right has it come from the right, half of it");
+        // sideways to the way it looks, so all of it across the lens, see the
+        // facing in CalculateMovement
+        check(fabsf(D::ms_air[0] + 5.0f) < 0.01f && fabsf(D::ms_air[2]) < 0.01f, "and one that goes to the right has it come from the right, all of it");
 
         D::CalculateMovement();
         const float angle = 0.02f;
@@ -897,12 +898,21 @@ namespace
             }
             air(0.0f, 0.0f, 0.0f);
             int32_t slowBigMoved = 0, slowSmallMoved = 0;
+            float slowBigSum = 0.0f, slowSmallSum = 0.0f;
             for (size_t i = 0; i < slowBig.size(); i++)
+            {
                 slowBigMoved += fabsf(slowBig[i]->x - slowBigFrom[i]) > 0.5f ? 1 : 0;
+                slowBigSum += fabsf(slowBig[i]->x - slowBigFrom[i]);
+            }
             for (size_t i = 0; i < slowSmall.size(); i++)
+            {
                 slowSmallMoved += fabsf(slowSmall[i]->x - slowSmallFrom[i]) > 0.5f ? 1 : 0;
-            printf("[d3d11] a slow pan moved %d of 20 big drops and %d of 20 small ones\n", slowBigMoved, slowSmallMoved);
-            check(slowBigMoved > 15 && slowSmallMoved == 0, "and a slow pan moves the big drops and leaves the small ones");
+                slowSmallSum += fabsf(slowSmall[i]->x - slowSmallFrom[i]);
+            }
+            printf("[d3d11] a slow pan moved %d of 20 big drops %.1f px in all and %d of 20 small ones %.1f px in all\n",
+                slowBigMoved, slowBigSum, slowSmallMoved, slowSmallSum);
+            check(slowBigMoved > 15 && slowSmallSum < slowBigSum * 0.25f,
+                "and a slow pan moves the big drops, and the small ones a good deal less");
             check(bigMost > bigLeast * 1.5f, "and the big drops go each at a speed of their own, not as one sheet");
         }
 

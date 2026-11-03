@@ -393,6 +393,14 @@ jobs:
           tag: tcnyc
           bodyFile: .github/docs/tcnyc.md
           artifacts: bin/TrueCrimeNewYorkCity.XboxRainDroplets.zip
+      - name: TrueCrimeStreetsofLA.XboxRainDroplets
+        uses: ./.github/workflows/release_tag
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: tcla
+          bodyFile: .github/docs/tcla.md
+          artifacts: bin/TrueCrimeStreetsofLA.XboxRainDroplets.zip
       - name: KingKongGamersEdition.XboxRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)

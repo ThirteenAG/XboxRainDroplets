@@ -33,7 +33,10 @@ namespace Mafia3
     constexpr ptrdiff_t EntityWorld = 0x60;
 
     // The manager of the sound of the world, which knows of every place whether it
-    // is inside: IsInside(manager, position, for the camera).
+    // is inside: IsInside(manager, position, for the camera). For the camera it
+    // also asks the zones that move with the entities that carry them, the one
+    // of the inside of a car among them, which takes in the camera that follows
+    // the car; asked not for the camera, it asks the rooms of the level only.
     uint8_t** SoundManagers = nullptr;
     constexpr ptrdiff_t SoundManager = 0x8;
     constexpr size_t SoundIsInside = 25;
@@ -118,7 +121,7 @@ struct Frame
     uint8_t* target;
 };
 
-constexpr uint64_t Frames = 4;
+constexpr uint64_t Frames = 16;
 static Frame gFrames[Frames] = {};
 static uint64_t gFrameCount = 0;
 
@@ -182,12 +185,41 @@ namespace Game
             if (!manager)
                 return false;
             const float position[3] = { pos.x, pos.y, pos.z };
-            return Mafia3::Virtual<Mafia3::SoundIsInside, bool, const float*, bool>(manager, position, true);
+            return Mafia3::Virtual<Mafia3::SoundIsInside, bool, const float*, bool>(manager, position, false);
         }
         __except (EXCEPTION_EXECUTE_HANDLER)
         {
             return false;
         }
+    }
+}
+
+// The camera of the game, taken once a frame on the thread of the game, see
+// Cover::Tick, when the game has moved it: the frames recorded for the renderer
+// take it from here. Read where a frame is recorded, the camera may be the one of
+// another view of that frame, and the drops would see it jump from one frame to
+// the next.
+namespace Snapshot
+{
+    inline std::mutex mutex;
+    inline Frame camera = {};
+
+    inline void Take()
+    {
+        Frame frame = {};
+        frame.camera = Game::Camera(frame);
+        std::lock_guard lock(mutex);
+        camera = frame;
+    }
+
+    inline void Into(Frame& frame)
+    {
+        std::lock_guard lock(mutex);
+        frame.right = camera.right;
+        frame.at = camera.at;
+        frame.up = camera.up;
+        frame.pos = camera.pos;
+        frame.camera = camera.camera;
     }
 }
 
@@ -199,22 +231,43 @@ namespace Game
 namespace Cover
 {
     constexpr ULONGLONG Interval = 200;
+    // how long the physics is gone for a level that loads anew, in milliseconds
+    constexpr ULONGLONG WorldGone = 250;
     constexpr float Height = 40.0f;
     // the ray starts this much over the camera, out of what the camera is in
     constexpr float Start = 0.05f;
 
     inline std::atomic<bool> covered = false;
+    // Whether the cover of the lens is known: not before the game is first asked
+    // after a level started, and until then the lens counts as covered, so no rain
+    // lands on a camera that starts inside.
+    inline std::atomic<bool> known = false;
     // for the log of DebugLog
     inline std::atomic<bool> inside = false, roof = false;
+    inline std::atomic<int> ticks = 0, worldChanges = 0;
     inline ULONGLONG last = 0;
 
-    static bool Roof(const RwV3d& pos)
+    // the scene of the physics of the world, which a level that loads (a mission
+    // restarted, a save loaded) makes anew, null in the menus and while it loads
+    static uint8_t** Scene()
     {
         __try
         {
             auto* game = Mafia3::Physics ? *Mafia3::Physics : nullptr;
             auto* world = game ? *reinterpret_cast<uint8_t**>(game + Mafia3::PhysicsWorld) : nullptr;
-            auto** scene = world ? *reinterpret_cast<uint8_t***>(world + Mafia3::WorldScene) : nullptr;
+            return world ? *reinterpret_cast<uint8_t***>(world + Mafia3::WorldScene) : nullptr;
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER)
+        {
+            return nullptr;
+        }
+    }
+
+    static bool Roof(const RwV3d& pos)
+    {
+        __try
+        {
+            auto** scene = Scene();
             if (!Mafia3::RayHitsAny || !scene || !*scene)
                 return false;
 
@@ -234,24 +287,53 @@ namespace Cover
         }
     }
 
+    void WorldChanged();
+
     // once a frame, on the thread of the game
     inline void Tick()
     {
+        ticks++;
+        Snapshot::Take();
         const ULONGLONG now = GetTickCount64();
+
+        // A level that loads has no physics for a while (a mission restarted, a
+        // save loaded): one that is there again after that is another world, and
+        // nothing of the one before holds any more.
+        static ULONGLONG gone = 0;
+        auto** scene = Scene();
+        const bool present = scene && *scene;
+        if (!present)
+        {
+            if (!gone)
+                gone = now;
+            return;
+        }
+        if (gone)
+        {
+            const bool reloaded = now - gone >= WorldGone;
+            gone = 0;
+            if (reloaded)
+            {
+                worldChanges++;
+                known = false;
+                covered = inside = roof = false;
+                last = 0;
+                WorldChanged();
+            }
+        }
+
         if (now - last < Interval)
             return;
         last = now;
 
         Frame frame;
         if (!Game::Camera(frame))
-        {
-            covered = false;
             return;
-        }
 
         inside = Game::Inside(frame.pos);
         roof = Roof(frame.pos);
         covered = inside || roof;
+        known = true;
     }
 }
 
@@ -429,8 +511,12 @@ namespace Diagnostics
 {
     inline int stages = 0, callbacks = 0, draws = 0;
     inline const char* stopped = "";
+    // the texture the drops were drawn into last
+    inline uint8_t* drawnTarget = nullptr;
+    // HUD stages of textures that are not the screen, see ScreenSized
+    inline int otherTargets = 0;
 
-    inline void Write(const Frame& frame, bool covered)
+    inline void Write(const Frame& frame, bool covered, float rain)
     {
         static LARGE_INTEGER last = {};
         LARGE_INTEGER now, frequency;
@@ -445,16 +531,16 @@ namespace Diagnostics
 
         if (FILE* f = _wfopen(WaterDrops::ms_debugLogPath.c_str(), L"a"))
         {
-            fprintf(f, "mafia3: found weather %d cameras %d sound %d stages %d callbacks %d draws %d stopped '%s' rain %.3f covered %d camera %d %.1f %.1f %.1f target %p drops %d water %.3f inside %d roof %d\n",
+            fprintf(f, "mafia3: found weather %d cameras %d sound %d stages %d callbacks %d draws %d stopped '%s' rain %.3f (game %.3f) covered %d known %d camera %d %.1f %.1f %.1f target %p drawn %p drops %d water %.3f inside %d roof %d ticks %d reloads %d other targets %d\n",
                 Mafia3::Environment != nullptr, Mafia3::CameraManager != nullptr, Mafia3::SoundManagers != nullptr,
-                stages, callbacks, draws, stopped, frame.rain, covered, frame.camera,
-                frame.pos.x, frame.pos.y, frame.pos.z, frame.target, WaterDrops::ms_numDrops, frame.water,
-                (bool)Cover::inside, (bool)Cover::roof);
+                stages, callbacks, draws, stopped, frame.rain, rain, covered, (bool)Cover::known, frame.camera,
+                frame.pos.x, frame.pos.y, frame.pos.z, frame.target, drawnTarget, WaterDrops::ms_numDrops, frame.water,
+                (bool)Cover::inside, (bool)Cover::roof, Cover::ticks.exchange(0), (int)Cover::worldChanges, otherTargets);
             Water::WriteNearby(f);
             fclose(f);
         }
 
-        stages = callbacks = draws = 0;
+        stages = callbacks = draws = otherTargets = 0;
         stopped = "";
     }
 }
@@ -464,6 +550,32 @@ namespace Diagnostics
 // more than once in a frame.
 static IDXGISwapChain* gSwapChain = nullptr;
 static bool gDrawnThisFrame = false;
+
+// A level that loads anew, see Cover::Tick: the water of its effects goes, and
+// the drops and the movement of the camera start again with the next frame drawn.
+static std::atomic<bool> gWorldChanged = false;
+
+void Cover::WorldChanged()
+{
+    {
+        std::lock_guard lock(Water::mutex);
+        Water::count = 0;
+        Water::nearbyCount = 0;
+    }
+    gWorldChanged = true;
+}
+
+static void StartAgain(const Frame& frame)
+{
+    WaterDrops::Clear();
+    WaterDrops::ms_air[0] = WaterDrops::ms_air[1] = WaterDrops::ms_air[2] = 0.0f;
+    WaterDrops::ms_lookAir[0] = WaterDrops::ms_lookAir[1] = 0.0f;
+    WaterDrops::ms_travelAir[0] = WaterDrops::ms_travelAir[1] = 0.0f;
+    WaterDrops::ms_forwardSpeed = 0.0f;
+    WaterDrops::ms_haveLastFwd = false;
+    if (frame.camera)
+        WaterDrops::ms_lastPos = frame.pos;
+}
 
 // The view the drops draw into, made for the texture the HUD is drawn into, and
 // kept: it holds the texture, so it goes before the swap chain is resized.
@@ -538,6 +650,24 @@ static ID3D11RenderTargetView* ViewOf(uint8_t* target)
     return gTargetView;
 }
 
+// Whether a texture of the HUD stage is the picture of the screen: in a car the
+// stage comes a second time in some frames, for a view of its own drawn into a
+// texture of another size, and the effect, measured against the size of what it
+// draws into, would start over at every change and its drops would be gone.
+// Without a swap chain or a texture to compare, any texture is taken.
+static bool ScreenSized(uint8_t* target)
+{
+    auto* texture = target ? TextureOf(target) : nullptr;
+    if (!texture || !gSwapChain)
+        return true;
+    DXGI_SWAP_CHAIN_DESC chain = {};
+    if (FAILED(gSwapChain->GetDesc(&chain)) || !chain.BufferDesc.Width || !chain.BufferDesc.Height)
+        return true;
+    D3D11_TEXTURE2D_DESC desc = {};
+    texture->GetDesc(&desc);
+    return desc.Width == chain.BufferDesc.Width && desc.Height == chain.BufferDesc.Height;
+}
+
 // The drops of a frame, drawn into the texture the HUD is about to be drawn into,
 // over the world and its post processing and under the HUD and the menus.
 static void DrawDrops(const Frame& frame)
@@ -545,9 +675,22 @@ static void DrawDrops(const Frame& frame)
     Diagnostics::callbacks++;
     if (gDrawnThisFrame)
         return;
+
+    // Only the picture of the screen, unless none has come for a while: a game
+    // that draws its HUD into a texture of another size still gets its drops.
+    static int otherTargets = 0;
+    if (!ScreenSized(frame.target) && ++otherTargets < 120)
+    {
+        Diagnostics::otherTargets++;
+        return;
+    }
+    otherTargets = 0;
     gDrawnThisFrame = true;
 
     std::lock_guard lock(gTargetMutex);
+
+    if (gWorldChanged.exchange(false))
+        StartAgain(frame);
 
     if (!gSwapChain || !frame.camera)
     {
@@ -576,6 +719,7 @@ static void DrawDrops(const Frame& frame)
     WaterDrops::pos = frame.pos;
     gCameraPos = frame.pos;
     WaterDrops::ms_rainIntensity = frame.rain;
+    Diagnostics::drawnTarget = frame.target;
 
     Xrd::RenderTarget renderTarget{};
     renderTarget.resource = target;
@@ -619,11 +763,12 @@ static uintptr_t Extensions(uint8_t* renderer, void* view, void* extensions, int
         const uint64_t number = gFrameCount++;
         Frame& frame = gFrames[number % Frames];
         frame.target = target;
-        frame.camera = Game::Camera(frame);
-        const bool covered = frame.camera && Cover::covered;
-        frame.rain = covered ? 0.0f : Game::Rain();
+        Snapshot::Into(frame);
+        const bool covered = frame.camera && (Cover::covered || !Cover::known);
+        const float rain = Game::Rain();
+        frame.rain = covered ? 0.0f : rain;
         frame.water = frame.camera ? Water::Wetness(frame.pos) : 0.0f;
-        Diagnostics::Write(frame, covered);
+        Diagnostics::Write(frame, covered, rain);
 
         auto* state = *reinterpret_cast<uint8_t**>(renderer + Mafia3::RendererState);
         auto* context = state ? *reinterpret_cast<void**>(state) : nullptr;
@@ -706,6 +851,8 @@ void Init()
     // The context that plays the stream presents the frame: its swap chain is the
     // one the drops are drawn with, and the next frame may draw them again.
     pattern = hook::pattern("44 89 4C 24 20 4C 89 44 24 18 53 57 41 54 48 83 EC 70 48 8B D9 41 8B F9 48 8B 89 E8 82 03 00");
+    if (pattern.empty()) // GOG
+        pattern = hook::pattern("44 89 4C 24 20 4C 89 44 24 18 53 55 41 54 41 56 48 83 EC 68 48 8B D9 41 8B E9 48 8B 89 E8 82 03 00");
     if (!pattern.empty())
     {
         static auto PresentHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& ctx)
