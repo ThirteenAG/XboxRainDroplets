@@ -538,10 +538,14 @@ public:
     // A drop sits on the glass by the edge of it, and a turn of the camera has
     // to tear it off before it moves: the air of a turn, in units of the game a
     // second, that a drop of MaxSize holds against, and the hold of a smaller
-    // drop is larger by as much as it is smaller. So a quick turn moves every
-    // drop, the small ones slower, and a slow pan only the big ones. Every drop
-    // is held a little more or less than that, by LookGripSpread each way, so
-    // the drops of one size do not set off, nor stop, all at once.
+    // drop is larger by as much as it is smaller. The hold gives way gradually,
+    // the glass is never quite even: a turn as strong as the hold moves a drop
+    // with half of it, a weaker one with little and a stronger one with almost
+    // all of what is over the hold. So a quick turn moves every drop, the small
+    // ones slower, and a slow pan the big ones and the others a little, never
+    // with a jolt. Every drop is held a little more or less than that, by
+    // LookGripSpread each way, so the drops of one size do not set off, nor
+    // stop, all at once.
     static constexpr float LookGrip = 10.0f;
     static constexpr float LookGripSpread = 0.4f;
     // The way a shoved drop goes is the way of the shove, give or take this
@@ -1060,17 +1064,21 @@ public:
             const float forward = RwV3dDotProduct(&fwd, &ms_posDelta) / dt;
 
             // The air is scaled by how much the camera faces the way it goes:
-            // all of it looking ahead, half looking out to the side and none
-            // looking back, so a camera that looks back or backs up has no air
-            // come at its lens.
+            // the air that comes at the lens head on all of it looking ahead,
+            // half looking out to the side and none looking back, so a camera
+            // that looks back or backs up has no air come at its lens. The air
+            // that goes across the lens goes across it in full, looking ahead
+            // or out to the side: the camera of a car that looks out of its side
+            // window has the rain blown sideways over its lens.
             const float travel = sqrtf(side * side + lift * lift + forward * forward);
 
             // a cut of the camera is no travel, see CutSpeed
             const bool cut = !(travel < CutSpeed);
             const float facing = travel > 0.001f ? (forward / travel + 1.0f) * 0.5f : 1.0f;
+            const float across = travel > 0.001f ? std::clamp(forward / travel + 1.0f, 0.0f, 1.0f) : 1.0f;
 
-            float airX = -side * facing;
-            float airY = -lift * facing;
+            float airX = -side * across;
+            float airY = -lift * across;
             float airZ = -forward * facing;
 
             // how far the push out of the middle is grown, see PushStartSpeed: by
@@ -1435,13 +1443,23 @@ public:
     // the end of the piece it left before to here, so the pieces are one band
     // with no seams; the band fades in from its first piece. Otherwise it is a
     // small drop of the colour and the shape of the drop.
+    // how wide the band of water a drop leaves is where it is now
+    static inline float RibbonSize(const WaterDrop* drop)
+    {
+        return (std::max)(2.0f * Scale(),
+            (std::min)(drop->size * TrailWidthShare, TrailWidest * (float)SC(MaxSize)) * TrailSwell(drop, drop->meander));
+    }
+
     static inline void NewTrace(WaterDrop* drop, float x, float y, float velocityX, float velocityY, float segment)
     {
         const bool ribbon = TrailRibbons();
-        const float size = ribbon ? (std::max)(2.0f * Scale(),
-            (std::min)(drop->size * TrailWidthShare, TrailWidest * (float)SC(MaxSize)) * TrailSwell(drop, drop->meander))
-            : (std::max)((float)SC(MinSize), drop->size * TraceShare);
-        auto* trace = PlaceNew(x, y, size, drop->traceTtl, true, drop->r, drop->g, drop->b, true);
+        const float size = ribbon ? RibbonSize(drop) : (std::max)((float)SC(MinSize), drop->size * TraceShare);
+        // The water fades with the drop that left it, and is gone at the latest
+        // when that drop is: it is handed the clearness of the drop, so fading
+        // over what is left of the life of the drop it is exactly as clear as the
+        // drop all along. A trail never stays on the glass without its drop.
+        const float left = drop->fades ? (std::max)(drop->ttl - drop->time, 1.0f) : drop->traceTtl;
+        auto* trace = PlaceNew(x, y, size, (std::min)(drop->traceTtl, left), true, drop->r, drop->g, drop->b, true);
 
         // the band breaks where a piece of it found no place in the pool
         if (!trace)
@@ -1602,8 +1620,9 @@ public:
             const float lookX = ms_lookAir[0] != 0.0f ? ms_air[0] : 0.0f;
             const float lookY = ms_lookAir[1] != 0.0f ? ms_air[1] : 0.0f;
             const float look = sqrtf(lookX * lookX + lookY * lookY);
-            const float left = (std::max)(0.0f, look - LookGrip * drop->grip / rel);
-            const float share = look > 0.0f ? left / look : 0.0f;
+            const float hold = LookGrip * drop->grip / rel;
+            const float share = look > 0.0f ? look * look / (look * look + hold * hold) : 0.0f;
+            const float left = look * share;
             // and what the glass holds back of the turn never takes away the
             // air of the travel of the camera, which the turn stood in for
             if (ms_lookAir[0] != 0.0f)
@@ -1659,12 +1678,13 @@ public:
         // glass holds it again
         const bool shovedWater = drop->shoved && sideways > ShovedTrailSpeed * Scale() &&
             drop->size > TrailSmallest * (float)SC(MinSize);
-        const bool leaves = shovedWater || (drop->trail && (sideways > TrailSpeed * Scale() || drop->fall > 0.0f));
-        // the last piece of its water gets older, and a drop that stops leaving
-        // water starts a new band when it leaves some again
+        // And a drop that left water leaves water for as long as it runs on, however
+        // slowly and however small it got: what a drop of water runs over it wets,
+        // so its trail stays on it and never ends somewhere the drop has left.
+        const bool leaves = shovedWater || (drop->trail && (sideways > TrailSpeed * Scale() || drop->fall > 0.0f)) ||
+            drop->linked;
+        // the last piece of its water gets older
         drop->linkAge += dt;
-        if (!leaves)
-            drop->linked = false;
 
         // and a drop that leaves water wanders from side to side as it runs, see
         // Meander
@@ -2798,6 +2818,32 @@ public:
             return;
         }
 
+        // The band of water a drop is leaving runs from the last piece of it right
+        // up to the drop, wherever the drop got to since that piece: the drop is
+        // never apart from its trail, not even where a piece found no place in
+        // the pool. It is drawn under the drop, which sits on the end of it.
+        if (drop->linked && !drop->isTrace && TrailRibbons())
+        {
+            const float ax = drop->x - drop->linkX, ay = drop->y - drop->linkY;
+            const float gap = sqrtf(ax * ax + ay * ay);
+            if (gap > 0.5f && std::isfinite(gap))
+            {
+                const auto fadeIn = [&](float run)
+                {
+                    const float f = std::clamp(run / (TrailFadeIn * (std::max)(drop->size, 1.0f)), 0.0f, 1.0f);
+                    return f * f * (3.0f - 2.0f * f);
+                };
+                const float speed = sqrtf(drop->shapeX * drop->shapeX + drop->shapeY * drop->shapeY);
+                AddRibbonQuad(drop->linkX, drop->linkY, drop->linkAngle,
+                    TrailWidthAt(drop->linkAge, drop->linkSpeed, drop->linkSize, drop->linkHead),
+                    Xrd::ColorARGB((uint8_t)(drop->alpha * fadeIn(drop->linkRun)), drop->r, drop->g, drop->b),
+                    drop->x, drop->y, atan2f(ay, ax), TrailWidthAt(0.0f, speed, RibbonSize(drop), drop->size),
+                    Xrd::ColorARGB((uint8_t)(drop->alpha * fadeIn(drop->linkRun + gap)), drop->r, drop->g, drop->b),
+                    IsLens(drop));
+                ms_numBatchedDrops++;
+            }
+        }
+
         AddDropQuad(drop->x, drop->y, DrawnSize(drop), drop->uvsize,
             Xrd::ColorARGB(drop->alpha, drop->r, drop->g, drop->b), drop->uv_index, IsLens(drop),
             drop->rotation, drop->shapeX, drop->shapeY);
@@ -2858,7 +2904,10 @@ public:
         // sharply, see SnowRefraction.
         Xrd::SetSceneBlur(bEnableSnow ? 0.0f : fDropBlur, ms_atlasUsed ? (float)AtlasTiles : 1.0f,
             bEnableSnow ? SnowRefraction : Refraction, (float)ms_maskSize);
-        Xrd::Render(ms_vertices.data(), (int32_t)ms_vertices.size(), Xrd::PRIMITIVE_TRIANGLES);
+        // A drop and the water between it and its trail are two quads, see
+        // AddToRenderList, which a pool of the most drops there may be could
+        // take past the vertex buffer of the backend: what is past it is left out.
+        Xrd::Render(ms_vertices.data(), (int32_t)(std::min)(ms_vertices.size(), (size_t)MaxQuads * 4), Xrd::PRIMITIVE_TRIANGLES);
     }
 };
 

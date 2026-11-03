@@ -40,6 +40,7 @@ GTASADE.XboxRainDroplets
 GTAVCDE.XboxRainDroplets
 GTA3DE.XboxRainDroplets
 TrueCrimeNewYorkCity.XboxRainDroplets
+TrueCrimeStreetsofLA.XboxRainDroplets
 KingKongGamersEdition.XboxRainDroplets
 SR2.XboxRainDroplets
 MafiaDE.XboxRainDroplets
