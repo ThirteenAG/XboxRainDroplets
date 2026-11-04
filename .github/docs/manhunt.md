@@ -10,7 +10,7 @@
 
 ## Installation
 
-1. Download and install the [Manhunt Widescreen Fix](https://fusionfix.io/wfp#manhunt) - it includes the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
+1. Download and install the [Manhunt Fusion Fix](https://fusionfix.io/wfp#manhunt) - it includes the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
 2. Download [Xbox Rain Droplets for Manhunt](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/manhunt/Manhunt.XboxRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
 3. Launch the game - the drops of the effect are visible while it rains.
 

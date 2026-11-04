@@ -10,7 +10,7 @@
 
 ## Installation
 
-1. Download and install the [Driv3r Widescreen Fix](https://fusionfix.io/wfp#driv3r) - it includes the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
+1. Download and install the [Driv3r Fusion Fix](https://fusionfix.io/wfp#driv3r) - it includes the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
 2. Download [Xbox Rain Droplets for Driv3r](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/driv3r/Driv3r.XboxRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
 3. Launch the game - the drops of the effect are visible while it rains.
 
