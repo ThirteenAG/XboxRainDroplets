@@ -10,7 +10,7 @@
 
 ## Installation
 
-1. Download and install the [Splinter Cell: Double Agent Widescreen Fix](https://fusionfix.io/wfp#scda), or the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
+1. Download and install the [Splinter Cell: Double Agent Fusion Fix](https://fusionfix.io/wfp#scda), or the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
 2. Download [Xbox Rain Droplets for Splinter Cell Double Agent](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/scda/SplinterCellDoubleAgent.XboxRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
 3. Launch the game - the drops of the effect are visible while it rains.
 

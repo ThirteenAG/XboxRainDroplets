@@ -12,7 +12,7 @@
 
 ## Installation
 
-1. Download and install the [Max Payne 2 Widescreen Fix](https://fusionfix.io/wfp#mp2) - it includes the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
+1. Download and install the [Max Payne 2 Fusion Fix](https://fusionfix.io/wfp#mp2) - it includes the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
 2. Download [Xbox Rain Droplets for Max Payne 2](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/maxpayne2/MaxPayne2.XboxRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
 3. Launch the game - the drops of the effect are visible while it rains.
 

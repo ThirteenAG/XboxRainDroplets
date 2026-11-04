@@ -216,7 +216,7 @@ Every game has a release of its own, and its notes hold the installation steps o
 <td align="center" valign="middle"><img src="https://github.com/user-attachments/assets/b96cbf26-ea47-4d6c-84d8-17e020d97260" width="320" alt="True Crime: New York City"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/tcla">True Crime: Streets of LA</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/truecrimesola">True Crime: Streets of LA</a></td>
 <td align="center" valign="middle"></td>
 </tr>
 <tr>
@@ -278,7 +278,7 @@ Direct3D 8 games automatically use the Direct3D 9 droplet renderer when a wrappe
 
 ## Configuration
 
-Every plugin describes its settings with [ASI Settings](https://github.com/ThirteenAG/Ultimate-ASI-Loader/tree/master/settings) and keeps them in a `.cfg` next to itself, which it writes on its first start (the old `.ini` files are no longer read). Change them on [fusionfix.io](https://fusionfix.io), in FusionFixHub, or in the game with a fix that shows other plugins' settings: Fusion Fix in GTA IV and Max Payne 3 (its menu and the Ctrl+F10 overlay) and the Widescreen Fix of NFS Underground. Changes apply while the game runs, the file is read again whenever it is written to. The `Rain droplets` setting turns the effect off, which is also what the Vanilla preset does.
+Every plugin describes its settings with [ASI Settings](https://github.com/ThirteenAG/Ultimate-ASI-Loader/tree/master/settings) and keeps them in a `.cfg` next to itself, which it writes on its first start (the old `.ini` files are no longer read). Change them on [fusionfix.io](https://fusionfix.io), in FusionFixHub, or in the game with a fix that shows other plugins' settings: Fusion Fix in GTA IV and Max Payne 3 (its menu and the Ctrl+F10 overlay) and the Fusion Fix of NFS Underground. Changes apply while the game runs, the file is read again whenever it is written to. The `Rain droplets` setting turns the effect off, which is also what the Vanilla preset does.
 
 The description every plugin shares is `source/settings/XboxRainDroplets.json`; `source/settings/games.json` adds each plugin's games, the settings only some games have and its own defaults, and `tools/BuildSettings.ps1` merges them into `build/settings/<plugin>.json` before the plugin is built. The texts are in `source/settings/text`, one file per language. The `XboxRainDropletsTools` solution builds `asi-settings-validate`, which the build then runs on every description.
 

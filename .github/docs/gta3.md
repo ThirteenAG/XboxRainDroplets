@@ -10,7 +10,7 @@
 
 ## Installation
 
-1. Download and install the [GTA III Widescreen Fix](https://fusionfix.io/wfp#gta3) - it includes the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader) - or install the ASI Loader on its own.
+1. Download and install the [GTA III Fusion Fix](https://fusionfix.io/wfp#gta3) - it includes the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader) - or install the ASI Loader on its own.
 2. Download [Xbox Rain Droplets for GTA III](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/gta3/GTA3.XboxRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
 3. Launch the game - the drops of the effect are visible while it rains.
 

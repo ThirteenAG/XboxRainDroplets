@@ -10,7 +10,7 @@
 
 ## Installation
 
-1. Download and install the [GTA San Andreas Widescreen Fix](https://fusionfix.io/wfp#gtasa) - it includes the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader) - or install the ASI Loader on its own.
+1. Download and install the [GTA San Andreas Fusion Fix](https://fusionfix.io/wfp#gtasa) - it includes the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader) - or install the ASI Loader on its own.
 2. Download [Xbox Rain Droplets for GTA San Andreas](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/gtasa/GTASA.XboxRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
 3. Launch the game - the drops of the effect are visible while it rains.
 

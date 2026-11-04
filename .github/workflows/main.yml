@@ -398,8 +398,8 @@ jobs:
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: tcla
-          bodyFile: .github/docs/tcla.md
+          tag: truecrimesola
+          bodyFile: .github/docs/truecrimesola.md
           artifacts: bin/TrueCrimeStreetsofLA.XboxRainDroplets.zip
       - name: KingKongGamersEdition.XboxRainDroplets
         uses: ./.github/workflows/release_tag

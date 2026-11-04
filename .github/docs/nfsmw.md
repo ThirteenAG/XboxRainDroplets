@@ -10,7 +10,7 @@
 
 ## Installation
 
-1. Download and install the [NFS Most Wanted Widescreen Fix](https://fusionfix.io/wfp#nfsmw) - it includes the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
+1. Download and install the [NFS Most Wanted Fusion Fix](https://fusionfix.io/wfp#nfsmw) - it includes the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
 2. Download [Xbox Rain Droplets for NFS Most Wanted](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/nfsmw/NFSMostWanted.XboxRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
 3. Launch the game - the drops of the effect are visible while it rains.
 
