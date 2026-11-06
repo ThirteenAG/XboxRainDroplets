@@ -40,16 +40,14 @@ namespace Xrd
                 pSwapChain->GetDevice(__uuidof(ID3D11Device), (void**)&pDevice);
 
                 // The frame that is presented is the back buffer of the swap
-                // chain, so it is kept: an application that unbinds its render
-                // target before it presents leaves nothing else behind.
+                // chain, so it is remembered: an application that unbinds its render
+                // target before it presents leaves nothing else behind. No reference
+                // is kept: the application can't make a new one for its window while
+                // the old one lives on.
                 if (pDevice)
-                {
                     this->pSwapChain = pSwapChain;
-                }
-                else
-                {
-                    pSwapChain->Release();
-                }
+
+                pSwapChain->Release();
             }
             else if (SUCCEEDED(pUnknown->QueryInterface(__uuidof(ID3D11Device), (void**)&pDevice)))
             {
@@ -101,7 +99,7 @@ namespace Xrd
                 return true;
 
             // the swap chain of the game is what an application hands over, and it
-            // is the one that was kept
+            // is the one that was remembered
             if (reinterpret_cast<void*>(pSwapChain) == pNative)
                 return true;
 
@@ -127,20 +125,8 @@ namespace Xrd
             if (pNewDevice)
                 pNewDevice->Release();
 
-            if (pNew != pSwapChain)
-            {
-                // the cached back buffer belongs to the chain that is gone
-                ReleaseBackBuffer();
-
-                if (pSwapChain)
-                    pSwapChain->Release();
-
-                pSwapChain = pNew;
-            }
-            else
-            {
-                pNew->Release();
-            }
+            pSwapChain = pNew;
+            pNew->Release();
 
             return true;
         }
@@ -569,35 +555,16 @@ namespace Xrd
             if (FAILED(pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&pCurrent)) || !pCurrent)
                 return;
 
-            D3D11Backend* pThis = const_cast<D3D11Backend*>(this);
-
-            if (pCurrent != pBackBuffer)
+            // Both go with the frame: a reference kept to the back buffer would keep the swap chain alive
+            ID3D11RenderTargetView* pView = nullptr;
+            if (SUCCEEDED(pDevice->CreateRenderTargetView(pCurrent, nullptr, &pView)) && pView)
             {
-                if (pThis->pBackBufferView)
-                {
-                    pThis->pBackBufferView->Release();
-                    pThis->pBackBufferView = nullptr;
-                }
-
-                if (pThis->pBackBuffer)
-                    pThis->pBackBuffer->Release();
-
-                pThis->pBackBuffer = pCurrent;
-                pCurrent->AddRef();
-
-                pDevice->CreateRenderTargetView(pCurrent, nullptr, &pThis->pBackBufferView);
+                *ppTarget = pView;
+                *ppResource = pCurrent;
+                return;
             }
 
             pCurrent->Release();
-
-            if (pThis->pBackBufferView)
-            {
-                pThis->pBackBufferView->AddRef();
-                *ppTarget = pThis->pBackBufferView;
-
-                pThis->pBackBuffer->AddRef();
-                *ppResource = pThis->pBackBuffer;
-            }
         }
 
         bool EnsureDeviceObjects()
@@ -869,18 +836,11 @@ namespace Xrd
             sceneMips = false;
         }
 
-        void ReleaseBackBuffer()
-        {
-            if (pBackBufferView) { pBackBufferView->Release(); pBackBufferView = nullptr; }
-            if (pBackBuffer) { pBackBuffer->Release(); pBackBuffer = nullptr; }
-        }
-
         void ReleaseResources()
         {
             ReleaseSceneTexture();
 
-            ReleaseBackBuffer();
-            if (pSwapChain) { pSwapChain->Release(); pSwapChain = nullptr; }
+            pSwapChain = nullptr;
 
             if (pVertexShader) { pVertexShader->Release(); pVertexShader = nullptr; }
             if (pPixelShader) { pPixelShader->Release(); pPixelShader = nullptr; }
@@ -1036,8 +996,6 @@ namespace Xrd
         ID3D11DeviceContext* pContext = nullptr;
 
         IDXGISwapChain* pSwapChain = nullptr;
-        ID3D11Texture2D* pBackBuffer = nullptr;
-        ID3D11RenderTargetView* pBackBufferView = nullptr;
         bool presentedTarget = false;
 
         ID3D11VertexShader* pVertexShader = nullptr;
