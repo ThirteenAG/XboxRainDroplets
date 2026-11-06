@@ -42,9 +42,10 @@ namespace Xrd
             if (SUCCEEDED(pUnknown->QueryInterface(__uuidof(IDXGISwapChain), (void**)&pSwapChain)) && pSwapChain)
             {
                 // the swap chain is the only way to the back buffer of the frame
-                // that is being presented
-                if (!pSwapChain3)
-                    pSwapChain->QueryInterface(__uuidof(IDXGISwapChain3), (void**)&pSwapChain3);
+                // that is being presented. No reference is kept: the application
+                // can't make a new one for its window while the old one lives on.
+                if (!pSwapChain3 && SUCCEEDED(pSwapChain->QueryInterface(__uuidof(IDXGISwapChain3), (void**)&pSwapChain3)) && pSwapChain3)
+                    pSwapChain3->Release();
 
                 if (!pCommandQueue)
                 {
@@ -98,7 +99,7 @@ namespace Xrd
             }
 
             if (pCommandQueue) { pCommandQueue->Release(); pCommandQueue = nullptr; }
-            if (pSwapChain3) { pSwapChain3->Release(); pSwapChain3 = nullptr; }
+            pSwapChain3 = nullptr;
             if (pDevice) { pDevice->Release(); pDevice = nullptr; }
         }
 
@@ -140,22 +141,16 @@ namespace Xrd
                 pNewDevice->Release();
 
             IDXGISwapChain3* pNewSwapChain3 = nullptr;
-            pSwapChain->QueryInterface(__uuidof(IDXGISwapChain3), (void**)&pNewSwapChain3);
+            if (SUCCEEDED(pSwapChain->QueryInterface(__uuidof(IDXGISwapChain3), (void**)&pNewSwapChain3)) && pNewSwapChain3)
+                pNewSwapChain3->Release();
             pSwapChain->Release();
 
             if (pNewSwapChain3 != pSwapChain3)
             {
-                if (pSwapChain3)
-                    pSwapChain3->Release();
-
                 pSwapChain3 = pNewSwapChain3;
 
                 // the resources were sized after the back buffer of the old chain
                 ReleaseResources();
-            }
-            else if (pNewSwapChain3)
-            {
-                pNewSwapChain3->Release();
             }
 
             return true;
