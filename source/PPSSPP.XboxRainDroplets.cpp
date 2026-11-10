@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Xbox Rain Droplets for PPSSPP.
+// Fusion Rain Droplets for PPSSPP.
 //
 // There are two ways in, and the plugin takes whichever the emulator it was
 // loaded into offers:
@@ -775,6 +775,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
     static std::once_flag flag;
     std::call_once(flag, []()
     {
+        RegisterOldPluginCheck();
         // The frame the drops are drawn into here was made by the emulator out of
         // the frame of another machine, and it is handed over in the middle of its
         // own frame. A drop of clear water that gathers the light of what is

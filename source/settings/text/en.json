@@ -1,6 +1,6 @@
 {
-  "plugin.name": "Xbox Rain Droplets",
-  "page.droplets": "Xbox Rain Droplets",
+  "plugin.name": "Fusion Rain Droplets",
+  "page.droplets": "Fusion Rain Droplets",
   "enabled": "Rain droplets",
   "enabled.description": "Rain, water and blood drops on the screen, as in the Xbox versions of these games. Off: the game's original look.",
   "minsize": "Minimum drop size",

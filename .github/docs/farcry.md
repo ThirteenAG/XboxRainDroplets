@@ -1,6 +1,6 @@
 <div align="center">
 
-[Download](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/farcry/FarCry.XboxRainDroplets.zip) · [Download x64](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/farcry/FarCry.XboxRainDroplets64.zip) · [Source Code](https://github.com/ThirteenAG/XboxRainDroplets/blob/master/source/FarCry.XboxRainDroplets.cpp)
+[Download](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/farcry/FarCry.FusionRainDroplets.zip) · [Download x64](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/farcry/FarCry.FusionRainDroplets64.zip) · [Source Code](https://github.com/ThirteenAG/FusionRainDroplets/blob/master/source/FarCry.XboxRainDroplets.cpp)
 
 </div>
 
@@ -9,8 +9,10 @@
 ## Installation
 
 1. Download and install the [Far Cry Fusion Fix](https://fusionfix.io/wfp#farcry), or the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
-2. Download [Xbox Rain Droplets for Far Cry](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/farcry/FarCry.XboxRainDroplets.zip) and put the `.asi` file into the `Bin32` folder. For the 64 bit version of the game, download [the x64 version](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/farcry/FarCry.XboxRainDroplets64.zip) and put its `.asi` file into the `Bin64` folder.
+2. Download [Fusion Rain Droplets for Far Cry](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/farcry/FarCry.FusionRainDroplets.zip) and put the `.asi` file into the `Bin32` folder. For the 64 bit version of the game, download [the x64 version](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/farcry/FarCry.FusionRainDroplets64.zip) and put its `.asi` file into the `Bin64` folder.
 3. Launch the game - the drops of the effect are visible while it rains, outdoors and above the water.
+
+Used Xbox Rain Droplets before? Delete the old `FarCry.XboxRainDroplets.asi` / `FarCry.XboxRainDroplets64.asi`: while it is there, the game shows a message and closes.
 
 ## Notes
 

@@ -140,6 +140,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
 {
     std::call_once(CallbackHandler::flag, []()
     {
+        RegisterOldPluginCheck();
         CallbackHandler::RegisterCallback(Init, hook::pattern("89 85 ? ? ? ? 85 C0 79 07"));
     });
 }

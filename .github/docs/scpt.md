@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="https://github.com/user-attachments/assets/8b940b49-3414-42d5-ae5c-c9814409fdc2" width="760" alt="Xbox Rain Droplets in Splinter Cell Pandora Tomorrow">
+<img src="https://github.com/user-attachments/assets/8b940b49-3414-42d5-ae5c-c9814409fdc2" width="760" alt="Fusion Rain Droplets in Splinter Cell Pandora Tomorrow">
 
-[Download](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/scpt/SplinterCellPandoraTomorrow.XboxRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/XboxRainDroplets/blob/master/source/SplinterCellPandoraTomorrow.XboxRainDroplets.cpp)
+[Download](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/scpt/SplinterCellPandoraTomorrow.FusionRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/FusionRainDroplets/blob/master/source/SplinterCellPandoraTomorrow.XboxRainDroplets.cpp)
 
 </div>
 
@@ -11,8 +11,10 @@
 ## Installation
 
 1. Download and install the [Splinter Cell: Pandora Tomorrow Fusion Fix](https://fusionfix.io/wfp#scpt), or the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
-2. Download [Xbox Rain Droplets for Splinter Cell Pandora Tomorrow](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/scpt/SplinterCellPandoraTomorrow.XboxRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
+2. Download [Fusion Rain Droplets for Splinter Cell Pandora Tomorrow](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/scpt/SplinterCellPandoraTomorrow.FusionRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
 3. Launch the game - the drops of the effect are visible while it rains.
+
+Used Xbox Rain Droplets before? Delete the old `SplinterCellPandoraTomorrow.XboxRainDroplets.asi`: while it is there, the game shows a message and closes.
 
 ## Notes
 

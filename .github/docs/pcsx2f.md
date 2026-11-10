@@ -1,8 +1,8 @@
 <div align="center">
 
-<a href="https://www.youtube.com/watch?v=3qz5W3WlUeY"><img src="https://img.youtube.com/vi/3qz5W3WlUeY/maxresdefault.jpg" width="760" alt="Xbox Rain Droplets in PCSX2F"></a>
+<a href="https://www.youtube.com/watch?v=3qz5W3WlUeY"><img src="https://img.youtube.com/vi/3qz5W3WlUeY/maxresdefault.jpg" width="760" alt="Fusion Rain Droplets in PCSX2F"></a>
 
-[Download (x64)](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/pcsx2f/PCSX2F.XboxRainDroplets64.zip) · [Source Code](https://github.com/ThirteenAG/XboxRainDroplets/blob/master/source/PCSX2F.XboxRainDroplets.cpp)
+[Download (x64)](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/pcsx2f/PCSX2F.FusionRainDroplets64.zip) · [Source Code](https://github.com/ThirteenAG/FusionRainDroplets/blob/master/source/PCSX2F.XboxRainDroplets.cpp)
 
 </div>
 
@@ -17,8 +17,10 @@
 ## Installation
 
 1. Download and install [PCSX2-Fork-With-Plugins](https://github.com/ASI-Factory/PCSX2-Fork-With-Plugins/releases/tag/latest).
-2. Download [Xbox Rain Droplets for PCSX2F x64](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/pcsx2f/PCSX2F.XboxRainDroplets64.zip) and unpack the content of the archive to the PCSX2F root directory, where the exe is located.
+2. Download [Fusion Rain Droplets for PCSX2F x64](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/pcsx2f/PCSX2F.FusionRainDroplets64.zip) and unpack the content of the archive to the PCSX2F root directory, where the exe is located.
 3. Launch a compatible game - the drops of the effect are visible while it rains.
+
+Used Xbox Rain Droplets before? Delete the old `PCSX2F.XboxRainDroplets64.asi` and `PLUGINS/PCSX2F.XboxRainDroplets.elf`: while the old plugin is there, the emulator shows a message and closes.
 
 ## Notes
 
@@ -28,4 +30,4 @@
 
 ---
 
-<img src="https://github.com/user-attachments/assets/699d2a01-7337-4605-ae84-74236025e806" width="760" alt="Xbox Rain Droplets in True Crime New York City">
+<img src="https://github.com/user-attachments/assets/699d2a01-7337-4605-ae84-74236025e806" width="760" alt="Fusion Rain Droplets in True Crime New York City">

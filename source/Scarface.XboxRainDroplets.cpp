@@ -564,6 +564,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
 {
     std::call_once(CallbackHandler::flag, []()
     {
+        RegisterOldPluginCheck();
         CallbackHandler::RegisterCallback(Init);
     });
 }

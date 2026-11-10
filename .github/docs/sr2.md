@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="https://github.com/user-attachments/assets/8e5a9e6c-a553-44ed-a1be-73a8f141d75f" width="760" alt="Xbox Rain Droplets in Saints Row 2">
+<img src="https://github.com/user-attachments/assets/8e5a9e6c-a553-44ed-a1be-73a8f141d75f" width="760" alt="Fusion Rain Droplets in Saints Row 2">
 
-[Download](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/sr2/SR2.XboxRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/XboxRainDroplets/blob/master/source/SR2.XboxRainDroplets.cpp)
+[Download](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/sr2/SR2.FusionRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/FusionRainDroplets/blob/master/source/SR2.XboxRainDroplets.cpp)
 
 </div>
 
@@ -11,8 +11,10 @@
 ## Installation
 
 1. Download and install the [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases) into the folder of the game, where `SR2_pc.exe` is located.
-2. Download [Xbox Rain Droplets for Saints Row 2](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/sr2/SR2.XboxRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
+2. Download [Fusion Rain Droplets for Saints Row 2](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/sr2/SR2.FusionRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
 3. Launch the game - the drops of the effect are visible while it rains.
+
+Used Xbox Rain Droplets before? Delete the old `SR2.XboxRainDroplets.asi`: while it is there, the game shows a message and closes.
 
 ## Notes
 

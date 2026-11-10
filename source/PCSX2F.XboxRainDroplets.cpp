@@ -219,7 +219,7 @@ static bool gGuestRenderPhaseAsked = false;
 // The plugin of the guest the drops are read out of. A name is enough: the injector
 // resolves it against the plugins folder of the emulator, see GetPluginSymbolAddr there,
 // so nothing here has to know where the emulator or its working directory is.
-constexpr const char* GUEST_PLUGIN_PATH = "PCSX2F.XboxRainDroplets.elf";
+constexpr const char* GUEST_PLUGIN_PATH = "PCSX2F.FusionRainDroplets.elf";
 
 // Reads what the guest plugin reports into the effect. True when the effect has
 // something to draw this frame.
@@ -436,6 +436,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
     static std::once_flag flag;
     std::call_once(flag, []()
     {
+        RegisterOldPluginCheck();
         FusionDxHook::Init();
 
         // The frame the drops are drawn into here was made by the emulator out of

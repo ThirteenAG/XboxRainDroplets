@@ -1,6 +1,6 @@
 #pragma once
 // ---------------------------------------------------------------------------
-// Shared definitions for the Xbox Rain Droplets renderer.
+// Shared definitions for the Fusion Rain Droplets renderer.
 //
 // One drop effect, every graphics API the games run on:
 //   Direct3D 8, Direct3D 9, Direct3D 10, Direct3D 10.1, Direct3D 11,

@@ -617,6 +617,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
 {
     std::call_once(CallbackHandler::flag, []()
     {
+        RegisterOldPluginCheck();
         CallbackHandler::RegisterCallback(L"CrySystem.dll", InitCrySystem);
         CallbackHandler::RegisterCallback(L"Cry3DEngine.dll", Init3DEngine);
         CallbackHandler::RegisterCallback(L"d3d9.dll", InitD3D9);

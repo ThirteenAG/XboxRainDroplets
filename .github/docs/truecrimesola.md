@@ -1,6 +1,6 @@
 <div align="center">
 
-[Download](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/tcla/TrueCrimeStreetsofLA.XboxRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/XboxRainDroplets/blob/master/source/TrueCrimeStreetsofLA.XboxRainDroplets.cpp)
+[Download](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/truecrimesola/TrueCrimeStreetsofLA.FusionRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/FusionRainDroplets/blob/master/source/TrueCrimeStreetsofLA.XboxRainDroplets.cpp)
 
 </div>
 
@@ -9,8 +9,10 @@
 ## Installation
 
 1. Download and install the [True Crime: Streets of LA Fusion Fix](https://fusionfix.io/wfp#truecrimesola), or the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
-2. Download [Xbox Rain Droplets for True Crime: Streets of LA](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/tcla/TrueCrimeStreetsofLA.XboxRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
+2. Download [Fusion Rain Droplets for True Crime: Streets of LA](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/truecrimesola/TrueCrimeStreetsofLA.FusionRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
 3. Launch the game - drops land on the screen in the rain and near the water of a knocked-over fire hydrant.
+
+Used Xbox Rain Droplets before? Delete the old `TrueCrimeStreetsofLA.XboxRainDroplets.asi`: while it is there, the game shows a message and closes.
 
 ## Notes
 

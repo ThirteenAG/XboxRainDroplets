@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="https://github.com/user-attachments/assets/c1d3dea4-eb2a-4e91-9113-8b55f47a39d3" width="760" alt="Xbox Rain Droplets in GTA Vice City">
+<img src="https://github.com/user-attachments/assets/c1d3dea4-eb2a-4e91-9113-8b55f47a39d3" width="760" alt="Fusion Rain Droplets in GTA Vice City">
 
-[Download](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/gtavc/GTAVC.XboxRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/XboxRainDroplets/blob/master/source/GTAVC.XboxRainDroplets.cpp)
+[Download](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/gtavc/GTAVC.FusionRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/FusionRainDroplets/blob/master/source/GTAVC.XboxRainDroplets.cpp)
 
 </div>
 
@@ -11,8 +11,10 @@
 ## Installation
 
 1. Download and install the [GTA Vice City Fusion Fix](https://fusionfix.io/wfp#gtavc) - it includes the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader) - or install the ASI Loader on its own.
-2. Download [Xbox Rain Droplets for GTA Vice City](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/gtavc/GTAVC.XboxRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
+2. Download [Fusion Rain Droplets for GTA Vice City](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/gtavc/GTAVC.FusionRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
 3. Launch the game - the drops of the effect are visible while it rains.
+
+Used Xbox Rain Droplets before? Delete the old `GTAVC.XboxRainDroplets.asi`: while it is there, the game shows a message and closes.
 
 ## Notes
 

@@ -25,8 +25,8 @@ $games = ReadJson (Join-Path $settingsRoot 'games.json')
 $game = $games.$Project
 if ($null -eq $game) { throw "source/settings/games.json has no entry for $Project" }
 
-# The id stays the project's name whatever the file is renamed to
-$description.plugin | Add-Member -NotePropertyName id -NotePropertyValue $Project -Force
+# The id is the plugin's file name, whatever the project is called
+$description.plugin | Add-Member -NotePropertyName id -NotePropertyValue $Project.Replace('XboxRainDroplets', 'FusionRainDroplets') -Force
 
 # The games: none for the wrapper, which works with any game
 if ($game.games) {
@@ -71,7 +71,7 @@ if ($text -ne $previous) {
 }
 
 if ($Validator) {
-    # Built by the XboxRainDropletsTools solution; without it the description isn't checked
+    # Built by the FusionRainDropletsTools solution; without it the description isn't checked
     if (!(Test-Path -LiteralPath $Validator)) {
         Write-Host "BuildSettings: $Validator isn't built, the description of $Project isn't checked"
         exit 0

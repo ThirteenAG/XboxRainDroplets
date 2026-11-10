@@ -1,8 +1,8 @@
 <div align="center">
 
-<a href="https://www.youtube.com/watch?v=eREh5a8Q9Ds"><img src="https://img.youtube.com/vi/eREh5a8Q9Ds/maxresdefault.jpg" width="760" alt="Xbox Rain Droplets in PPSSPP"></a>
+<a href="https://www.youtube.com/watch?v=eREh5a8Q9Ds"><img src="https://img.youtube.com/vi/eREh5a8Q9Ds/maxresdefault.jpg" width="760" alt="Fusion Rain Droplets in PPSSPP"></a>
 
-[Download (x64)](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/ppsspp/PPSSPP.XboxRainDroplets64.zip) · [Download (x86)](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/ppsspp/PPSSPP.XboxRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/XboxRainDroplets/blob/master/source/PPSSPP.XboxRainDroplets.cpp)
+[Download (x64)](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/ppsspp/PPSSPP.FusionRainDroplets64.zip) · [Download (x86)](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/ppsspp/PPSSPP.FusionRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/FusionRainDroplets/blob/master/source/PPSSPP.XboxRainDroplets.cpp)
 
 </div>
 
@@ -17,9 +17,11 @@
 ## Installation
 
 1. Download and install [PPSSPP for Windows](https://www.ppsspp.org/download) (v1.19.4 or above is required).
-2. Download [Xbox Rain Droplets for PPSSPP x64](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/ppsspp/PPSSPP.XboxRainDroplets64.zip) and unpack the content of the archive to the PPSSPP root directory, where the exe is located. Make sure to place the `memstick` directory to an appropriate place, if you have a different memstick path (File -> Open Memory Stick).
-3. *optional* Download [Xbox Rain Droplets for PPSSPP x86](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/ppsspp/PPSSPP.XboxRainDroplets.zip).
+2. Download [Fusion Rain Droplets for PPSSPP x64](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/ppsspp/PPSSPP.FusionRainDroplets64.zip) and unpack the content of the archive to the PPSSPP root directory, where the exe is located. Make sure to place the `memstick` directory to an appropriate place, if you have a different memstick path (File -> Open Memory Stick).
+3. *optional* Download [Fusion Rain Droplets for PPSSPP x86](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/ppsspp/PPSSPP.FusionRainDroplets.zip).
 4. Launch a compatible game - the drops of the effect are visible while it rains.
+
+Used Xbox Rain Droplets before? Delete the old `PPSSPP.XboxRainDroplets.asi` / `PPSSPP.XboxRainDroplets64.asi` and the `memstick/PSP/PLUGINS/PPSSPP.XboxRainDroplets` folder: while the old plugin is there, the emulator shows a message and closes.
 
 ## Notes
 

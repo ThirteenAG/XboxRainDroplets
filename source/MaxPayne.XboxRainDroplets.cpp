@@ -304,6 +304,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
 {
     std::call_once(CallbackHandler::flag, []()
     {
+        RegisterOldPluginCheck();
         // the executable is unpacked while it starts
         CallbackHandler::RegisterCallbackAtGetSystemTimeAsFileTime(Init, hook::pattern(RenderModePattern));
         CallbackHandler::RegisterCallback(L"E2MFC.dll", InitE2MFC);

@@ -11,17 +11,17 @@ install:
     premake5.bat
 before_build:
 - ps: >-
-    msbuild -m build/XboxRainDropletsTools.slnx /property:Configuration=Release /property:Platform=Win32
+    msbuild -m build/FusionRainDropletsTools.slnx /property:Configuration=Release /property:Platform=Win32
 
-    msbuild -m build/XboxRainDropletsWrapper.slnx /property:Configuration=Release /property:Platform=Win32
+    msbuild -m build/FusionRainDropletsWrapper.slnx /property:Configuration=Release /property:Platform=Win32
 
-    msbuild -m build/XboxRainDropletsWrapper64.slnx /property:Configuration=Release /property:Platform=x64
+    msbuild -m build/FusionRainDropletsWrapper64.slnx /property:Configuration=Release /property:Platform=x64
 
-    msbuild -m build/XboxRainDroplets64.slnx /property:Configuration=Release /property:Platform=x64
+    msbuild -m build/FusionRainDroplets64.slnx /property:Configuration=Release /property:Platform=x64
 
-    msbuild -m build/console/XboxRainDropletsPS2.slnx /property:Configuration=Release /property:Platform=PS2
+    msbuild -m build/console/FusionRainDropletsPS2.slnx /property:Configuration=Release /property:Platform=PS2
 
-    msbuild -m build/console/XboxRainDropletsPSP.slnx /property:Configuration=Release /property:Platform=PSP
+    msbuild -m build/console/FusionRainDropletsPSP.slnx /property:Configuration=Release /property:Platform=PSP
 
 
     Start-FileDownload https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/download/Win32-latest/version-Win32.zip
@@ -29,7 +29,7 @@ before_build:
     Start-FileDownload https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/download/x64-latest/dinput8-x64.zip
 
 build:
-  project: build/XboxRainDroplets.slnx
+  project: build/FusionRainDroplets.slnx
   verbosity: minimal
 before_package:
 - cmd: >-

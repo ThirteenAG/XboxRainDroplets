@@ -1,6 +1,6 @@
 <div align="center">
 
-[Download](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/mafia2de/Mafia2DE.XboxRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/XboxRainDroplets/blob/master/source/Mafia2DE.XboxRainDroplets.cpp)
+[Download](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/mafia2de/Mafia2DE.FusionRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/FusionRainDroplets/blob/master/source/Mafia2DE.XboxRainDroplets.cpp)
 
 </div>
 
@@ -9,8 +9,10 @@
 ## Installation
 
 1. Download and install the x64 version of the [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader) into the `pc` folder of the game.
-2. Download [Xbox Rain Droplets for Mafia II: Definitive Edition](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/mafia2de/Mafia2DE.XboxRainDroplets.zip) and put the `.asi` file into the `scripts` folder of `pc`.
+2. Download [Fusion Rain Droplets for Mafia II: Definitive Edition](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/mafia2de/Mafia2DE.FusionRainDroplets.zip) and put the `.asi` file into the `scripts` folder of `pc`.
 3. Launch the game - the drops of the effect are visible while it rains, and flakes while it snows.
+
+Used Xbox Rain Droplets before? Delete the old `Mafia2DE.XboxRainDroplets.asi`: while it is there, the game shows a message and closes.
 
 ## Notes
 

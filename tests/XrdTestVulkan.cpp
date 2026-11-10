@@ -537,7 +537,7 @@ int main()
     if (XrdTest::Headless::Active())
         camera.autoYawSpeed = 0.0f;	// the pictures of the check are compared to each other
 
-    if (!window.Create(L"Xbox Rain Droplets - Vulkan", 1280, 720))
+    if (!window.Create(L"Fusion Rain Droplets - Vulkan", 1280, 720))
         return 1;
 
     if (!LoadGlobalFunctions() || !InitializeDevice())
@@ -732,7 +732,7 @@ int main()
             XrdTest::PrintStatus("vulkan", WaterDrops::ms_numDrops, frames, WaterDrops::bEnableSnow, extra);
 
             wchar_t title[160]{};
-            swprintf_s(title, L"Xbox Rain Droplets - Vulkan  |  drops %d  fps %d", WaterDrops::ms_numDrops, frames);
+            swprintf_s(title, L"Fusion Rain Droplets - Vulkan  |  drops %d  fps %d", WaterDrops::ms_numDrops, frames);
             SetWindowTextW(window.hwnd, title);
 
             frames = 0;

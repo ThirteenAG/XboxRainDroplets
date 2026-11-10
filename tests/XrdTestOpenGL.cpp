@@ -233,7 +233,7 @@ int main()
     if (XrdTest::Headless::Active())
         camera.autoYawSpeed = 0.0f;	// the pictures of the check are compared to each other
 
-    if (!window.Create(L"Xbox Rain Droplets - OpenGL", 1280, 720))
+    if (!window.Create(L"Fusion Rain Droplets - OpenGL", 1280, 720))
         return 1;
 
     if (!InitializeContext())
@@ -341,7 +341,7 @@ int main()
             XrdTest::PrintStatus("opengl", WaterDrops::ms_numDrops, frames, WaterDrops::bEnableSnow, extra);
 
             wchar_t title[160]{};
-            swprintf_s(title, L"Xbox Rain Droplets - OpenGL  |  drops %d  fps %d", WaterDrops::ms_numDrops, frames);
+            swprintf_s(title, L"Fusion Rain Droplets - OpenGL  |  drops %d  fps %d", WaterDrops::ms_numDrops, frames);
             SetWindowTextW(window.hwnd, title);
 
             frames = 0;

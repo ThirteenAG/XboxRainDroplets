@@ -34,6 +34,10 @@ function envdir(key)
    return path.translate(value)
 end
 
+-- The projects keep the old name of the mod, Xbox Rain Droplets; the plugins they build are
+-- named after the current one: <Game>.XboxRainDroplets -> <Game>.FusionRainDroplets.asi
+local OutputName = "%{prj.name:gsub('XboxRainDroplets', 'FusionRainDroplets')}"
+
 -- The version of the plugins is the date of the build plus the short hash of the commit
 -- they were built from, like in the WidescreenFixesPack repository. It is written into
 -- the version resource of every plugin, see source/resources/Versioninfo.rc.
@@ -83,7 +87,7 @@ end
 -- description every plugin shares and what source/settings/games.json says about the
 -- plugin are merged into build/settings/<project>.json, which source/resources/Settings.rc
 -- embeds together with the text of source/settings/text. The description is checked by
--- asi-settings-validate when the XboxRainDropletsTools solution was built.
+-- asi-settings-validate when the FusionRainDropletsTools solution was built.
 function BuildSettings()
    local validator = path.translate(path.join(_SCRIPT_DIR, "build/tools/asi-settings-validate.exe"))
    prebuildcommands {
@@ -107,6 +111,7 @@ function PluginsSetup(name, platform, arch)
       kind "SharedLib"
       language "C++"
       targetextension ".asi"
+      targetname (OutputName)
       linkoptions "/SAFESEH:NO"
       buildoptions { "/Zc:__cplusplus /utf-8" }
       multiprocessorcompile "On"
@@ -115,9 +120,9 @@ function PluginsSetup(name, platform, arch)
 
       defines { "rsc_CompanyName=\"ThirteenAG\"" }
       defines { "rsc_LegalCopyright=\"MIT License\""}
-      defines { "rsc_InternalName=\"%{prj.name}\"", "rsc_ProductName=\"%{prj.name}\"", "rsc_OriginalFilename=\"%{cfg.buildtarget.name}\"" }
-      defines { "rsc_FileDescription=\"Xbox Rain Droplets Plugin\"" }
-      defines { "rsc_UpdateUrl=\"https://github.com/ThirteenAG/XboxRainDroplets\"" }
+      defines { "rsc_InternalName=\"%{cfg.buildtarget.basename}\"", "rsc_ProductName=\"%{cfg.buildtarget.basename}\"", "rsc_OriginalFilename=\"%{cfg.buildtarget.name}\"" }
+      defines { "rsc_FileDescription=\"Fusion Rain Droplets Plugin\"" }
+      defines { "rsc_UpdateUrl=\"https://github.com/ThirteenAG/FusionRainDroplets\"" }
       AddVersionDefines()
 
       includedirs { "source" }
@@ -192,7 +197,7 @@ function PluginsSetup(name, platform, arch)
 end
 
 -- ====================== WIN32 SOLUTION ======================
-PluginsSetup("XboxRainDroplets", "Win32", "x86")
+PluginsSetup("FusionRainDroplets", "Win32", "x86")
 
 project "Driv3r.XboxRainDroplets"
    setpaths("DRIV3R_DIR", "driv3r.exe")
@@ -259,7 +264,7 @@ project "GTASA.XboxRainDroplets"
    setpaths("GTA_SAN_ANDREAS_DIR", "gta_sa.exe")
 project "FarCry.XboxRainDroplets"
    setpaths("FAR_CRY_DIR", "Bin32/FarCry.exe", "Bin32/")
-PluginsSetup("XboxRainDroplets64", "x64", "x64")
+PluginsSetup("FusionRainDroplets64", "x64", "x64")
 
 project "GTASADE.XboxRainDroplets"
    add_kananlib()
@@ -281,7 +286,7 @@ project "Mafia3DE.XboxRainDroplets"
 -- other, and a plugin whose name ends in 64, see WrapperSetup.
 project "FarCry.XboxRainDroplets"
    location "build/x64"
-   targetname "%{prj.name}64"
+   targetname (OutputName .. "64")
    setpaths("FAR_CRY_DIR", "Bin64/FarCry.exe", "Bin64/")
 
 -- The settings the wrapper and the emulator plugins are built with, see the note above
@@ -299,14 +304,15 @@ function WrapperSetup(name, platform, arch)
       kind "SharedLib"
       language "C++"
       targetextension ".asi"
+      targetname (OutputName)
       characterset ("Unicode")
       staticruntime "On"
 
       defines { "rsc_CompanyName=\"ThirteenAG\"" }
       defines { "rsc_LegalCopyright=\"MIT License\""}
-      defines { "rsc_InternalName=\"%{prj.name}\"", "rsc_ProductName=\"%{prj.name}\"", "rsc_OriginalFilename=\"%{cfg.buildtarget.name}\"" }
+      defines { "rsc_InternalName=\"%{cfg.buildtarget.basename}\"", "rsc_ProductName=\"%{cfg.buildtarget.basename}\"", "rsc_OriginalFilename=\"%{cfg.buildtarget.name}\"" }
       defines { "rsc_FileDescription=\"https://thirteenag.github.io/wfp\"" }
-      defines { "rsc_UpdateUrl=\"https://github.com/ThirteenAG/XboxRainDroplets\"" }
+      defines { "rsc_UpdateUrl=\"https://github.com/ThirteenAG/FusionRainDroplets\"" }
       AddVersionDefines()
 
       files { "source/%{prj.name}.cpp" }
@@ -351,14 +357,14 @@ function WrapperSetup(name, platform, arch)
          includedirs { "source/dxsdk" }
          libdirs { "source/dxsdk/lib/x86" }
       else
-         targetname "%{prj.name}64"
+         targetname (OutputName .. "64")
          includedirs { "source/dxsdk" }
          libdirs { "source/dxsdk/lib/x64" }
       end
 end
 
 -- ====================== WIN32 SOLUTION ======================
-WrapperSetup("XboxRainDropletsWrapper", "Win32", "x86")
+WrapperSetup("FusionRainDropletsWrapper", "Win32", "x86")
 
 project "XboxRainDropletsWrapper"
    setpaths("PPSSPP_DIR", "PPSSPPWindows.exe", "")
@@ -379,7 +385,7 @@ project "PPSSPP.XboxRainDroplets"
 -- each other. They get a folder of their own instead. The names, and with them the
 -- file names of the plugins, stay the same for both architectures, only the ones
 -- built for 64 bit end in 64, see targetname above. PCSX2 is 64 bit only.
-WrapperSetup("XboxRainDropletsWrapper64", "x64", "x64")
+WrapperSetup("FusionRainDropletsWrapper64", "x64", "x64")
 
 project "XboxRainDropletsWrapper"
    location "build/x64"
@@ -444,20 +450,20 @@ function consolepaths(sdk, key, output, exepath)
    targetextension (path.getextension(output))
 end
 
-ConsoleSetup("XboxRainDropletsPS2", "PS2")
+ConsoleSetup("FusionRainDropletsPS2", "PS2")
    includedirs { "external/ps2sdk/ps2sdk/ee" }
 
 project "PCSX2F.XboxRainDroplets"
-   consolepaths("ps2sdk", "PCSX2F_DIR", "PLUGINS/PCSX2F.XboxRainDroplets.elf", "pcsx2-qtx64.exe")
+   consolepaths("ps2sdk", "PCSX2F_DIR", "PLUGINS/PCSX2F.FusionRainDroplets.elf", "pcsx2-qtx64.exe")
 
-ConsoleSetup("XboxRainDropletsPSP", "PSP")
+ConsoleSetup("FusionRainDropletsPSP", "PSP")
    includedirs { "external/pspsdk/usr/local/pspdev/psp/sdk/include" }
 
 project "PPSSPP.XboxRainDroplets"
-   consolepaths("pspsdk", "PPSSPP_DIR", "memstick/PSP/PLUGINS/PPSSPP.XboxRainDroplets/PPSSPP.XboxRainDroplets.prx", "PPSSPPWindows64.exe")
+   consolepaths("pspsdk", "PPSSPP_DIR", "memstick/PSP/PLUGINS/PPSSPP.FusionRainDroplets/PPSSPP.FusionRainDroplets.prx", "PPSSPPWindows64.exe")
 
 -- asi-settings-validate: checks each plugin's settings description before it builds
-workspace "XboxRainDropletsTools"
+workspace "FusionRainDropletsTools"
    configurations { "Release", "Debug" }
    platforms { "Win32" }
    architecture "x86"
@@ -487,7 +493,7 @@ project "AsiSettingsValidator"
 -- Tests: one small application per renderer, each one draws its own scene and
 -- its own UI, the drops go in between so it is visible that they end up behind
 -- what the application draws last.
-workspace "XboxRainDropletsTests"
+workspace "FusionRainDropletsTests"
    configurations { "Release", "Debug" }
    platforms { "Win32" }
    architecture "x86"

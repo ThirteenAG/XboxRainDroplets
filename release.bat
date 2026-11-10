@@ -1,4 +1,4 @@
-copy ".\source\console\PPSSPP.XboxRainDroplets\plugin.ini" ".\bin\memstick\PSP\PLUGINS\PPSSPP.XboxRainDroplets\" /Y
+copy ".\source\console\PPSSPP.XboxRainDroplets\plugin.ini" ".\bin\memstick\PSP\PLUGINS\PPSSPP.FusionRainDroplets\" /Y
 
 rem Embedding PDBs, the tool embeds the .pdb that sits next to every plugin
 pushd bin
@@ -14,75 +14,75 @@ if %errorlevel% neq 0 (
 )
 
 for %%x in (
-GTAIV.XboxRainDroplets
-GTA3.XboxRainDroplets
-GTAVC.XboxRainDroplets
-GTASA.XboxRainDroplets
-Mafia.XboxRainDroplets
-NFSCarbon.XboxRainDroplets
-NFSMostWanted.XboxRainDroplets
-NFSUnderground.XboxRainDroplets
-NFSUnderground2.XboxRainDroplets
-Scarface.XboxRainDroplets
-UltimateSpiderMan.XboxRainDroplets
-Manhunt.XboxRainDroplets
-MaxPayne.XboxRainDroplets
-MaxPayne2.XboxRainDroplets
-MaxPayne3.XboxRainDroplets
-Driv3r.XboxRainDroplets
-DriverParallelLines.XboxRainDroplets
-SplinterCell.XboxRainDroplets
-SplinterCellPandoraTomorrow.XboxRainDroplets
-SplinterCellChaosTheory.XboxRainDroplets
-SplinterCellDoubleAgent.XboxRainDroplets
-SplinterCellBlacklist.XboxRainDroplets
-GTASADE.XboxRainDroplets
-GTAVCDE.XboxRainDroplets
-GTA3DE.XboxRainDroplets
-TrueCrimeNewYorkCity.XboxRainDroplets
-TrueCrimeStreetsofLA.XboxRainDroplets
-KingKongGamersEdition.XboxRainDroplets
-SR2.XboxRainDroplets
-MafiaDE.XboxRainDroplets
-Mafia2DE.XboxRainDroplets
-Mafia3DE.XboxRainDroplets
+GTAIV.FusionRainDroplets
+GTA3.FusionRainDroplets
+GTAVC.FusionRainDroplets
+GTASA.FusionRainDroplets
+Mafia.FusionRainDroplets
+NFSCarbon.FusionRainDroplets
+NFSMostWanted.FusionRainDroplets
+NFSUnderground.FusionRainDroplets
+NFSUnderground2.FusionRainDroplets
+Scarface.FusionRainDroplets
+UltimateSpiderMan.FusionRainDroplets
+Manhunt.FusionRainDroplets
+MaxPayne.FusionRainDroplets
+MaxPayne2.FusionRainDroplets
+MaxPayne3.FusionRainDroplets
+Driv3r.FusionRainDroplets
+DriverParallelLines.FusionRainDroplets
+SplinterCell.FusionRainDroplets
+SplinterCellPandoraTomorrow.FusionRainDroplets
+SplinterCellChaosTheory.FusionRainDroplets
+SplinterCellDoubleAgent.FusionRainDroplets
+SplinterCellBlacklist.FusionRainDroplets
+GTASADE.FusionRainDroplets
+GTAVCDE.FusionRainDroplets
+GTA3DE.FusionRainDroplets
+TrueCrimeNewYorkCity.FusionRainDroplets
+TrueCrimeStreetsofLA.FusionRainDroplets
+KingKongGamersEdition.FusionRainDroplets
+SR2.FusionRainDroplets
+MafiaDE.FusionRainDroplets
+Mafia2DE.FusionRainDroplets
+Mafia3DE.FusionRainDroplets
 ) do (
     7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi"
 )
 
 for %%x in (
-XboxRainDropletsWrapper
+FusionRainDropletsWrapper
 ) do (
     7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\version.dll"
 )
 
 for %%x in (
-XboxRainDropletsWrapper64
+FusionRainDropletsWrapper64
 ) do (
     7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\dinput8.dll"
 )
 
 for %%x in (
-FarCry.XboxRainDroplets
-FarCry.XboxRainDroplets64
+FarCry.FusionRainDroplets
+FarCry.FusionRainDroplets64
 ) do (
     7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi"
 )
 
 for %%x in (
-PPSSPP.XboxRainDroplets
+PPSSPP.FusionRainDroplets
 ) do (
     7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\version.dll" ".\bin\memstick" -xr!*.objects -xr!*.map -xr!*.elf
 )
 
 for %%x in (
-PPSSPP.XboxRainDroplets64
+PPSSPP.FusionRainDroplets64
 ) do (
     7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\dinput8.dll" ".\bin\memstick" -xr!*.objects -xr!*.map -xr!*.elf
 )
 
 for %%x in (
-PCSX2F.XboxRainDroplets64
+PCSX2F.FusionRainDroplets64
 ) do (
     7za a -tzip ".\bin\%%x.zip" ".\bin\%%x.asi" ".\bin\PLUGINS" -xr!*.objects -xr!*.map -xr!.gitkeep
 )

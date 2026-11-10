@@ -633,6 +633,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
 {
     std::call_once(CallbackHandler::flag, []()
     {
+        RegisterOldPluginCheck();
         CallbackHandler::RegisterCallbackAtGetSystemTimeAsFileTime(Init, hook::pattern("40 55 56 41 56 48 83 EC 20 83 BA ? ? ? ? 00 45 8B F1"));
     });
 }

@@ -20,27 +20,27 @@ jobs:
       - name: Configure build
         shell: cmd
         run: ./premake5.bat
-      - name: Build XboxRainDropletsTools
+      - name: Build FusionRainDropletsTools
         shell: cmd
-        run: msbuild -m build/XboxRainDropletsTools.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
-      - name: Build XboxRainDroplets
-        shell: cmd
-        run: |
-          msbuild -m build/${{github.event.repository.name}}.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
-          msbuild -m build/${{github.event.repository.name}}64.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=x64
-      - name: Build XboxRainDropletsWrapper
+        run: msbuild -m build/FusionRainDropletsTools.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
+      - name: Build FusionRainDroplets
         shell: cmd
         run: |
-          msbuild -m build/XboxRainDropletsWrapper.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
-          msbuild -m build/XboxRainDropletsWrapper64.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=x64
+          msbuild -m build/FusionRainDroplets.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
+          msbuild -m build/FusionRainDroplets64.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=x64
+      - name: Build FusionRainDropletsWrapper
+        shell: cmd
+        run: |
+          msbuild -m build/FusionRainDropletsWrapper.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
+          msbuild -m build/FusionRainDropletsWrapper64.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=x64
       - name: Build console plugins
         shell: cmd
         run: |
-          msbuild -m build/console/XboxRainDropletsPS2.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=PS2
-          msbuild -m build/console/XboxRainDropletsPSP.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=PSP
-      - name: Build XboxRainDropletsTests
+          msbuild -m build/console/FusionRainDropletsPS2.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=PS2
+          msbuild -m build/console/FusionRainDropletsPSP.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=PSP
+      - name: Build FusionRainDropletsTests
         shell: cmd
-        run: msbuild -m build/XboxRainDropletsTests.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
+        run: msbuild -m build/FusionRainDropletsTests.slnx /property:Configuration=${{matrix.buildtype}} /property:Platform=Win32
       - name: Test renderers
         shell: cmd
         run: |
@@ -145,275 +145,275 @@ jobs:
                 force: true
               })
             }
-      - name: GTA3.XboxRainDroplets
+      - name: GTA3.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: gta3
           bodyFile: .github/docs/gta3.md
-          artifacts: bin/GTA3.XboxRainDroplets.zip
-      - name: GTAVC.XboxRainDroplets
+          artifacts: bin/GTA3.FusionRainDroplets.zip
+      - name: GTAVC.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: gtavc
           bodyFile: .github/docs/gtavc.md
-          artifacts: bin/GTAVC.XboxRainDroplets.zip
-      - name: GTASA.XboxRainDroplets
+          artifacts: bin/GTAVC.FusionRainDroplets.zip
+      - name: GTASA.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: gtasa
           bodyFile: .github/docs/gtasa.md
-          artifacts: bin/GTASA.XboxRainDroplets.zip
-      - name: GTAIV.XboxRainDroplets
+          artifacts: bin/GTASA.FusionRainDroplets.zip
+      - name: GTAIV.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: gtaiv
           bodyFile: .github/docs/gtaiv.md
-          artifacts: bin/GTAIV.XboxRainDroplets.zip
-      - name: GTA3DE.XboxRainDroplets
+          artifacts: bin/GTAIV.FusionRainDroplets.zip
+      - name: GTA3DE.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: gta3de
           bodyFile: .github/docs/gta3de.md
-          artifacts: bin/GTA3DE.XboxRainDroplets.zip
-      - name: GTAVCDE.XboxRainDroplets
+          artifacts: bin/GTA3DE.FusionRainDroplets.zip
+      - name: GTAVCDE.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: gtavcde
           bodyFile: .github/docs/gtavcde.md
-          artifacts: bin/GTAVCDE.XboxRainDroplets.zip
-      - name: GTASADE.XboxRainDroplets
+          artifacts: bin/GTAVCDE.FusionRainDroplets.zip
+      - name: GTASADE.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: gtasade
           bodyFile: .github/docs/gtasade.md
-          artifacts: bin/GTASADE.XboxRainDroplets.zip
-      - name: MafiaDE.XboxRainDroplets
+          artifacts: bin/GTASADE.FusionRainDroplets.zip
+      - name: MafiaDE.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: mafiade
           bodyFile: .github/docs/mafiade.md
-          artifacts: bin/MafiaDE.XboxRainDroplets.zip
-      - name: Mafia2DE.XboxRainDroplets
+          artifacts: bin/MafiaDE.FusionRainDroplets.zip
+      - name: Mafia2DE.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: mafia2de
           bodyFile: .github/docs/mafia2de.md
-          artifacts: bin/Mafia2DE.XboxRainDroplets.zip
-      - name: Mafia3DE.XboxRainDroplets
+          artifacts: bin/Mafia2DE.FusionRainDroplets.zip
+      - name: Mafia3DE.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: mafia3de
           bodyFile: .github/docs/mafia3de.md
-          artifacts: bin/Mafia3DE.XboxRainDroplets.zip
-      - name: FarCry.XboxRainDroplets
+          artifacts: bin/Mafia3DE.FusionRainDroplets.zip
+      - name: FarCry.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: farcry
           bodyFile: .github/docs/farcry.md
-          artifacts: bin/FarCry.XboxRainDroplets.zip, bin/FarCry.XboxRainDroplets64.zip
-      - name: PPSSPP.XboxRainDroplets
+          artifacts: bin/FarCry.FusionRainDroplets.zip, bin/FarCry.FusionRainDroplets64.zip
+      - name: PPSSPP.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ppsspp
           bodyFile: .github/docs/ppsspp.md
-          artifacts: bin/PPSSPP.XboxRainDroplets.zip, bin/PPSSPP.XboxRainDroplets64.zip
-      - name: PCSX2F.XboxRainDroplets
+          artifacts: bin/PPSSPP.FusionRainDroplets.zip, bin/PPSSPP.FusionRainDroplets64.zip
+      - name: PCSX2F.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: pcsx2f
           bodyFile: .github/docs/pcsx2f.md
-          artifacts: bin/PCSX2F.XboxRainDroplets64.zip
-      - name: SplinterCell.XboxRainDroplets
+          artifacts: bin/PCSX2F.FusionRainDroplets64.zip
+      - name: SplinterCell.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: sc
           bodyFile: .github/docs/sc.md
-          artifacts: bin/SplinterCell.XboxRainDroplets.zip
-      - name: SplinterCellPandoraTomorrow.XboxRainDroplets
+          artifacts: bin/SplinterCell.FusionRainDroplets.zip
+      - name: SplinterCellPandoraTomorrow.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: scpt
           bodyFile: .github/docs/scpt.md
-          artifacts: bin/SplinterCellPandoraTomorrow.XboxRainDroplets.zip
-      - name: SplinterCellChaosTheory.XboxRainDroplets
+          artifacts: bin/SplinterCellPandoraTomorrow.FusionRainDroplets.zip
+      - name: SplinterCellChaosTheory.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: scct
           bodyFile: .github/docs/scct.md
-          artifacts: bin/SplinterCellChaosTheory.XboxRainDroplets.zip
-      - name: SplinterCellDoubleAgent.XboxRainDroplets
+          artifacts: bin/SplinterCellChaosTheory.FusionRainDroplets.zip
+      - name: SplinterCellDoubleAgent.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: scda
           bodyFile: .github/docs/scda.md
-          artifacts: bin/SplinterCellDoubleAgent.XboxRainDroplets.zip
-      - name: SplinterCellBlacklist.XboxRainDroplets
+          artifacts: bin/SplinterCellDoubleAgent.FusionRainDroplets.zip
+      - name: SplinterCellBlacklist.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: scb
           bodyFile: .github/docs/scb.md
-          artifacts: bin/SplinterCellBlacklist.XboxRainDroplets.zip
-      - name: NFSUnderground.XboxRainDroplets
+          artifacts: bin/SplinterCellBlacklist.FusionRainDroplets.zip
+      - name: NFSUnderground.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: nfsu
           bodyFile: .github/docs/nfsu.md
-          artifacts: bin/NFSUnderground.XboxRainDroplets.zip
-      - name: NFSUnderground2.XboxRainDroplets
+          artifacts: bin/NFSUnderground.FusionRainDroplets.zip
+      - name: NFSUnderground2.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: nfsu2
           bodyFile: .github/docs/nfsu2.md
-          artifacts: bin/NFSUnderground2.XboxRainDroplets.zip
-      - name: NFSMostWanted.XboxRainDroplets
+          artifacts: bin/NFSUnderground2.FusionRainDroplets.zip
+      - name: NFSMostWanted.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: nfsmw
           bodyFile: .github/docs/nfsmw.md
-          artifacts: bin/NFSMostWanted.XboxRainDroplets.zip
-      - name: NFSCarbon.XboxRainDroplets
+          artifacts: bin/NFSMostWanted.FusionRainDroplets.zip
+      - name: NFSCarbon.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: nfsc
           bodyFile: .github/docs/nfsc.md
-          artifacts: bin/NFSCarbon.XboxRainDroplets.zip
-      - name: MaxPayne.XboxRainDroplets
+          artifacts: bin/NFSCarbon.FusionRainDroplets.zip
+      - name: MaxPayne.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: maxpayne
           bodyFile: .github/docs/maxpayne.md
-          artifacts: bin/MaxPayne.XboxRainDroplets.zip
-      - name: MaxPayne2.XboxRainDroplets
+          artifacts: bin/MaxPayne.FusionRainDroplets.zip
+      - name: MaxPayne2.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: maxpayne2
           bodyFile: .github/docs/maxpayne2.md
-          artifacts: bin/MaxPayne2.XboxRainDroplets.zip
-      - name: MaxPayne3.XboxRainDroplets
+          artifacts: bin/MaxPayne2.FusionRainDroplets.zip
+      - name: MaxPayne3.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: maxpayne3
           bodyFile: .github/docs/maxpayne3.md
-          artifacts: bin/MaxPayne3.XboxRainDroplets.zip
-      - name: Mafia.XboxRainDroplets
+          artifacts: bin/MaxPayne3.FusionRainDroplets.zip
+      - name: Mafia.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: mafia
           bodyFile: .github/docs/mafia.md
-          artifacts: bin/Mafia.XboxRainDroplets.zip
-      - name: Manhunt.XboxRainDroplets
+          artifacts: bin/Mafia.FusionRainDroplets.zip
+      - name: Manhunt.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: manhunt
           bodyFile: .github/docs/manhunt.md
-          artifacts: bin/Manhunt.XboxRainDroplets.zip
-      - name: Scarface.XboxRainDroplets
+          artifacts: bin/Manhunt.FusionRainDroplets.zip
+      - name: Scarface.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: scarface
           bodyFile: .github/docs/scarface.md
-          artifacts: bin/Scarface.XboxRainDroplets.zip
-      - name: Driv3r.XboxRainDroplets
+          artifacts: bin/Scarface.FusionRainDroplets.zip
+      - name: Driv3r.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: driv3r
           bodyFile: .github/docs/driv3r.md
-          artifacts: bin/Driv3r.XboxRainDroplets.zip
-      - name: DriverParallelLines.XboxRainDroplets
+          artifacts: bin/Driv3r.FusionRainDroplets.zip
+      - name: DriverParallelLines.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: driverpl
           bodyFile: .github/docs/driverpl.md
-          artifacts: bin/DriverParallelLines.XboxRainDroplets.zip
-      - name: TrueCrimeNewYorkCity.XboxRainDroplets
+          artifacts: bin/DriverParallelLines.FusionRainDroplets.zip
+      - name: TrueCrimeNewYorkCity.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: tcnyc
           bodyFile: .github/docs/tcnyc.md
-          artifacts: bin/TrueCrimeNewYorkCity.XboxRainDroplets.zip
-      - name: TrueCrimeStreetsofLA.XboxRainDroplets
+          artifacts: bin/TrueCrimeNewYorkCity.FusionRainDroplets.zip
+      - name: TrueCrimeStreetsofLA.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: truecrimesola
           bodyFile: .github/docs/truecrimesola.md
-          artifacts: bin/TrueCrimeStreetsofLA.XboxRainDroplets.zip
-      - name: KingKongGamersEdition.XboxRainDroplets
+          artifacts: bin/TrueCrimeStreetsofLA.FusionRainDroplets.zip
+      - name: KingKongGamersEdition.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: kingkong
           bodyFile: .github/docs/kingkong.md
-          artifacts: bin/KingKongGamersEdition.XboxRainDroplets.zip
-      - name: SR2.XboxRainDroplets
+          artifacts: bin/KingKongGamersEdition.FusionRainDroplets.zip
+      - name: SR2.FusionRainDroplets
         uses: ./.github/workflows/release_tag
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: sr2
           bodyFile: .github/docs/sr2.md
-          artifacts: bin/SR2.XboxRainDroplets.zip
+          artifacts: bin/SR2.FusionRainDroplets.zip

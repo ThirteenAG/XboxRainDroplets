@@ -1,6 +1,6 @@
 <div align="center">
 
-[Download](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/mafiade/MafiaDE.XboxRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/XboxRainDroplets/blob/master/source/MafiaDE.XboxRainDroplets.cpp)
+[Download](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/mafiade/MafiaDE.FusionRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/FusionRainDroplets/blob/master/source/MafiaDE.XboxRainDroplets.cpp)
 
 </div>
 
@@ -9,8 +9,10 @@
 ## Installation
 
 1. Download and install the x64 version of the [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader) as `dinput8.dll` into the folder of the game.
-2. Download [Xbox Rain Droplets for Mafia: Definitive Edition](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/mafiade/MafiaDE.XboxRainDroplets.zip) and put the `.asi` file into the `scripts` folder of the game.
+2. Download [Fusion Rain Droplets for Mafia: Definitive Edition](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/mafiade/MafiaDE.FusionRainDroplets.zip) and put the `.asi` file into the `scripts` folder of the game.
 3. Launch the game - the drops of the effect are visible while it rains.
+
+Used Xbox Rain Droplets before? Delete the old `MafiaDE.XboxRainDroplets.asi`: while it is there, the game shows a message and closes.
 
 ## Notes
 

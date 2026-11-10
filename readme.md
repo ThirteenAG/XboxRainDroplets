@@ -1,13 +1,12 @@
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/ThirteenAG/XboxRainDroplets/main.yml?branch=master&label=GitHub%20Actions%20Build&logo=GitHub)](https://github.com/ThirteenAG/XboxRainDroplets/actions/workflows/main.yml)
-[![AppVeyor](https://img.shields.io/appveyor/build/ThirteenAG/XboxRainDroplets?label=AppVeyor%20Build&logo=Appveyor&logoColor=white)](https://ci.appveyor.com/project/ThirteenAG/xboxraindroplets)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/ThirteenAG/FusionRainDroplets/main.yml?branch=master&label=GitHub%20Actions%20Build&logo=GitHub)](https://github.com/ThirteenAG/FusionRainDroplets/actions/workflows/main.yml)
 
 <div align="center">
 
-<a href="https://github.com/ThirteenAG/XboxRainDroplets/releases"><img src="https://i.imgur.com/MyQAw7f.png" width="100%" alt="Xbox Rain Droplets"></a>
+<a href="https://github.com/ThirteenAG/FusionRainDroplets/releases"><img src="https://i.imgur.com/MyQAw7f.png" width="100%" alt="Fusion Rain Droplets"></a>
 
-# Xbox Rain Droplets
+# Fusion Rain Droplets
 
-**Enhanced implementation of the Xbox rain droplets from [SkyGFX](https://github.com/aap/skygfx) for other games.**
+**Rain, water and blood drops on the screen, like in the Xbox versions of GTA III, Vice City and San Andreas, for many other games.**
 
 [Discord](https://discord.gg/2ckFCS572Z) · [Telegram](https://t.me/fusionfix) · [YouTube](https://www.youtube.com/@FusionFix10) · [X](https://x.com/fusionfix10)
 
@@ -29,9 +28,17 @@
 
 ---
 
+## What it does
+
+When it rains, drops land on the screen, roll down and fade away, and the picture behind them shows through them. Splashes from water, cars driving through puddles, waterfalls and blood hit the screen as well, depending on the game. The drops are drawn under the game's HUD.
+
+Formerly known as **Xbox Rain Droplets**.
+
+---
+
 ## Supported games
 
-Every game has a release of its own, and its notes hold the installation steps of that game.
+Every game has a release of its own: click its name for the download and the installation steps.
 
 ### Grand Theft Auto
 
@@ -44,34 +51,34 @@ Every game has a release of its own, and its notes hold the installation steps o
 </thead>
 <tbody>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/gta3">Grand Theft Auto III</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/gta3">Grand Theft Auto III</a></td>
 <td align="center" valign="middle"><img width="320" alt="Grand Theft Auto III" src="https://github.com/user-attachments/assets/742e4e2b-cc9f-4087-bafc-84b71b78bbd2" />
 </td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/gtavc">Grand Theft Auto: Vice City</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/gtavc">Grand Theft Auto: Vice City</a></td>
 <td align="center" valign="middle"><img width="320" alt="Grand Theft Auto Vice City" src="https://github.com/user-attachments/assets/c1d3dea4-eb2a-4e91-9113-8b55f47a39d3" />
 </td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/gtasa">Grand Theft Auto: San Andreas</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/gtasa">Grand Theft Auto: San Andreas</a></td>
 <td align="center" valign="middle"><img width="320" alt="Grand Theft Auto San Andreas" src="https://github.com/user-attachments/assets/aa082f8b-a640-4b96-9de4-1578aaf99a2d" />
 </td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/gtaiv">Grand Theft Auto IV: The Complete Edition</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/gtaiv">Grand Theft Auto IV: The Complete Edition</a></td>
 <td align="center" valign="middle"><img src="https://i.imgur.com/MyQAw7fm.png" width="320" alt="Grand Theft Auto IV"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/gta3de">Grand Theft Auto III - The Definitive Edition</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/gta3de">Grand Theft Auto III - The Definitive Edition</a></td>
 <td align="center" valign="middle"><img src="https://github.com/user-attachments/assets/79c92148-a348-4cbd-964a-e40e13d3aede" width="320" alt="GTA III The Definitive Edition"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/gtavcde">Grand Theft Auto: Vice City - The Definitive Edition</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/gtavcde">Grand Theft Auto: Vice City - The Definitive Edition</a></td>
 <td align="center" valign="middle"><img src="https://github.com/user-attachments/assets/eabbf55d-0bcd-4b28-b7fd-225e2a094126" width="320" alt="GTA Vice City The Definitive Edition"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/gtasade">Grand Theft Auto: San Andreas - The Definitive Edition</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/gtasade">Grand Theft Auto: San Andreas - The Definitive Edition</a></td>
 <td align="center" valign="middle"><img src="https://github.com/user-attachments/assets/af077a90-a75f-4e28-bca0-5ecd0b194ce3" width="320" alt="GTA San Andreas The Definitive Edition"></td>
 </tr>
 </tbody>
@@ -88,11 +95,11 @@ Every game has a release of its own, and its notes hold the installation steps o
 </thead>
 <tbody>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/ppsspp">PPSSPP - GTA LCS / VCS, Splinter Cell Essentials</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/ppsspp">PPSSPP - GTA LCS / VCS, Splinter Cell Essentials</a></td>
 <td align="center" valign="middle"><img src="https://img.youtube.com/vi/eREh5a8Q9Ds/mqdefault.jpg" width="320" alt="PPSSPP"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/pcsx2f">PCSX2F - GTA LCS / VCS, True Crime NYC</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/pcsx2f">PCSX2F - GTA LCS / VCS, True Crime NYC</a></td>
 <td align="center" valign="middle"><img src="https://img.youtube.com/vi/3qz5W3WlUeY/mqdefault.jpg" width="320" alt="PCSX2F"></td>
 </tr>
 </tbody>
@@ -109,23 +116,23 @@ Every game has a release of its own, and its notes hold the installation steps o
 </thead>
 <tbody>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/sc">Splinter Cell</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/sc">Splinter Cell</a></td>
 <td align="center" valign="middle"><img src="https://github.com/user-attachments/assets/a6efd9e6-e3e0-458a-9d38-9bb19ad219fb" width="320" alt="Splinter Cell"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/scpt">Splinter Cell: Pandora Tomorrow</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/scpt">Splinter Cell: Pandora Tomorrow</a></td>
 <td align="center" valign="middle"><img src="https://github.com/user-attachments/assets/8b940b49-3414-42d5-ae5c-c9814409fdc2" width="320" alt="Splinter Cell: Pandora Tomorrow"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/scct">Splinter Cell: Chaos Theory</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/scct">Splinter Cell: Chaos Theory</a></td>
 <td align="center" valign="middle"><img src="https://github.com/user-attachments/assets/387611d4-7b77-40ad-8f6e-eab6116fca76" width="320" alt="Splinter Cell: Chaos Theory"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/scda">Splinter Cell: Double Agent</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/scda">Splinter Cell: Double Agent</a></td>
 <td align="center" valign="middle"><img src="https://github.com/user-attachments/assets/7ab82c88-f9e4-4436-ad57-c2ff75c07641" width="320" alt="Splinter Cell: Double Agent"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/scb">Splinter Cell: Blacklist</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/scb">Splinter Cell: Blacklist</a></td>
 <td align="center" valign="middle"><img src="https://github.com/user-attachments/assets/3121f763-6926-4c96-8076-651654f39ee3" width="320" alt="Splinter Cell: Blacklist"></td>
 </tr>
 </tbody>
@@ -142,19 +149,19 @@ Every game has a release of its own, and its notes hold the installation steps o
 </thead>
 <tbody>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/nfsu">Need for Speed: Underground</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/nfsu">Need for Speed: Underground</a></td>
 <td align="center" valign="middle">The game has no rain: a race has rain by chance</td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/nfsu2">Need for Speed: Underground 2</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/nfsu2">Need for Speed: Underground 2</a></td>
 <td align="center" valign="middle"><img src="https://user-images.githubusercontent.com/4904157/198046562-62075652-b28c-4557-bf4f-fae1001d0254.png" width="320" alt="Need for Speed: Underground 2"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/nfsmw">Need for Speed: Most Wanted</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/nfsmw">Need for Speed: Most Wanted</a></td>
 <td align="center" valign="middle"><img src="https://user-images.githubusercontent.com/4904157/198046318-5666a668-5ffe-4510-b377-72b794847cce.png" width="320" alt="Need for Speed: Most Wanted"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/nfsc">Need for Speed: Carbon</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/nfsc">Need for Speed: Carbon</a></td>
 <td align="center" valign="middle"><img src="https://user-images.githubusercontent.com/4904157/198046082-347b325a-1a7c-41f6-919b-365520ad3241.png" width="320" alt="Need for Speed: Carbon"></td>
 </tr>
 </tbody>
@@ -171,11 +178,11 @@ Every game has a release of its own, and its notes hold the installation steps o
 </thead>
 <tbody>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/maxpayne2">Max Payne 2: The Fall of Max Payne</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/maxpayne2">Max Payne 2: The Fall of Max Payne</a></td>
 <td align="center" valign="middle"><img src="https://img.youtube.com/vi/wodoq5-YPYc/mqdefault.jpg" width="320" alt="Max Payne 2: The Fall of Max Payne"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/maxpayne3">Max Payne 3</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/maxpayne3">Max Payne 3</a></td>
 <td align="center" valign="middle"><img src="https://i.imgur.com/Ctz0mtMm.png" width="320" alt="Max Payne 3"></td>
 </tr>
 </tbody>
@@ -192,55 +199,55 @@ Every game has a release of its own, and its notes hold the installation steps o
 </thead>
 <tbody>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/mafia">Mafia: The City of Lost Heaven</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/mafia">Mafia: The City of Lost Heaven</a></td>
 <td align="center" valign="middle"><img src="https://img.youtube.com/vi/gi6irfmdPeo/maxresdefault.jpg" width="320" alt="Mafia: The City of Lost Heaven"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/manhunt">Manhunt</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/manhunt">Manhunt</a></td>
 <td align="center" valign="middle"><img src="https://img.youtube.com/vi/1ll6uchi8fQ/mqdefault.jpg" width="320" alt="Manhunt"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/scarface">Scarface: The World Is Yours</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/scarface">Scarface: The World Is Yours</a></td>
 <td align="center" valign="middle"><img src="https://img.youtube.com/vi/ON5Yk_uU8DM/mqdefault.jpg" width="320" alt="Scarface: The World Is Yours"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/driv3r">Driv3r</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/driv3r">Driv3r</a></td>
 <td align="center" valign="middle"><img src="https://img.youtube.com/vi/QR8ejG2Fjak/mqdefault.jpg" width="320" alt="Driv3r"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/driverpl">Driver: Parallel Lines</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/driverpl">Driver: Parallel Lines</a></td>
 <td align="center" valign="middle"><img src="https://github.com/user-attachments/assets/e25da937-aaad-4123-a514-d5583035b32e" width="320" alt="Driver: Parallel Lines"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/tcnyc">True Crime: New York City</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/tcnyc">True Crime: New York City</a></td>
 <td align="center" valign="middle"><img src="https://github.com/user-attachments/assets/b96cbf26-ea47-4d6c-84d8-17e020d97260" width="320" alt="True Crime: New York City"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/truecrimesola">True Crime: Streets of LA</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/truecrimesola">True Crime: Streets of LA</a></td>
 <td align="center" valign="middle"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/kingkong">King Kong - Gamers Edition</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/kingkong">King Kong - Gamers Edition</a></td>
 <td align="center" valign="middle"><img src="https://github.com/user-attachments/assets/f7363c93-d8bb-4271-9ebc-a08528084baf" width="320" alt="King Kong - Gamers Edition"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/mafiade">Mafia: Definitive Edition</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/mafiade">Mafia: Definitive Edition</a></td>
 <td align="center" valign="middle"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/mafia2de">Mafia II: Definitive Edition</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/mafia2de">Mafia II: Definitive Edition</a></td>
 <td align="center" valign="middle"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/mafia3de">Mafia III: Definitive Edition</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/mafia3de">Mafia III: Definitive Edition</a></td>
 <td align="center" valign="middle"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/farcry">Far Cry</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/farcry">Far Cry</a></td>
 <td align="center" valign="middle"></td>
 </tr>
 <tr>
-<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/XboxRainDroplets/releases/tag/sr2">Saints Row 2</a></td>
+<td align="center" valign="middle"><a href="https://github.com/ThirteenAG/FusionRainDroplets/releases/tag/sr2">Saints Row 2</a></td>
 <td align="center" valign="middle"><img width="320" alt="Saints Row 2" src="https://github.com/user-attachments/assets/8e5a9e6c-a553-44ed-a1be-73a8f141d75f" />
 </td>
 </tr>
@@ -267,35 +274,33 @@ Every game has a release of its own, and its notes hold the installation steps o
 
 ## Installation
 
-Every game has its own release, and its notes hold the folder the plugin goes to.
+1. Open the release of your game from the list above and download its `.zip`.
+2. Unpack it into the game folder, or into the folder its release notes name (`scripts` for most games, `plugins` for GTA IV and Max Payne 3, the emulator folder for PPSSPP and PCSX2F).
+3. The plugin needs the [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader). The game's Fusion Fix already includes it; otherwise install the loader first.
+4. Play the game: the drops appear while it rains.
 
-1. Download the release of your game from the [Releases](https://github.com/ThirteenAG/XboxRainDroplets/releases) page and unpack it.
-2. Install the [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader), or the fix the release asks for, which includes it.
-3. Put the `.asi` file into the `scripts` folder of the game (`plugins` for GTA IV and Max Payne 3, the root folder of the emulator for PPSSPP and PCSX2F).
-4. Launch the game and wait for it to rain.
+To uninstall, delete the `.asi` file (and its `.cfg`).
 
-Direct3D 8 games automatically use the Direct3D 9 droplet renderer when a wrapper such as d3d8to9 exposes its underlying device and resources. Otherwise they keep the native Direct3D 8 renderer. No setting is needed.
+### Coming from Xbox Rain Droplets
 
-## Configuration
+The plugins are now called `<Game>.FusionRainDroplets.asi`. Delete the old `<Game>.XboxRainDroplets.asi`. While it is there, the game shows a message and closes.
 
-Every plugin describes its settings with [ASI Settings](https://github.com/ThirteenAG/Ultimate-ASI-Loader/tree/master/settings) and keeps them in a `.cfg` next to itself, which it writes on its first start (the old `.ini` files are no longer read). Change them on [fusionfix.io](https://fusionfix.io), in FusionFixHub, or in the game with a fix that shows other plugins' settings: Fusion Fix in GTA IV and Max Payne 3 (its menu and the Ctrl+F10 overlay) and the Fusion Fix of NFS Underground. Changes apply while the game runs, the file is read again whenever it is written to. The `Rain droplets` setting turns the effect off, which is also what the Vanilla preset does.
+## Settings
 
-The description every plugin shares is `source/settings/XboxRainDroplets.json`; `source/settings/games.json` adds each plugin's games, the settings only some games have and its own defaults, and `tools/BuildSettings.ps1` merges them into `build/settings/<plugin>.json` before the plugin is built. The texts are in `source/settings/text`, one file per language. The `XboxRainDropletsTools` solution builds `asi-settings-validate`, which the build then runs on every description.
+The drop size, the number of drops and the other options can be changed on [fusionfix.io](https://fusionfix.io), in FusionFixHub, or in the game's menu where its Fusion Fix shows them (GTA IV, Max Payne 3, NFS Underground). Changes apply while the game runs. The settings are kept in the `.cfg` file next to the plugin.
+
+## How to Report Crashes
+
+If the game crashes with the plugin installed, please send the **crash dump** (`.dmp` file).
+
+1. In the game's main folder (where its `.exe` is), create a folder named exactly **`CrashDumps`**.
+2. Play until the game crashes. The [Ultimate ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader) then writes a `.dmp` file (and sometimes a `.log` file) into that folder.
+3. Report the crash in [GitHub Issues](https://github.com/ThirteenAG/FusionRainDroplets/issues) with the newest `.dmp` file attached. If it is too large, upload it to Google Drive, OneDrive or Dropbox with public access and share the link.
 
 ## Building
 
-Run `premake5.bat` to generate the Visual Studio solutions in `build`, then build them.
+1. Clone the repository with its submodules: `git clone --recursive https://github.com/ThirteenAG/FusionRainDroplets.git`
+2. Run `premake5.bat` to generate the Visual Studio 2026 solutions in the `build` folder.
+3. Open `build/FusionRainDroplets.slnx` (32-bit games) or `build/FusionRainDroplets64.slnx` (64-bit games) and build it. The emulator plugins are in `build/FusionRainDropletsWrapper.slnx` and `build/FusionRainDropletsWrapper64.slnx`, the parts that run inside the PSP and PS2 games in `build/console`.
 
-All shader sources and generated assets live in [`source/shaders`](source/shaders/README.md). Every project runs `tools/BuildShaders.ps1`, which verifies the outputs and rebuilds only changed shaders using `source/shaders/manifest.json`. Direct3D bytecode, Vulkan SPIR-V, and embedded OpenGL/Thin3D sources have the same build entry point. See the shader README for compiler requirements and regeneration commands.
-
-Native Direct3D and Vulkan renderers use precompiled shaders. OpenGL and the emulator's Thin3D API compile their embedded sources during resource preparation. All renderers prepare resources during effect initialization, including dry frames, and repeat preparation after resets. Driver initialization can still take time; precompiled bytecode does not eliminate pipeline creation costs.
-
-Renderer tests accept `--headless --frames 45 --startup-check --lens-light`. This checks preparation before any drops appear and after a reset, then verifies the first visible drops. Use `--expect-d3d8` or `--expect-d3d9` with the D3D8 test to check native or d3d8to9 rendering.
-
-To deploy to your game automatically after each build, create a `.env` file in the repository root pointing the key of each game at its folder, then run `premake5.bat` again, for example:
-
-    GTA_SAN_ANDREAS_DIR=C:\Program Files (x86)\Rockstar Games\GTA San Andreas
-
-The keys are the ones of the games above (`GTAIII_DIR`, `GRAND_THEFT_AUTO_VICE_CITY_DIR`, `GTA_SAN_ANDREAS_DIR`, `GTA_SAN_ANDREAS_DEFINITIVE_EDITION_DIR`, `SAINTS_ROW_2_DIR` and so on, see `premake5.lua`). The build copies the built `.asi` into the folder of that game and debugging starts the game from there. The `.env` file is ignored by git, only a plugin that is already installed is replaced, and a game without a key is not deployed at all.
-
-The PPSSPP and PCSX2F releases also need the plugin that runs inside the game: `source/console` holds it, and the `XboxRainDropletsPS2` and `XboxRainDropletsPSP` solutions in `build/console` build it with the MIPS toolchains of the `external/ps2sdk` and `external/pspsdk` submodules (`git submodule update --init --recursive`), into `bin/PLUGINS` and `bin/memstick`, and copy it into the emulator that `PCSX2F_DIR` or `PPSSPP_DIR` names.
+The built plugins are in the `bin` folder.

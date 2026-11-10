@@ -49,6 +49,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
     static std::once_flag flag;
     std::call_once(flag, []()
     {
+        RegisterOldPluginCheck();
         FusionDxHook::Init();
 
         FusionDxHook::onInitEvent += []()

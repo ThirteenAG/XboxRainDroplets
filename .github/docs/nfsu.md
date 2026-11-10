@@ -1,6 +1,6 @@
 <div align="center">
 
-[Download](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/nfsu/NFSUnderground.XboxRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/XboxRainDroplets/blob/master/source/NFSUnderground.XboxRainDroplets.cpp)
+[Download](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/nfsu/NFSUnderground.FusionRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/FusionRainDroplets/blob/master/source/NFSUnderground.XboxRainDroplets.cpp)
 
 </div>
 
@@ -9,8 +9,10 @@
 ## Installation
 
 1. Download and install the [NFS Underground Fusion Fix](https://fusionfix.io/wfp#nfsu) - it includes the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader).
-2. Download [Xbox Rain Droplets for NFSU](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/nfsu/NFSUnderground.XboxRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
+2. Download [Fusion Rain Droplets for NFSU](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/nfsu/NFSUnderground.FusionRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
 3. Launch the game and start a race.
+
+Used Xbox Rain Droplets before? Delete the old `NFSUnderground.XboxRainDroplets.asi`: while it is there, the game shows a message and closes.
 
 ## Notes
 

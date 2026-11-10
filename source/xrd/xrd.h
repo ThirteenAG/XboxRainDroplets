@@ -27,6 +27,32 @@
 #include <injector\utility.hpp>
 #include <injector\assembly.hpp>
 
+// Xbox Rain Droplets is now Fusion Rain Droplets: when the old <Game>.XboxRainDroplets.asi loads next to this plugin,
+// the player is told to delete it and the game closes (both would draw the drops)
+inline void RegisterOldPluginCheck()
+{
+    static std::wstring oldName = []()
+    {
+        HMODULE module = nullptr;
+        GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            reinterpret_cast<LPCWSTR>(&RegisterOldPluginCheck), &module);
+        wchar_t path[MAX_PATH]{};
+        GetModuleFileNameW(module, path, MAX_PATH);
+        auto name = std::filesystem::path(path).filename().wstring();
+        constexpr std::wstring_view newName = L"FusionRainDroplets";
+        if (auto pos = name.find(newName); pos != std::wstring::npos)
+            name.replace(pos, newName.size(), L"XboxRainDroplets");
+        return name;
+    }();
+    CallbackHandler::RegisterModuleLoadCallback(oldName, []()
+    {
+        const auto text = L"Xbox Rain Droplets is now called Fusion Rain Droplets.\n\nPlease delete " + oldName +
+            L" from the game folder. The game will now close.";
+        MessageBoxW(nullptr, text.c_str(), L"Fusion Rain Droplets", MB_OK | MB_ICONWARNING | MB_TOPMOST | MB_SETFOREGROUND);
+        ExitProcess(0);
+    });
+}
+
 // ---------------------------------------------------------------------------
 // The drops are drawn by the renderer in source/xrd, one small backend per
 // graphics API: Direct3D 8, 9, 10, 10.1, 11 and 12, OpenGL and Vulkan. A

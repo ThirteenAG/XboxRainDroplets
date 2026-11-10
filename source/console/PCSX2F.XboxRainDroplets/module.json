@@ -8,7 +8,7 @@
     "../../../external/injector/include/ps2/injector.c",
     "../../../external/injector/include/ps2/mips.c"
   ],
-  "output": "../../../bin/PLUGINS/PCSX2F.XboxRainDroplets.elf",
+  "output": "../../../bin/PLUGINS/PCSX2F.FusionRainDroplets.elf",
   "cxx_flags": [
     "-std=gnu++17",
     "-fno-exceptions",

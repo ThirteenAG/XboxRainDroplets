@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="https://github.com/user-attachments/assets/742e4e2b-cc9f-4087-bafc-84b71b78bbd2" width="760" alt="Xbox Rain Droplets in GTA III">
+<img src="https://github.com/user-attachments/assets/742e4e2b-cc9f-4087-bafc-84b71b78bbd2" width="760" alt="Fusion Rain Droplets in GTA III">
 
-[Download](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/gta3/GTA3.XboxRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/XboxRainDroplets/blob/master/source/GTA3.XboxRainDroplets.cpp)
+[Download](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/gta3/GTA3.FusionRainDroplets.zip) · [Source Code](https://github.com/ThirteenAG/FusionRainDroplets/blob/master/source/GTA3.XboxRainDroplets.cpp)
 
 </div>
 
@@ -11,8 +11,10 @@
 ## Installation
 
 1. Download and install the [GTA III Fusion Fix](https://fusionfix.io/wfp#gta3) - it includes the required [ASI Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader) - or install the ASI Loader on its own.
-2. Download [Xbox Rain Droplets for GTA III](https://github.com/ThirteenAG/XboxRainDroplets/releases/download/gta3/GTA3.XboxRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
+2. Download [Fusion Rain Droplets for GTA III](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/gta3/GTA3.FusionRainDroplets.zip) and put the `.asi` file into the `scripts` folder.
 3. Launch the game - the drops of the effect are visible while it rains.
+
+Used Xbox Rain Droplets before? Delete the old `GTA3.XboxRainDroplets.asi`: while it is there, the game shows a message and closes.
 
 ## Notes
 

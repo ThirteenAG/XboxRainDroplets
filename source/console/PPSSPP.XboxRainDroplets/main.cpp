@@ -11,7 +11,7 @@ BeforeUIData beforeUI = { "PPSSPPBEFOREUIDATA", 0, 0 };
 }
 extern "C" int module_start(SceSize, void*)
 {
-    if (!console::portable::Start("GTA3", "ms0:/PSP/PLUGINS/PPSSPP.XboxRainDroplets/PPSSPP.XboxRainDroplets.ini", "ms0:/PSP/PLUGINS/PPSSPP.XboxRainDroplets/PPSSPP.XboxRainDroplets.log"))
+    if (!console::portable::Start("GTA3", "ms0:/PSP/PLUGINS/PPSSPP.FusionRainDroplets/PPSSPP.FusionRainDroplets.ini", "ms0:/PSP/PLUGINS/PPSSPP.FusionRainDroplets/PPSSPP.FusionRainDroplets.log"))
     {
         SceKernelModuleInfo info{};
         if (!console::portable::Emulator() || !console::portable::FindModule("SplinterCellPSP", info))

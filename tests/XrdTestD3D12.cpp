@@ -506,7 +506,7 @@ int main()
     if (XrdTest::Headless::Active())
         camera.autoYawSpeed = 0.0f;	// the pictures of the check are compared to each other
 
-    if (!window.Create(L"Xbox Rain Droplets - Direct3D 12", 1280, 720))
+    if (!window.Create(L"Fusion Rain Droplets - Direct3D 12", 1280, 720))
     {
         return 1;
     }
@@ -650,7 +650,7 @@ int main()
             XrdTest::PrintStatus("d3d12", WaterDrops::ms_numDrops, frames, WaterDrops::bEnableSnow, extra);
 
             wchar_t title[160]{};
-            swprintf_s(title, L"Xbox Rain Droplets - Direct3D 12  |  drops %d  fps %d", WaterDrops::ms_numDrops, frames);
+            swprintf_s(title, L"Fusion Rain Droplets - Direct3D 12  |  drops %d  fps %d", WaterDrops::ms_numDrops, frames);
             SetWindowTextW(window.hwnd, title);
 
             frames = 0;

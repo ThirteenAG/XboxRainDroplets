@@ -884,6 +884,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
 {
     std::call_once(CallbackHandler::flag, []()
     {
+        RegisterOldPluginCheck();
         CallbackHandler::RegisterCallbackAtGetSystemTimeAsFileTime(Init, hook::pattern("48 8B C4 48 89 58 18 48 89 70 20 55 57 41 56 48 8D 68 B8 48 81 EC 30 01 00 00 80 B9 6A AC 06 00 00"));
     });
 }
