@@ -2,7 +2,7 @@
   "plugin.name": "Fusion Rain Droplets",
   "page.droplets": "Fusion Rain Droplets",
   "enabled": "Rain droplets",
-  "enabled.description": "Rain, water and blood drops on the screen, as in the Xbox versions of these games. Off: the game's original look.",
+  "enabled.description": "Rain, water and blood drops on the screen. Off: the game's original look.",
   "minsize": "Minimum drop size",
   "minsize.description": "Size of the smallest drops, in pixels at a screen height of 480; scaled to the resolution.",
   "maxsize": "Maximum drop size",

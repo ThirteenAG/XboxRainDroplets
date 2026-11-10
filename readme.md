@@ -6,7 +6,7 @@
 
 # Fusion Rain Droplets
 
-**Rain, water and blood drops on the screen, like in the Xbox versions of GTA III, Vice City and San Andreas, for many other games.**
+**Rain, water and blood drops on the screen, for many games.**
 
 [Discord](https://discord.gg/2ckFCS572Z) · [Telegram](https://t.me/fusionfix) · [YouTube](https://www.youtube.com/@FusionFix10) · [X](https://x.com/fusionfix10)
 
