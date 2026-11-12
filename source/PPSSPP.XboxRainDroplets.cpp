@@ -638,12 +638,10 @@ static PFN_vkVoidFunction VKAPI_CALL HookedGetDeviceProcAddr(VkDevice device, co
 }
 
 // The two lookup functions of the loader, which the emulator asks for the functions above. They
-// have to be hooked before the emulator asks, which is right after it loaded the loader: the
-// watcher tries from the moment this plugin is loaded, and keeps trying, because the loader is
-// loaded and unloaded again and again (an emulator asks it whether Vulkan is there at all, and
-// frees it again when it is not going to use it).
-static std::atomic<bool> gVulkanWatcherStop{ false };
-
+// have to be hooked before the emulator asks, which is right after it loaded the loader, so they
+// are hooked from the notification of that load. The loader is loaded and unloaded again and
+// again (an emulator asks it whether Vulkan is there at all, and frees it again when it is not
+// going to use it), and every load is a new image that is hooked again.
 static void InstallVulkanHooks()
 {
     HMODULE hVulkan = GetModuleHandleW(L"vulkan-1.dll");
@@ -657,25 +655,10 @@ static void InstallVulkanHooks()
     if (!pGetInstanceProcAddr || !pGetDeviceProcAddr)
         return;
 
-    // The library hooks an image that has been loaded again as well, so this may be called as
-    // often as the watcher wants, see CreateHook of the hook library.
+    // The library hooks an image that has been loaded again as well, and leaves one that is
+    // hooked already alone, see CreateHook of the hook library.
     gpGetInstanceProcAddrHook = FusionDxHook::InstallAddressHook(pGetInstanceProcAddr, (void*)HookedGetInstanceProcAddr, gpGetInstanceProcAddrHook);
     gpGetDeviceProcAddrHook = FusionDxHook::InstallAddressHook(pGetDeviceProcAddr, (void*)HookedGetDeviceProcAddr, gpGetDeviceProcAddrHook);
-}
-
-static void WatchForVulkan()
-{
-    // The thread is started from the load of this plugin, which is before the emulator has done
-    // anything with Vulkan, and the first look waits a moment so that this plugin is loaded
-    // completely. The loader of Vulkan is looked for until the process ends, because an emulator
-    // frees it again and a new load is a new image.
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
-    while (!gVulkanWatcherStop)
-    {
-        InstallVulkanHooks();
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -758,16 +741,13 @@ static void InitializeHookedWay()
     #endif // FUSIONDXHOOK_INCLUDE_OPENGL
 
     // The loader of Vulkan is loaded and unloaded in the middle of a session, and the hooks of
-    // its lookup functions have to be installed on every load, see WatchForVulkan.
-    try
+    // its lookup functions have to be installed on every load, see InstallVulkanHooks.
+    CallbackHandler::RegisterAnyModuleLoadCallback([](HMODULE hModule)
     {
-        std::thread(WatchForVulkan).detach();
-    }
-    catch (...)
-    {
-        // The watcher was not started: the drops are drawn at the present call unless the loader
-        // of Vulkan is loaded before the emulator takes its entry points.
-    }
+        if (hModule == GetModuleHandleW(L"vulkan-1.dll"))
+            InstallVulkanHooks();
+    });
+    InstallVulkanHooks();
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()
@@ -776,6 +756,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
     std::call_once(flag, []()
     {
         RegisterOldPluginCheck();
+        WaterDrops::ReadSettings();
         // The frame the drops are drawn into here was made by the emulator out of
         // the frame of another machine, and it is handed over in the middle of its
         // own frame. A drop of clear water that gathers the light of what is

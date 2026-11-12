@@ -8,7 +8,7 @@ void* __fastcall CreateFxSystem(void* _this, void* edx, char* name, RwMatrix* po
     if (WaterDrops::bBloodDrops)
     {
         std::string_view name_view(name);
-        if (name_view == "FXP001" || name_view == "FXP002" || name_view == "FXP003" || name_view == "FXBTMET" || name_view == "FXBTMET2" || name_view == "FXRAT1")
+        if (name_view == "FXP001" || name_view == "FXP002" || name_view == "FXP003" || name_view == "FXRAT1")
         {
             RwV3d prt_pos = { pos->pos.x, pos->pos.y, pos->pos.z };
             auto len = WaterDrops::GetDistanceBetweenEmitterAndCamera(prt_pos);

@@ -82,7 +82,7 @@ void Init()
 
     static RwMatrix GviewMatrix;
     static auto loc_5D1CAF = (uintptr_t)hook::get_pattern<uintptr_t>("83 EF 04 83 ED 01", 0);
-    static auto dw8AFA60 = *hook::get_pattern<uintptr_t*>("A1 ? ? ? ? 8B 08 6A 00 6A 00 50 FF 91", 1);
+    static auto dw8AFA60 = (uintptr_t*)dword_8AFA60;
     pattern = hook::pattern("C6 83 ? ? ? ? ? 83 EF 04 83 ED 01");
     struct Render
     {

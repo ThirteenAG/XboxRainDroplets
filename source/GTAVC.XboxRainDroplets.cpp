@@ -2,20 +2,6 @@
 #define XRD_ENABLE_D3D8
 #include "xrd/xrd.h"
 
-inline void RegisterWidescreenResetCallback(const wchar_t* moduleName)
-{
-    static bool registered = false;
-    if (registered) return;
-
-    const HMODULE module = GetModuleHandleW(moduleName);
-    if (!module) return;
-    using RegisterCallback = BOOL (__cdecl*)(void (__cdecl*)());
-    const auto registerCallback = reinterpret_cast<RegisterCallback>(GetProcAddress(module, "RegisterBeforeResetCallback"));
-    if (!registerCallback) return;
-
-    registered = registerCallback(+[]() { WaterDrops::Reset(); }) != FALSE;
-}
-
 // ---------------------------------------------------------------------------
 // GTA Vice City 1.0. What the drops answer to is the original effect, see the
 // Neo water drops of skygfx: the same functions of the game are hooked and the
@@ -290,7 +276,6 @@ static void RenderEffectsHook()
     // and the effect wants seconds per frame
     timeStepSeconds = CTimer__ms_fTimeStep / 50.0f;
 
-    RegisterWidescreenResetCallback(L"GTAVC.WidescreenFix.asi");
     Xrd::Init(XRD_DEVICE_RENDERER, *ppRwD3DDevice);
     WaterDrops::Process();
 
@@ -306,7 +291,6 @@ static void InitialiseWaterDrops()
 {
     auto device = static_cast<IDirect3DDevice8*>(*ppRwD3DDevice);
     if (!device || FAILED(device->TestCooperativeLevel())) return;
-    RegisterWidescreenResetCallback(L"GTAVC.WidescreenFix.asi");
     if (!Xrd::Init(XRD_DEVICE_RENDERER, device)) return;
     WaterDrops::Init();
 
@@ -377,6 +361,14 @@ void Init()
     injector::MakeNOP(0x560EE3, 5, true);
 
     renderEffects.fun = injector::MakeCALL(0x4A604F, RenderEffectsHook, true).get();
+
+    // The game releases its video memory here before every device reset. The
+    // drops' render targets and buffers have to go with it, or the reset fails
+    // and the device stays unusable.
+    static auto releaseVideoMemory = safetyhook::create_mid(0x63CFA0, [](SafetyHookContext&)
+    {
+        WaterDrops::Reset();
+    });
 
     static void(*resetHooks[5])() = { ResetHook1, ResetHook2, ResetHook3, ResetHook4, ResetHook5 };
     static const uintptr_t resetCalls[5] = { 0x4A4DD6, 0x4A48EA, 0x42BCD6, 0x42C0BC, 0x42C318 };	// CGame::Initialise, CGame::ReInitGameObjectVariables, CGameLogic::Update

@@ -448,8 +448,10 @@ void Init()
         }
     }; injector::MakeInline<DrawHook>(pattern.get_first(0)); //0x651383
 
+    // The device's cooperative level check. The call itself is left alone (other plugins look for it), the
+    // hook sits on the test of its result
     pattern = hook::pattern("50 FF 51 ? 3D ? ? ? ? 74 ? 3D");
-    static auto ResetHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext&)
+    static auto ResetHook = safetyhook::create_mid(pattern.get_first(9), [](SafetyHookContext&)
     {
         WaterDrops::Reset();
         MenuBlur::Reset();

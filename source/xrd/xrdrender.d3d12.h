@@ -414,12 +414,6 @@ namespace Xrd
             UINT64 fenceValue = 0;
         };
 
-        struct TargetView
-        {
-            ID3D12Resource* pResource = nullptr;
-            D3D12_CPU_DESCRIPTOR_HANDLE handle{};
-        };
-
         bool CreateCommandObjects()
         {
             D3D12_COMMAND_QUEUE_DESC queueDesc{};
@@ -1046,6 +1040,9 @@ namespace Xrd
 
         void ReleaseMipPipeline()
         {
+            if (pMipPipelineState || pMipRootSignature)
+                WaitForGpu();
+
             if (pMipPipelineState) { pMipPipelineState->Release(); pMipPipelineState = nullptr; }
             if (pMipRootSignature) { pMipRootSignature->Release(); pMipRootSignature = nullptr; }
             mipPipelineFormat = DXGI_FORMAT_UNKNOWN;
@@ -1186,12 +1183,13 @@ namespace Xrd
             currentTableHandle = gpuHandle;
         }
 
+        // The view is made for every draw and not kept by the address of the target: an
+        // emulator releases its targets and makes new ones all the time, and a new one can
+        // come back at the address of one that is gone, whose view then points into memory
+        // that is not the target any more. The view is read when the draw is recorded, so a
+        // slot of the heap is free again right after.
         D3D12_CPU_DESCRIPTOR_HANDLE GetRenderTargetView(ID3D12Resource* pResource)
         {
-            for (auto& view : targetViews)
-                if (view.pResource == pResource)
-                    return view.handle;
-
             D3D12_CPU_DESCRIPTOR_HANDLE handle = pRtvHeap->GetCPUDescriptorHandleForHeapStart();
             handle.ptr += (SIZE_T)targetViewCount * pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
@@ -1201,7 +1199,6 @@ namespace Xrd
 
             pDevice->CreateRenderTargetView(pResource, &desc, handle);
 
-            targetViews[targetViewCount] = { pResource, handle };
             targetViewCount = (targetViewCount + 1) % 8;
 
             return handle;
@@ -1350,6 +1347,10 @@ namespace Xrd
 
         void ReleaseSceneTexture()
         {
+            // the copy and its views are read by the lists still in flight
+            if (pSceneTexture || pMipSrvHeap || pMipRtvHeap)
+                WaitForGpu();
+
             if (pSceneTexture)
             {
                 pSceneTexture->Release();
@@ -1368,6 +1369,9 @@ namespace Xrd
 
         void ReleaseDeviceObjects()
         {
+            if (pVertexBufferUpload || pIndexBuffer || pDescriptorHeap || pRtvHeap)
+                WaitForGpu();
+
             if (pMapped && pVertexBufferUpload)
             {
                 pVertexBufferUpload->Unmap(0, nullptr);
@@ -1381,13 +1385,13 @@ namespace Xrd
             if (pRtvHeap) { pRtvHeap->Release(); pRtvHeap = nullptr; }
 
             targetViewCount = 0;
-
-            for (auto& view : targetViews)
-                view = {};
         }
 
         void ReleasePipeline()
         {
+            if (pPipelineState || pRootSignature)
+                WaitForGpu();
+
             if (pPipelineState) { pPipelineState->Release(); pPipelineState = nullptr; }
             if (pRootSignature) { pRootSignature->Release(); pRootSignature = nullptr; }
             pipelineFormat = DXGI_FORMAT_UNKNOWN;
@@ -1455,7 +1459,6 @@ namespace Xrd
         UINT descriptorSize = 0;
         D3D12_GPU_DESCRIPTOR_HANDLE currentTableHandle{};
 
-        TargetView targetViews[8] = {};
         int targetViewCount = 0;
 
         Texture* pMaskTexture = nullptr;

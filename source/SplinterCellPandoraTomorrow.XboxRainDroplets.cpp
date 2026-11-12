@@ -113,27 +113,51 @@ void InitD3DDrv()
 {
     WaterDrops::ReadSettings();
 
+    // The drops go in at the end of the glow pass and of the night vision pass, under the HUD
+    static auto Render = [](uintptr_t renderInterface)
+    {
+        auto pDevice = *(LPDIRECT3DDEVICE8*)(*(uintptr_t*)(renderInterface + 0x1C) + 0x4694);
+        Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+        WaterDrops::Process();
+        WaterDrops::Render();
+        WaterDrops::ms_rainIntensity = 0.0f;
+    };
+
     auto pattern = hook::module_pattern(GetModuleHandle(L"D3DDrv"), "FF 92 ? ? ? ? 8B 03 8B CB FF 50 ? 8D 8D ? ? ? ? FF 15 ? ? ? ? 8D 8D ? ? ? ? FF 15 ? ? ? ? 8B 4D ? 64 89 0D ? ? ? ? 59 5F 5E 5B 8B 4D ? 33 CD E8 ? ? ? ? 8B E5 5D C2");
-    static auto RenderHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
+    const bool bDigitalLayout = !pattern.empty();
+    if (bDigitalLayout)
     {
-        auto pDevice = *(LPDIRECT3DDEVICE8*)(*(uintptr_t*)(regs.ebx + 0x1C) + 0x4694);
-        Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
-        WaterDrops::Process();
-        WaterDrops::Render();
-        WaterDrops::ms_rainIntensity = 0.0f;
-    });
+        static auto RenderHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
+        {
+            Render(regs.ebx);
+        });
 
-    pattern = hook::module_pattern(GetModuleHandle(L"D3DDrv"), "FF 50 ? 8D 8D ? ? ? ? C7 86 ? ? ? ? ? ? ? ? FF 15 ? ? ? ? 8D 8D ? ? ? ? FF 15 ? ? ? ? 8B 4D ? 64 89 0D ? ? ? ? 59 5F 5E 8B 4D ? 33 CD E8 ? ? ? ? 8B E5 5D 8B E3 5B C2");
-    static auto RenderHookNV = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
+        pattern = hook::module_pattern(GetModuleHandle(L"D3DDrv"), "FF 50 ? 8D 8D ? ? ? ? C7 86 ? ? ? ? ? ? ? ? FF 15 ? ? ? ? 8D 8D ? ? ? ? FF 15 ? ? ? ? 8B 4D ? 64 89 0D ? ? ? ? 59 5F 5E 8B 4D ? 33 CD E8 ? ? ? ? 8B E5 5D 8B E3 5B C2");
+        static auto RenderHookNV = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
+        {
+            Render(regs.esi);
+        });
+    }
+    else // retail
     {
-        auto pDevice = *(LPDIRECT3DDEVICE8*)(*(uintptr_t*)(regs.esi + 0x1C) + 0x4694);
-        Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
-        WaterDrops::Process();
-        WaterDrops::Render();
-        WaterDrops::ms_rainIntensity = 0.0f;
-    });
+        pattern = hook::module_pattern(GetModuleHandle(L"D3DDrv"), "FF 91 F4 00 00 00 8B 13 8B CB FF 52 1C 8D 8C 24 D0 00 00 00 C6 84 24 DC 04 00 00 00");
+        static auto RenderHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
+        {
+            Render(regs.ebx);
+        });
 
-    pattern = hook::module_pattern(GetModuleHandle(L"D3DDrv"), "8B CE E8 ? ? ? ? 8B 07");
+        pattern = hook::module_pattern(GetModuleHandle(L"D3DDrv"), "8B 13 8B CB FF 52 1C 8D 8C 24 ? ? ? ? C7 83 5C 10 00 00 00 00 00 00");
+        static auto RenderHookNV = safetyhook::create_mid(pattern.get_first(4), [](SafetyHookContext& regs)
+        {
+            Render(regs.ebx);
+        });
+    }
+
+    // UD3DRenderDevice::SetRes, where the game releases its resources before Reset
+    if (bDigitalLayout)
+        pattern = hook::module_pattern(GetModuleHandle(L"D3DDrv"), "8B CE E8 ? ? ? ? 8B 07");
+    else // retail
+        pattern = hook::module_pattern(GetModuleHandle(L"D3DDrv"), "8B CE C6 45 FC 12 E8 ? ? ? ? 8B 86 94 46 00 00");
     static auto DeviceResetHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
     {
         WaterDrops::Reset();

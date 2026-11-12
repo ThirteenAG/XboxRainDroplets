@@ -437,6 +437,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
     std::call_once(flag, []()
     {
         RegisterOldPluginCheck();
+        WaterDrops::ReadSettings();
         FusionDxHook::Init();
 
         // The frame the drops are drawn into here was made by the emulator out of

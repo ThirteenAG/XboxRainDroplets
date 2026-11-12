@@ -186,14 +186,12 @@ void Init()
     
     auto pattern = hook::pattern("A1 ? ? ? ? 8B 10 68 ? ? ? ? 50 FF 52 40");
     pDev = *pattern.get_first<LPDIRECT3DDEVICE9*>(1);
-    struct ResetHook
+    // Before the device is reset. The instruction that loads the device is left alone (other plugins look
+    // for it), the hook sits on the next one
+    static auto ResetHook = safetyhook::create_mid(pattern.get_first(5), [](SafetyHookContext& regs)
     {
-        void operator()(injector::reg_pack& regs)
-        {
-            regs.eax = *(uint32_t*)pDev;
-            WaterDrops::Reset();
-        }
-    }; injector::MakeInline<ResetHook>(pattern.get_first(0));
+        WaterDrops::Reset();
+    }); //0x6DB172
 
     pattern = hook::pattern("D9 9E F0 33 00 00");
     struct RainIntensityHook

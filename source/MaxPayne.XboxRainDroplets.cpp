@@ -264,11 +264,18 @@ namespace P_D3D
         Xrd::Shutdown();
         pDevice = nullptr;
     }
+
+    // DRV_freeMode releases the device for video mode changes and quitting
+    SafetyHookInline shFreeMode = {};
+    void __fastcall DRV_freeMode(void* _this, void* edx)
+    {
+        ReleaseDevice();
+        shFreeMode.unsafe_fastcall(_this, edx);
+    }
 }
 
 safetyhook::MidHook GetDeviceHook = {};
 safetyhook::MidHook ResetHook = {};
-safetyhook::MidHook FreeModeHook = {};
 void InitE2_D3D8_DRIVER_MFC()
 {
     auto pattern = hook::module_pattern(GetModuleHandle(L"e2_d3d8_driver_mfc"), "8B 86 ? ? ? ? 85 C0 74 0F 8B 50 38 8B 48 34");
@@ -283,12 +290,8 @@ void InitE2_D3D8_DRIVER_MFC()
         WaterDrops::Reset();
     });
 
-    // DRV_freeMode releases the device for video mode changes and quitting: its mov eax, [esi+DEVICE] after deleteBuffers
-    pattern = hook::module_pattern(GetModuleHandle(L"e2_d3d8_driver_mfc"), "8B 86 ? ? ? ? 85 C0 74 2A 8B 08 50 FF 51 08");
-    FreeModeHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
-    {
-        P_D3D::ReleaseDevice();
-    });
+    // The exported entry of the function is hooked, not its body: other plugins look the body up by its bytes
+    P_D3D::shFreeMode = safetyhook::create_inline(GetProcAddress(GetModuleHandle(L"e2_d3d8_driver_mfc"), "?DRV_freeMode@P_D3D@@UAEXXZ"), P_D3D::DRV_freeMode);
 }
 
 void InitE2MFC()
@@ -309,7 +312,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
         CallbackHandler::RegisterCallbackAtGetSystemTimeAsFileTime(Init, hook::pattern(RenderModePattern));
         CallbackHandler::RegisterCallback(L"E2MFC.dll", InitE2MFC);
         CallbackHandler::RegisterCallback(L"E2_D3D8_DRIVER_MFC.dll", InitE2_D3D8_DRIVER_MFC);
-        CallbackHandler::RegisterModuleUnloadCallback(L"E2_D3D8_DRIVER_MFC.dll", []() { P_D3D::ReleaseDevice(); GetDeviceHook.reset(); ResetHook.reset(); FreeModeHook.reset(); });
+        CallbackHandler::RegisterModuleUnloadCallback(L"E2_D3D8_DRIVER_MFC.dll", []() { P_D3D::ReleaseDevice(); GetDeviceHook.reset(); ResetHook.reset(); P_D3D::shFreeMode.reset(); });
     });
 }
 

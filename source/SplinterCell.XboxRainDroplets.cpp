@@ -109,15 +109,39 @@ void InitEngine()
     shAPlayerController__Tick = safetyhook::create_inline(GetProcAddress(GetModuleHandle(L"Engine"), "?Tick@APlayerController@@UAEHMW4ELevelTick@@@Z"), APlayerController__Tick);
 }
 
+// In a window the back buffer can be larger than the window, and only the part the
+// viewport covers is shown: the drops are placed in that part and refract only it.
+void SetVisibleArea(LPDIRECT3DDEVICE8 pDevice)
+{
+    static Xrd::RenderTarget visible;
+    IDirect3DSurface8* pTarget = nullptr;
+    D3DSURFACE_DESC desc{};
+    D3DVIEWPORT8 viewport{};
+    if (FAILED(pDevice->GetRenderTarget(&pTarget)) || !pTarget)
+        return;
+    const bool described = SUCCEEDED(pTarget->GetDesc(&desc));
+    pTarget->Release();
+    if (!described || !desc.Width || !desc.Height || FAILED(pDevice->GetViewport(&viewport)) || !viewport.Width || !viewport.Height)
+        return;
+
+    visible.size = { (int32_t)(viewport.X + viewport.Width), (int32_t)(viewport.Y + viewport.Height) };
+    Xrd::SetTarget(&visible);
+    WaterDrops::SetXUVScale(0.0f, (float)visible.size.width / (float)desc.Width);
+    WaterDrops::SetYUVScale(0.0f, (float)visible.size.height / (float)desc.Height);
+}
+
 void InitD3DDrv()
 {
     WaterDrops::ReadSettings();
 
-    auto pattern = hook::module_pattern(GetModuleHandle(L"D3DDrv"), "FF 92 ? ? ? ? 50 8B 46 04 6A 38");
-    static auto RenderHook = safetyhook::create_mid(pattern.get(0).get<void*>(), [](SafetyHookContext& regs)
+    // UD3DRenderDevice::Unlock, right before EndScene: the frame is complete here.
+    // The EndScene call itself may be hooked by other plugins, so only the load of the device is matched.
+    auto pattern = hook::module_pattern(GetModuleHandle(L"D3DDrv"), "8D 8E 88 46 00 00 E8 ? ? ? ? 8B 86 84 46 00 00 50");
+    static auto RenderHook = safetyhook::create_mid(pattern.get_first(11), [](SafetyHookContext& regs)
     {
-        auto pDevice = *(LPDIRECT3DDEVICE8*)(*(uintptr_t*)(regs.esi + 4) + 0x4684);
+        auto pDevice = *(LPDIRECT3DDEVICE8*)(regs.esi + 0x4684);
         Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+        SetVisibleArea(pDevice);
         WaterDrops::Process();
         WaterDrops::Render();
         WaterDrops::ms_rainIntensity = 0.0f;

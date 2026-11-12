@@ -50,6 +50,7 @@ extern "C" __declspec(dllexport) void InitializeASI()
     std::call_once(flag, []()
     {
         RegisterOldPluginCheck();
+        WaterDrops::ReadSettings();
         FusionDxHook::Init();
 
         FusionDxHook::onInitEvent += []()

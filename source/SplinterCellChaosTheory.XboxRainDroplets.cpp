@@ -126,6 +126,16 @@ void Init()
         Xrd::Shutdown();
     });
 
+    static bool bRenderedThisFrame = false;
+    static auto Render = [](IDirect3DDevice9* pDevice)
+    {
+        Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
+        WaterDrops::Process();
+        WaterDrops::Render();
+        WaterDrops::ms_rainIntensity = 0.0f;
+        bRenderedThisFrame = true;
+    };
+
     // All three shader/HDR paths return through these epilogues in the
     // post-process dispatcher. The old hooks ran inside the combine pass (or
     // before HDR history was copied), feeding our output into later game passes.
@@ -138,13 +148,24 @@ void Init()
         PostProcessHooks[i] = safetyhook::create_mid(pattern.get(i).get<void>(0), [](SafetyHookContext& regs)
         {
             auto* renderDevice = *reinterpret_cast<uint8_t**>(regs.esi + 0x1A4);
-            auto* pDevice = *reinterpret_cast<IDirect3DDevice9**>(renderDevice + 0x4D3C);
-            Xrd::Init(XRD_DEVICE_RENDERER, pDevice);
-            WaterDrops::Process();
-            WaterDrops::Render();
-            WaterDrops::ms_rainIntensity = 0.0f;
+            Render(*reinterpret_cast<IDirect3DDevice9**>(renderDevice + 0x4D3C));
         });
     }
+
+    // The camera scene node, right after the 3D scene (with its post-processing) and
+    // before the HUD and the menus. The shader model 1.1 path and frames without
+    // post-processing never reach the dispatcher above: the drops are drawn here then.
+    // EDI is the render interface; EBP is set for a nested scene render, which gets no drops.
+    pattern = hook::pattern("55 6A 01 57 8B CE E8 ? ? ? ? 8B 0D ? ? ? ? 3B EB 5D");
+    static auto SceneEndHook = safetyhook::create_mid(pattern.get_first(11), [](SafetyHookContext& regs)
+    {
+        if (!bRenderedThisFrame && !regs.ebp)
+        {
+            auto* renderDevice = *reinterpret_cast<uint8_t**>(regs.edi + 0x1A4);
+            Render(*reinterpret_cast<IDirect3DDevice9**>(renderDevice + 0x4D3C));
+        }
+        bRenderedThisFrame = false;
+    });
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()

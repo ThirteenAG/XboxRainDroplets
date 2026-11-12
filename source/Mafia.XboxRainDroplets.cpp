@@ -3,6 +3,20 @@
 #include "xrd/xrd.h"
 #include <set>
 
+// The engine of the game: LS3DF.dll, or LSV10.dll and LSV11.dll where an install
+// keeps several versions of the game next to each other.
+static constexpr const wchar_t* aEngineNames[] = { L"LS3DF.dll", L"LSV11.dll", L"LSV10.dll" };
+
+static HMODULE GetLS3DF()
+{
+    for (auto name : aEngineNames)
+    {
+        if (auto hModule = GetModuleHandleW(name))
+            return hModule;
+    }
+    return nullptr;
+}
+
 void Init()
 {
     WaterDrops::ReadSettings(true);
@@ -11,12 +25,42 @@ void Init()
     WaterDrops::ms_rainIntensity = 0.0f;
     static std::set<uint32_t> m;
 
-    static auto dword_6BD8B4 = *hook::get_pattern<uint32_t*>("A3 ? ? ? ? 8B C6 5E 83 C4 14 C3", 1);
+    // The menus that are open: 1.1 and 1.2 count their windows, 1.0 runs every
+    // menu in a loop of its own, which is counted on the way in and out.
+    static uint32_t nMenuLoops = 0;
+    static uint32_t* pMenuWindows = &nMenuLoops;
 
-    auto pattern = hook::pattern(GetModuleHandle(L"LS3DF.dll"), "A1 ? ? ? ? 51 51 6A 00 89 0D ? ? ? ? 8B 10 50 FF 92 FC 00 00 00");
+    auto pattern = hook::pattern("25 00 C0 02 00 0C 01 A3");
+    if (!pattern.empty()) // 1.0
+    {
+        struct MenuLoopEnter
+        {
+            void operator()(injector::reg_pack& regs)
+            {
+                regs.eax = (regs.eax & 0x2C000) | 1;
+                nMenuLoops++;
+            }
+        }; injector::MakeInline<MenuLoopEnter>(pattern.get_first(0), pattern.get_first(7));
+
+        pattern = hook::pattern("8B 8C 24 10 01 00 00 3B C7 89 0D");
+        struct MenuLoopLeave
+        {
+            void operator()(injector::reg_pack& regs)
+            {
+                regs.ecx = *(uint32_t*)(regs.esp + 0x110);
+                nMenuLoops--;
+            }
+        }; injector::MakeInline<MenuLoopLeave>(pattern.get_first(0), pattern.get_first(7));
+    }
+    else // 1.1 and 1.2
+        pMenuWindows = *hook::pattern("A3 ? ? ? ? 8B C6 5E 83 C4 14 C3").get_first<uint32_t*>(1);
+
+    static auto hEngine = GetLS3DF();
+
+    pattern = hook::pattern(hEngine, "A1 ? ? ? ? 51 51 6A 00 89 0D ? ? ? ? 8B 10 50 FF 92 FC 00 00 00");
     static auto pDev = pattern.get_first(1);
 
-    pattern = hook::pattern(GetModuleHandle(L"LS3DF.dll"), "C6 05 ? ? ? ? ? E8 ? ? ? ? 6A 00 6A 00 6A 02 FF 96 40 01 00 00");
+    pattern = hook::pattern(hEngine, "C6 05 ? ? ? ? ? E8 ? ? ? ? 6A 00 6A 00 6A 02 FF 96 40 01 00 00");
     static auto byte_101C4D14 = *pattern.get_first<uint8_t*>(2);
     struct RainDropletsHook
     {
@@ -32,7 +76,7 @@ void Init()
         }
     }; injector::MakeInline<RainDropletsHook>(pattern.get_first(0), pattern.get_first(7));
 
-    pattern = hook::pattern(GetModuleHandle(L"LS3DF.dll"), "A1 ? ? ? ? 83 EC 3C 85 C0 53");
+    pattern = hook::pattern(hEngine, "A1 ? ? ? ? 83 EC 3C 85 C0 53");
     static auto dword_101C59C0 = *pattern.get_first<uint32_t*>(1);
     struct ResetHook
     {
@@ -43,7 +87,7 @@ void Init()
         }
     }; injector::MakeInline<ResetHook>(pattern.get_first(0));
 
-    pattern = hook::pattern(GetModuleHandle(L"LS3DF.dll"), "8B B3 ? ? ? ? 8B 83 ? ? ? ? 3B F0");
+    pattern = hook::pattern(hEngine, "8B B3 ? ? ? ? 8B 83 ? ? ? ? 3B F0");
     struct WeatherCheck
     {
         void operator()(injector::reg_pack& regs)
@@ -52,12 +96,12 @@ void Init()
             if (!m.empty())
             {
                 WaterDrops::ms_rainIntensity = *(float*)(*m.begin() + 0x1E8);
-                WaterDrops::isPaused = *dword_6BD8B4 != 0;
+                WaterDrops::isPaused = *pMenuWindows != 0;
             }
         }
     }; injector::MakeInline<WeatherCheck>(pattern.get_first(0), pattern.get_first(6));
 
-    pattern = hook::pattern(GetModuleHandle(L"LS3DF.dll"), "D9 99 ? ? ? ? A1 ? ? ? ? 3B C8");
+    pattern = hook::pattern(hEngine, "D9 99 ? ? ? ? A1 ? ? ? ? 3B C8");
     struct RainCheckFSTP
     {
         void operator()(injector::reg_pack& regs)
@@ -136,7 +180,14 @@ extern "C" __declspec(dllexport) void InitializeASI()
     std::call_once(CallbackHandler::flag, []()
     {
         RegisterOldPluginCheck();
-        CallbackHandler::RegisterCallback(L"LS3DF.dll", Init);
+        for (auto name : aEngineNames)
+        {
+            CallbackHandler::RegisterCallback(name, +[]()
+            {
+                static std::once_flag flag;
+                std::call_once(flag, Init);
+            });
+        }
     });
 }
 

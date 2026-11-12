@@ -132,18 +132,19 @@ void Init()
     WaterDrops::fTimeStep = *pattern.get_first<float*>(8);
 
     // eDisplayFrame: BeginScene, the front end's background (1), the world, the front end;
-    // the call that draws the world ends 15 bytes in (12 in the Russian 1.4)
-    pattern = hook::pattern("6A 01 E8 ? ? ? ? 83 C4 04 E8 ? ? ? ? A1 ? ? ? ? 33 F6");
-    void* worldDrawn = !pattern.empty() ? pattern.get_first(15) : nullptr;
-    if (!worldDrawn)
+    // the call that draws the world is 10 bytes in (7 in the Russian 1.4). The call is wrapped and the
+    // code after it is left alone: other plugins hook and look for it
+    static injector::hook_back<void(__cdecl*)()> hbDrawWorld;
+    static auto DrawWorld = +[]()
     {
-        pattern = hook::pattern("6A 01 E8 ? ? ? ? E8 ? ? ? ? 33 F6 56 E8");
-        worldDrawn = pattern.get_first(12);
-    }
-    static auto WorldDrawnHook = safetyhook::create_mid(worldDrawn, [](SafetyHookContext& regs)
-    {
+        hbDrawWorld.fun();
         OnWorldDrawn();
-    });
+    };
+    pattern = hook::pattern("6A 01 E8 ? ? ? ? 83 C4 04 E8 ? ? ? ? A1 ? ? ? ? 33 F6");
+    if (!pattern.empty())
+        hbDrawWorld.fun = injector::MakeCALL(pattern.get_first(10), DrawWorld, true).get();
+    else // Russian 1.4
+        hbDrawWorld.fun = injector::MakeCALL(hook::pattern("6A 01 E8 ? ? ? ? E8 ? ? ? ? 33 F6").get_first(7), DrawWorld, true).get();
 }
 
 extern "C" __declspec(dllexport) void InitializeASI()

@@ -2,20 +2,6 @@
 #define XRD_ENABLE_D3D9
 #include "xrd/xrd.h"
 
-inline void RegisterWidescreenResetCallback(const wchar_t* moduleName)
-{
-    static bool registered = false;
-    if (registered) return;
-
-    const HMODULE module = GetModuleHandleW(moduleName);
-    if (!module) return;
-    using RegisterCallback = BOOL (__cdecl*)(void (__cdecl*)());
-    const auto registerCallback = reinterpret_cast<RegisterCallback>(GetProcAddress(module, "RegisterBeforeResetCallback"));
-    if (!registerCallback) return;
-
-    registered = registerCallback(+[]() { WaterDrops::Reset(); }) != FALSE;
-}
-
 // one of the two functions that add a particle takes the colour of the particle
 struct RwRGBA
 {
@@ -86,7 +72,6 @@ static void InitialiseWaterDrops()
 {
     auto device = static_cast<IDirect3DDevice9*>(*(void**)0xC97C28);
     if (!device || FAILED(device->TestCooperativeLevel())) return;
-    RegisterWidescreenResetCallback(L"GTASA.WidescreenFix.asi");
     if (!Xrd::Init(XRD_DEVICE_RENDERER, device)) return;
     WaterDrops::Init();
 
@@ -100,6 +85,14 @@ void Init()
     WaterDrops::fTimeStep = &timeStepSeconds;
 
     static LPDIRECT3DDEVICE9* pDev = (LPDIRECT3DDEVICE9*)0xC97C28;
+
+    // The game releases its video memory here before every device reset. The
+    // drops' render targets and buffers have to go with it, or the reset fails
+    // and the device stays unusable.
+    static auto releaseVideoMemory = safetyhook::create_mid(0x7F7F70, [](SafetyHookContext&)
+    {
+        WaterDrops::Reset();
+    });
     static auto matrix = (RwMatrix*)((0xB6F97C + 0x20));
     static injector::hook_back<void(*)()> CMotionBlurStreaksRender;
     auto CMotionBlurStreaksRenderHook = []()
@@ -128,7 +121,6 @@ void Init()
         // them, and the effect wants seconds per frame
         timeStepSeconds = CTimer__ms_fTimeStep / 50.0f;
 
-        RegisterWidescreenResetCallback(L"GTASA.WidescreenFix.asi");
         Xrd::Init(XRD_DEVICE_RENDERER, *pDev);
         WaterDrops::Process();
 

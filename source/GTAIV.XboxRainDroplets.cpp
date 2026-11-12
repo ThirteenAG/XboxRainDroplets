@@ -1,6 +1,8 @@
 // Direct3D 9, the API this game uses
 #define XRD_ENABLE_D3D9
 #include <optional>
+#include <mutex>
+#include <vector>
 #include "xrd/xrd.h"
 
 namespace rage
@@ -834,6 +836,55 @@ void __fastcall sub_B870A0(uint8_t* self, void* edx)
     }
 }
 
+// The splashes of the water: the game wets the lens next to a boat only, so the
+// splashes of everything else that goes through the water near the camera are
+// collected where the game starts their effects, and land on the lens with the
+// next frame.
+static constexpr float fSplashRadius = 6.0f;
+static std::mutex splashMutex;
+static std::vector<std::pair<RwV3d, float>> splashes;
+
+static SafetyHookInline shStartEffect{};
+static void __fastcall StartEffect(uint8_t* effect, void* edx)
+{
+    // the game moves an effect that is attached to something to its place as it starts it
+    shStartEffect.thiscall(effect);
+
+    if (auto rule = *(uint8_t**)(effect + 0x78))
+    {
+        if (auto name = *(const char**)(rule + 0xF8))
+        {
+            std::string_view effectName(name);
+            if (effectName.starts_with("water_splash_") && effectName != "water_splash_cam")
+            {
+                // a limb that goes through the surface splashes less than a body or a car that falls in
+                const bool limb = effectName == "water_splash_ped_in" || effectName == "water_splash_ped_out" || effectName == "water_splash_ped_wade";
+                std::lock_guard lock(splashMutex);
+                splashes.emplace_back(*(RwV3d*)(effect + 0x110), limb ? 0.5f : 2.0f);
+            }
+        }
+    }
+}
+
+static void ProcessSplashes()
+{
+    static std::vector<std::pair<RwV3d, float>> pending;
+    {
+        std::lock_guard lock(splashMutex);
+        pending.swap(splashes);
+    }
+
+    for (auto& [point, amount] : pending)
+    {
+        RwV3d dist;
+        RwV3dSub(&dist, &point, &WaterDrops::pos);
+        const float len = RwV3dLength(&dist);
+        if (len < fSplashRadius)
+            WaterDrops::FillScreenMoving(amount * (1.0f - len / fSplashRadius));
+    }
+    pending.clear();
+}
+
 void Init()
 {
     WaterDrops::ReadSettings(true);
@@ -867,6 +918,9 @@ void Init()
 
     pattern = hook::pattern("56 8B F1 80 3E 00 74 08");
     injector::MakeJMP(pattern.get_first(0), sub_B870A0, true);
+
+    pattern = hook::pattern("56 8B F1 83 7E 10 00 8D 46 10 75 06 83 78 08 00 74 0A 56 50 8B 40 0C FF D0 83 C4 08");
+    shStartEffect = safetyhook::create_inline(pattern.get_first(0), StartEffect);
 
     static uint32_t pCamMatrix = 0;
     pattern = hook::pattern("B9 ? ? ? ? E8 ? ? ? ? 84 C0 75 13 6A 01 6A 01 68 F4 01 00 00 B9 ? ? ? ? E8 ? ? ? ? 57");
@@ -903,6 +957,7 @@ void Init()
             WaterDrops::pos = pos;
 
             WaterDrops__Process(pDevice);
+            ProcessSplashes();
             // The drops are drawn while the game is still in the middle of its
             // frame, so they land under everything that is drawn after them (the
             // UI), and the backend copies the frame behind them for the

@@ -16,7 +16,7 @@
 
 ## Installation
 
-1. Download and install [PCSX2-Fork-With-Plugins](https://github.com/ASI-Factory/PCSX2-Fork-With-Plugins/releases/tag/latest).
+1. Download and install [PCSX2F](https://github.com/ASI-Factory/PCSX2-Fork-With-Plugins/releases/tag/latest) (PCSX2 Fork With Plugins; the plugin does not work in regular PCSX2).
 2. Download [Fusion Rain Droplets for PCSX2F x64](https://github.com/ThirteenAG/FusionRainDroplets/releases/download/pcsx2f/PCSX2F.FusionRainDroplets64.zip) and unpack the content of the archive to the PCSX2F root directory, where the exe is located.
 3. Launch a compatible game - the drops of the effect are visible while it rains.
 

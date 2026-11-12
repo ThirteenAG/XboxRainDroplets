@@ -182,16 +182,15 @@ void Init()
 {
     WaterDrops::ReadSettings();
 
-    auto pattern = hook::pattern("A1 ? ? ? ? 8B 10 68 ? ? ? ? 50 FF 52 40");
-    pDev = *pattern.get_first<LPDIRECT3DDEVICE9*>(1);
-    struct ResetHook
+    // Before the device is reset. The instruction that loads the device for the first Reset is left alone
+    // (other plugins hook and look for it): the hook sits two instructions earlier and the device is read
+    // from the second Reset
+    auto pattern = hook::pattern("B9 ? ? ? ? E8 ? ? ? ? ? ? ? ? ? 8B 10 68 ? ? ? ? 50 FF 52 40 A1"); //0x72B3BB
+    pDev = *pattern.get_first<LPDIRECT3DDEVICE9*>(27);
+    static auto ResetHook = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& regs)
     {
-        void operator()(injector::reg_pack& regs)
-        {
-            regs.eax = *(uint32_t*)pDev;
-            WaterDrops::Reset();
-        }
-    }; injector::MakeInline<ResetHook>(pattern.get_first(0)); //0x72B3C5
+        WaterDrops::Reset();
+    });
 
     pattern = hook::pattern("D9 9E F0 33 00 00");
     struct RainIntensityHook

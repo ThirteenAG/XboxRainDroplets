@@ -138,9 +138,31 @@ void Init()
         lensRainUpdates++;
     });
 
+    // The scene phase (the final picture, before the HUD) ends its draw list with the same command as the
+    // G-buffer, water, mirror and other reflection phases. The drops belong to the scene only, so its end command
+    // is queued with a marker in front of it. The command itself is taken as the game passes it here: other
+    // plugins can replace it.
+    static std::atomic<bool> bSceneEnd = false;
     pattern = hook::pattern("68 ? ? ? ? E8 ? ? ? ? 8B 15 ? ? ? ? 8B 0D ? ? ? ? 8B 04 95 ? ? ? ? 83 C4 08 03 C1");
-    static auto shsub_12D4470 = safetyhook::create_mid(*pattern.get_first<void*>(1), [](SafetyHookContext& ctx)
+    static auto AddDrawCommand = injector::GetBranchDestination(pattern.get_first(5));
+    static void(__cdecl* QueueSceneEnd)(void(__cdecl*)()) = [](void(__cdecl* end)())
     {
+        static void(__cdecl* MarkSceneEnd)() = []()
+        {
+            bSceneEnd = true;
+        };
+        injector::cstd<void(void(__cdecl*)())>::call(AddDrawCommand, MarkSceneEnd);
+        injector::cstd<void(void(__cdecl*)())>::call(AddDrawCommand, end);
+    };
+    injector::MakeCALL(pattern.get_first(5), QueueSceneEnd, true);
+
+    // The function that ends the draw list of a render phase, found by its own code
+    pattern = hook::pattern("83 EC 08 F3 0F 10 05 ? ? ? ? 8D 04 24 50 F3 0F 11 44 24 04 F3 0F 11 44 24 08 E8 ? ? ? ? 83 C4 0C C3");
+    static auto shsub_12D4470 = safetyhook::create_mid(pattern.get_first(), [](SafetyHookContext& ctx)
+    {
+        if (!bSceneEnd.exchange(false))
+            return;
+
         // A weather update that stopped without the game being paused leaves no rain behind
         static uint32_t lastUpdates = 0;
         static int32_t framesWithoutUpdate = 0;
